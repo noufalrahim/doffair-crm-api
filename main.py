@@ -14,6 +14,8 @@ from vendor.routers import amenities as vendor_amenities_router
 from vendor.routers import service_area as vendor_service_area_router
 from vendor.routers import doctors, doctor_availability
 from vendor.routers import pricing
+from user.routers import auth as user_auth_router
+from user.routers import leads as leads_router
 
 
 app = FastAPI(title="Doffair API")
@@ -33,4 +35,5 @@ app.include_router(vendor_service_area_router.router)
 app.include_router(doctors.router)
 app.include_router(doctor_availability.router)
 app.include_router(pricing.router)
-
+app.include_router(user_auth_router.router)
+app.include_router(leads_router.router)
