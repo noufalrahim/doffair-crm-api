@@ -16,6 +16,7 @@ from vendor.routers import doctors, doctor_availability
 from vendor.routers import pricing
 from user.routers import auth as user_auth_router
 from user.routers import leads as leads_router
+from user.routers import bookings as bookings_router
 
 
 app = FastAPI(title="Doffair API")
@@ -37,3 +38,4 @@ app.include_router(doctor_availability.router)
 app.include_router(pricing.router)
 app.include_router(user_auth_router.router)
 app.include_router(leads_router.router)
+app.include_router(bookings_router.router)
