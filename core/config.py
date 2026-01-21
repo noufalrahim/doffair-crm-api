@@ -41,24 +41,42 @@ class Settings(BaseSettings):
     ]
 
     # -------------------------
-    # Notifications (Future)
+    # Redis & Queue
     # -------------------------
-    SMS_PROVIDER: str = "mock"
-    EMAIL_PROVIDER: str = "mock"
+    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_QUEUE_NAME: str = "doffair:notifications"
 
     # -------------------------
-    # Rate Limiting (Future)
+    # Notifications
+    # -------------------------
+    # Email
+    EMAIL_PROVIDER: str = "smtp"  # smtp | sendgrid | ses
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = "noreply@doffair.com"
+    SMTP_FROM_NAME: str = "Doffair"
+    
+    # SMS
+    SMS_PROVIDER: str = "2FACTOR"
+    TWOFACTOR_API_KEY: str = ""
+    TWOFACTOR_OTP_TEMPLATE: str = ""
+    
+    # WhatsApp
+    WHATSAPP_PROVIDER: str = "twilio"  # twilio | gupshup
+    WHATSAPP_ACCOUNT_SID: str = ""
+    WHATSAPP_AUTH_TOKEN: str = ""
+    WHATSAPP_FROM_NUMBER: str = ""
+    
+    # Notification Settings
+    NOTIFICATION_RETRY_MAX: int = 3
+    NOTIFICATION_RETRY_DELAY: int = 60  # seconds
+
+    # -------------------------
+    # Rate Limiting
     # -------------------------
     MAX_CONTACT_REVEALS_PER_DAY: int = 5
-
-    REDIS_BROKER_URL: str = "redis://localhost:6379/0"
-    REDIS_BACKEND_URL: str = "redis://localhost:6379/1"
-
-    # SMS Provider
-    SMS_PROVIDER: str = "2FACTOR"
-
-    TWOFACTOR_API_KEY: str
-    TWOFACTOR_OTP_TEMPLATE: str
 
     AZURE_CDN_BASE_URL: str
 
