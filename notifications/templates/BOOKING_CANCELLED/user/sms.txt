@@ -1,0 +1,1 @@
+Booking {{ booking_id }} cancelled. {% if cancellation_reason %}Reason: {{ cancellation_reason }}. {% endif %}Refund will be processed if applicable. - Doffair

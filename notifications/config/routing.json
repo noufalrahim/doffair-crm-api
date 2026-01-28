@@ -1,0 +1,105 @@
+{
+  "BOOKING_CREATED": {
+    "recipients": ["user", "vendor"],
+    "channels": {
+      "user": ["email", "in_app", "sms"],
+      "vendor": ["email", "in_app", "sms"]
+    },
+    "priority": "high"
+  },
+  "BOOKING_CANCELLED": {
+    "recipients": ["user", "vendor"],
+    "channels": {
+      "user": ["email", "in_app", "sms"],
+      "vendor": ["email", "in_app", "sms"]
+    },
+    "priority": "high"
+  },
+  "BOOKING_RESCHEDULED": {
+    "recipients": ["user", "vendor"],
+    "channels": {
+      "user": ["email", "in_app", "sms"],
+      "vendor": ["email", "in_app"]
+    },
+    "priority": "high"
+  },
+  "BOOKING_CONFIRMED": {
+    "recipients": ["user", "vendor"],
+    "channels": {
+      "user": ["email", "in_app"],
+      "vendor": ["email", "in_app"]
+    },
+    "priority": "medium"
+  },
+  "BOOKING_COMPLETED": {
+    "recipients": ["user", "vendor"],
+    "channels": {
+      "user": ["email", "in_app"],
+      "vendor": ["in_app"]
+    },
+    "priority": "low"
+  },
+  "PAYMENT_SUCCESS": {
+    "recipients": ["user"],
+    "channels": {
+      "user": ["email", "in_app", "sms"]
+    },
+    "priority": "high"
+  },
+  "PAYMENT_FAILED": {
+    "recipients": ["user"],
+    "channels": {
+      "user": ["email", "in_app", "sms"]
+    },
+    "priority": "high"
+  },
+  "PAYMENT_REFUNDED": {
+    "recipients": ["user"],
+    "channels": {
+      "user": ["email", "in_app"]
+    },
+    "priority": "medium"
+  },
+  "PAYMENT_PENDING": {
+    "recipients": ["user"],
+    "channels": {
+      "user": ["in_app"]
+    },
+    "priority": "low"
+  },
+  "USER_REGISTERED": {
+    "recipients": ["user"],
+    "channels": {
+      "user": ["email"]
+    },
+    "priority": "high"
+  },
+  "USER_VERIFIED": {
+    "recipients": ["user"],
+    "channels": {
+      "user": ["email", "in_app"]
+    },
+    "priority": "medium"
+  },
+  "PASSWORD_RESET_REQUESTED": {
+    "recipients": ["user"],
+    "channels": {
+      "user": ["email"]
+    },
+    "priority": "high"
+  },
+  "VENDOR_APPROVED": {
+    "recipients": ["vendor"],
+    "channels": {
+      "vendor": ["email", "in_app", "sms"]
+    },
+    "priority": "high"
+  },
+  "VENDOR_REJECTED": {
+    "recipients": ["vendor"],
+    "channels": {
+      "vendor": ["email"]
+    },
+    "priority": "high"
+  }
+}

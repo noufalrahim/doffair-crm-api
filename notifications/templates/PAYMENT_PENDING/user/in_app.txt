@@ -1,0 +1,1 @@
+Payment pending for booking {{ booking_id }}. Complete payment to confirm your booking.

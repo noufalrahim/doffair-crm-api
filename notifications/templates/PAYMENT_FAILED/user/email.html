@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: #f44336;
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+        .content {
+            background: #f9f9f9;
+            padding: 30px;
+            border-radius: 0 0 10px 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>❌ Payment Failed</h1>
+    </div>
+    
+    <div class="content">
+        <p>Hello {{ user_name }},</p>
+        
+        <p>Unfortunately, your payment of <strong>₹{{ amount }}</strong> for booking <strong>{{ booking_id }}</strong> could not be processed.</p>
+        
+        {% if failure_reason %}
+        <p><strong>Reason:</strong> {{ failure_reason }}</p>
+        {% endif %}
+        
+        <p>Please try again with:</p>
+        <ul>
+            <li>A different payment method</li>
+            <li>Checking your card details</li>
+            <li>Ensuring sufficient balance</li>
+        </ul>
+        
+        <p>Your booking is still pending. Complete the payment to confirm your booking.</p>
+        
+        <p>Need help? Contact our support team.</p>
+    </div>
+</body>
+</html>

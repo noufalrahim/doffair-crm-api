@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: #666;
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+        .content {
+            background: #f9f9f9;
+            padding: 30px;
+            border-radius: 0 0 10px 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Vendor Application Update</h1>
+    </div>
+    
+    <div class="content">
+        <p>Dear {{ vendor_name }},</p>
+        
+        <p>Thank you for your interest in becoming a vendor on Doffair.</p>
+        
+        <p>After reviewing your application, we regret to inform you that we are unable to approve it at this time.</p>
+        
+        {% if rejection_reason %}
+        <p><strong>Reason:</strong> {{ rejection_reason }}</p>
+        {% endif %}
+        
+        <p>You may reapply in the future once you meet our requirements.</p>
+        
+        <p>If you have any questions, please contact our support team.</p>
+        
+        <p>Best regards,<br>Doffair Team</p>
+    </div>
+</body>
+</html>

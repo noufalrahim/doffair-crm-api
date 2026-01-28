@@ -18,6 +18,7 @@ from user.routers import auth as user_auth_router
 from user.routers import leads as leads_router
 from user.routers import bookings as bookings_router
 from notifications.routers import notifications as notifications_router
+from notifications.routers import events as events_router
 
 
 app = FastAPI(title="Doffair API")
@@ -41,3 +42,4 @@ app.include_router(user_auth_router.router)
 app.include_router(leads_router.router)
 app.include_router(bookings_router.router)
 app.include_router(notifications_router.router)
+app.include_router(events_router.router)

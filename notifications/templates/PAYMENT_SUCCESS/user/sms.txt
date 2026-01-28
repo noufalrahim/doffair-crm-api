@@ -1,0 +1,1 @@
+Payment successful! ₹{{ amount }} paid for booking {{ booking_id }}. Payment ID: {{ payment_id }}. Thank you! - Doffair

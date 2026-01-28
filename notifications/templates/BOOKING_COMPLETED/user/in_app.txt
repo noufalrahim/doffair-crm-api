@@ -1,0 +1,1 @@
+Service completed! Booking {{ booking_id }} - {{ service_type }} by {{ vendor_name }}. Rate your experience now!

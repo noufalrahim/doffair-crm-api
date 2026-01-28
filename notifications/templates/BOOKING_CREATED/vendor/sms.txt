@@ -1,0 +1,1 @@
+New booking! ID: {{ booking_id }}. Service: {{ service_type }} for {{ pet_name }} on {{ scheduled_at }}. Login to confirm. - Doffair

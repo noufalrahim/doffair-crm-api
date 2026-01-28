@@ -1,0 +1,1 @@
+Congratulations {{ vendor_name }}! Your Doffair vendor application has been approved. Login to start accepting bookings!

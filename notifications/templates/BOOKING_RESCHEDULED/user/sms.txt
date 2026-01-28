@@ -1,0 +1,1 @@
+Booking {{ booking_id }} rescheduled! New date: {{ scheduled_at }}. Service: {{ service_type }}. Vendor: {{ vendor_name }}.

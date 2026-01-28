@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+        .content {
+            background: #f9f9f9;
+            padding: 30px;
+            border-radius: 0 0 10px 10px;
+        }
+        .welcome {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+        .message {
+            margin: 20px 0;
+            font-size: 16px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Welcome to Doffair! 🎉</h1>
+    </div>
+    
+    <div class="content">
+        <div class="welcome">
+            Hello {{ user_name }}!
+        </div>
+        
+        <div class="message">
+            <p>Thank you for registering with Doffair! We're excited to have you as part of our community.</p>
+            
+            <p>Your account has been successfully created. You can now:</p>
+            <ul>
+                <li>Book pet care services from verified vendors</li>
+                <li>Manage your bookings and appointments</li>
+                <li>Track service history</li>
+                <li>Receive instant notifications</li>
+            </ul>
+            
+            <p>Get started by exploring our services and finding the perfect care for your pets!</p>
+        </div>
+        
+        <div class="footer">
+            <p>If you have any questions, feel free to contact our support team.</p>
+            <p>&copy; 2026 Doffair. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

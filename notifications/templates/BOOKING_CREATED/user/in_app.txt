@@ -1,0 +1,1 @@
+Booking confirmed! {{ service_type }} for {{ pet_name or 'your pet' }} on {{ scheduled_at }}. Booking ID: {{ booking_id }}.
