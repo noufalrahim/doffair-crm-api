@@ -1,0 +1,36 @@
+from enum import Enum
+
+
+class EventType(str, Enum):
+    BOOKING_CREATED = "BOOKING_CREATED"
+    BOOKING_CANCELLED = "BOOKING_CANCELLED"
+    BOOKING_RESCHEDULED = "BOOKING_RESCHEDULED"
+    BOOKING_CONFIRMED = "BOOKING_CONFIRMED"
+    BOOKING_COMPLETED = "BOOKING_COMPLETED"
+    
+    PAYMENT_SUCCESS = "PAYMENT_SUCCESS"
+    PAYMENT_FAILED = "PAYMENT_FAILED"
+    PAYMENT_REFUNDED = "PAYMENT_REFUNDED"
+    PAYMENT_PENDING = "PAYMENT_PENDING"
+    
+    USER_REGISTERED = "USER_REGISTERED"
+    USER_VERIFIED = "USER_VERIFIED"
+    PASSWORD_RESET_REQUESTED = "PASSWORD_RESET_REQUESTED"
+    
+    VENDOR_APPROVED = "VENDOR_APPROVED"
+    VENDOR_REJECTED = "VENDOR_REJECTED"
+
+
+class EventSource(str, Enum):
+    BOOKING_SERVICE = "booking-service"
+    PAYMENT_SERVICE = "payment-service"
+    USER_SERVICE = "user-service"
+    VENDOR_SERVICE = "vendor-service"
+    SYSTEM = "system"
+
+
+class RecipientRole(str, Enum):
+    USER = "user"
+    VENDOR = "vendor"
+    ADMIN = "admin"
+    SYSTEM = "system"

@@ -11,15 +11,30 @@ from vendor.utils.guards import ensure_vendor_editable
 
 
 async def signup_vendor(engine: AIOEngine, payload: VendorSignupRequest) -> Vendor:
-    existing = await engine.find_one(
+    # Check for existing vendor by phone OR email
+    existing_phone = await engine.find_one(
         Vendor,
-        (Vendor.primary_contact_phone == payload.phone)
-        | (Vendor.primary_contact_email == payload.email),
+        Vendor.primary_contact_phone == payload.phone
     )
+    
+    if existing_phone:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Vendor with phone number {payload.phone} already exists"
+        )
+    
+    existing_email = await engine.find_one(
+        Vendor,
+        Vendor.primary_contact_email == payload.email
+    )
+    
+    if existing_email:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Vendor with email {payload.email} already exists"
+        )
 
-    if existing:
-        return existing  # idempotent signup
-
+    # Create new vendor
     vendor = Vendor(
         primary_contact_phone=payload.phone,
         primary_contact_email=payload.email,

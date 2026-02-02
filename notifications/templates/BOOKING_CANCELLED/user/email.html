@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Booking Cancelled</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #FF5722;">Booking Cancelled</h2>
+        <p>Hi {{ user_name or 'there' }},</p>
+        <p>Your booking has been cancelled.</p>
+        
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p><strong>Booking ID:</strong> {{ booking_id }}</p>
+            <p><strong>Service:</strong> {{ service_type }}</p>
+            <p><strong>Was scheduled for:</strong> {{ scheduled_at }}</p>
+            {% if cancellation_reason %}
+            <p><strong>Reason:</strong> {{ cancellation_reason }}</p>
+            {% endif %}
+        </div>
+        
+        <p>If you paid for this booking, your refund will be processed within 5-7 business days.</p>
+        <p>We hope to serve you again soon!</p>
+        
+        <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            Questions? Contact us at support@doffair.com
+        </p>
+    </div>
+</body>
+</html>

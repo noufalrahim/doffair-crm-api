@@ -1,0 +1,1 @@
+Refund of ₹{{ refund_amount }} processed for booking {{ booking_id }}. Amount will be credited in 5-7 days.

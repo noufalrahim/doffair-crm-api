@@ -1,0 +1,1 @@
+Welcome to Doffair, {{ user_name }}! Your account is ready. Start booking pet care services now!

@@ -1,0 +1,1 @@
+Payment of ₹{{ amount }} failed for booking {{ booking_id }}. Please try again.

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #2196F3; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .info { background: white; padding: 20px; border-left: 4px solid #2196F3; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="header"><h1>🔄 Booking Rescheduled</h1></div>
+    <div class="content">
+        <p>Hello {{ user_name }},</p>
+        <p>Your booking has been rescheduled.</p>
+        <div class="info">
+            <p><strong>Booking ID:</strong> {{ booking_id }}</p>
+            <p><strong>Service:</strong> {{ service_type }}</p>
+            <p><strong>New Date:</strong> {{ scheduled_at }}</p>
+            <p><strong>Vendor:</strong> {{ vendor_name }}</p>
+        </div>
+        <p>See you at the new scheduled time!</p>
+    </div>
+</body>
+</html>

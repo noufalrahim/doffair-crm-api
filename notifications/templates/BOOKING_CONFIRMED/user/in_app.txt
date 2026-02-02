@@ -1,0 +1,1 @@
+{{ vendor_name }} confirmed your booking {{ booking_id }}! Service: {{ service_type }} on {{ scheduled_at }}.

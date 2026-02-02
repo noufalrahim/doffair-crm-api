@@ -33,8 +33,22 @@ class DiscountType(str, Enum):
     FLAT = "FLAT"        # ₹200 off
     PERCENT = "PERCENT"  # 10% off
 
-
 class ServiceDeliveryMode(str, Enum):
     CENTER = "CENTER"   # only at vendor location
     HOME = "HOME"       # only at customer location
     BOTH = "BOTH"       # vendor + home
+
+class BookingStatus(str, Enum):
+    PENDING_PAYMENT = "PENDING_PAYMENT"      # User created booking, payment not done
+    PAYMENT_FAILED = "PAYMENT_FAILED"        # Payment failed
+    PENDING_APPROVAL = "PENDING_APPROVAL"    # Payment done, waiting for vendor
+    CONFIRMED = "CONFIRMED"                  # Vendor approved
+    REJECTED = "REJECTED"                    # Vendor rejected
+    COMPLETED = "COMPLETED"                  # Service completed
+    CANCELLED = "CANCELLED"                  # User/Vendor cancelled
+
+class PaymentStatus(str, Enum):
+    PENDING = "PENDING"        # Payment initiated
+    SUCCESS = "SUCCESS"        # Payment successful
+    FAILED = "FAILED"          # Payment failed
+    REFUNDED = "REFUNDED"      # Payment refunded (vendor rejected)
