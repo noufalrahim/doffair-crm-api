@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # -------------------------
     # Redis & Queue
     # -------------------------
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str = "redis://127.0.0.1:6379/0"
     REDIS_QUEUE_NAME: str = "doffair:notifications"
 
     # -------------------------

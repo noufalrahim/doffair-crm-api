@@ -5,15 +5,15 @@ Run: python test_redis.py
 import redis
 
 try:
-    # Connect to Redis
-    r = redis.Redis(host='localhost', port=6379, decode_responses=True)
+    # Connect to Redis (use 127.0.0.1 for Windows/Docker compatibility)
+    r = redis.Redis(host='127.0.0.1', port=6379, decode_responses=True, socket_connect_timeout=5)
     
     # Test connection
     response = r.ping()
     
     if response:
         print("✅ SUCCESS! Redis is running and accepting connections")
-        print(f"   Host: localhost")
+        print(f"   Host: 127.0.0.1")
         print(f"   Port: 6379")
         
         # Test basic operations

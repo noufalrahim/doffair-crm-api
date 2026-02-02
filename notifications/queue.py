@@ -6,6 +6,7 @@ from redis import Redis
 from rq import Queue, Retry
 from core.config import settings
 from typing import Optional
+from fastapi import HTTPException
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,35 +28,58 @@ class NotificationQueue:
         return cls._instance
     
     def __init__(self):
+        # Don't connect immediately - wait until first use
+        pass
+    
+    def _ensure_connection(self):
+        """Ensure Redis connection is established before use"""
         if self._redis_conn is None:
             self._connect()
     
     def _connect(self):
-        """Initialize Redis connection and queue"""
-        try:
-            self._redis_conn = Redis.from_url(
-                settings.REDIS_URL,
-                decode_responses=True,
-                socket_connect_timeout=5,
-                socket_timeout=5
-            )
-            
-            # Test connection
-            self._redis_conn.ping()
-            
-            # Initialize queue
-            self._queue = Queue(
-                name=settings.REDIS_QUEUE_NAME,
-                connection=self._redis_conn,
-                default_timeout='10m'  # 10 minutes timeout for each job
-            )
-            
-            logger.info(f"✅ Connected to Redis at {settings.REDIS_URL}")
-            logger.info(f"✅ Queue initialized: {settings.REDIS_QUEUE_NAME}")
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to connect to Redis: {str(e)}")
-            raise
+        """Initialize Redis connection and queue with retry logic"""
+        max_retries = 3
+        retry_delay = 2
+        
+        for attempt in range(max_retries):
+            try:
+                # Increased timeouts for Docker Redis
+                self._redis_conn = Redis.from_url(
+                    settings.REDIS_URL,
+                    decode_responses=True,
+                    socket_connect_timeout=10,  # Increased from 5 to 10 seconds
+                    socket_timeout=10,  # Increased from 5 to 10 seconds
+                    socket_keepalive=True,
+                    health_check_interval=30
+                )
+                
+                # Test connection with retry
+                self._redis_conn.ping()
+                
+                # Initialize queue
+                self._queue = Queue(
+                    name=settings.REDIS_QUEUE_NAME,
+                    connection=self._redis_conn,
+                    default_timeout='10m'  # 10 minutes timeout for each job
+                )
+                
+                logger.info(f"✅ Connected to Redis at {settings.REDIS_URL}")
+                logger.info(f"✅ Queue initialized: {settings.REDIS_QUEUE_NAME}")
+                return
+                
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"⚠️ Redis connection attempt {attempt + 1} failed: {str(e)}")
+                    logger.info(f"🔄 Retrying in {retry_delay} seconds...")
+                    import time
+                    time.sleep(retry_delay)
+                else:
+                    # Don't crash the server - allow it to start without Redis
+                    logger.error(f"❌ Failed to connect to Redis after {max_retries} attempts: {str(e)}")
+                    logger.error("💡 Make sure Redis/Docker is running: docker ps | grep redis")
+                    logger.warning("⚠️ Server will start but notification features will be unavailable")
+                    # Don't raise - just leave _redis_conn as None
+                    return
     
     def enqueue_notification(
         self,
@@ -74,6 +98,17 @@ class NotificationQueue:
         Returns:
             Job ID from RQ
         """
+        # Ensure connection is established
+        self._ensure_connection()
+        
+        # If Redis is not available, raise helpful error
+        if self._redis_conn is None or self._queue is None:
+            logger.error("❌ Cannot enqueue notification - Redis is not connected")
+            raise HTTPException(
+                status_code=503,
+                detail="Notification service unavailable - Redis not connected"
+            )
+        
         if retry_max is None:
             retry_max = settings.NOTIFICATION_RETRY_MAX
         
@@ -101,6 +136,8 @@ class NotificationQueue:
     
     def get_queue_info(self) -> dict:
         """Get current queue statistics"""
+        self._ensure_connection()
+        
         if self._queue is None:
             return {"error": "Queue not initialized"}
         
@@ -119,6 +156,8 @@ class NotificationQueue:
     
     def clear_failed_jobs(self) -> int:
         """Clear all failed jobs from the queue"""
+        self._ensure_connection()
+        
         if self._queue is None:
             return 0
         
