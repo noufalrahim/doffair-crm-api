@@ -1,0 +1,9 @@
+fastapi
+odmantic
+azure-storage-blob
+Pillow
+pydantic-settings
+python-jose[cryptography]
+passlib
+pydantic[email]
+python-multipart
