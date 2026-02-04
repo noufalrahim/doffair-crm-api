@@ -19,6 +19,8 @@ class EventType(str, Enum):
     
     VENDOR_APPROVED = "VENDOR_APPROVED"
     VENDOR_REJECTED = "VENDOR_REJECTED"
+    
+    CUSTOM_REMINDER = "CUSTOM_REMINDER"
 
 
 class EventSource(str, Enum):

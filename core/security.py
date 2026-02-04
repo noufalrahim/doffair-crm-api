@@ -128,3 +128,13 @@ def require_vendor(
         return token
 
     return _guard
+
+
+def get_current_vendor(token: Dict[str, Any] = Depends(get_current_token)) -> Dict[str, Any]:
+    """Get current vendor from token - simple vendor auth"""
+    if token.get("role") != Role.VENDOR.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vendor access required",
+        )
+    return token

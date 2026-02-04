@@ -101,5 +101,13 @@
       "vendor": ["email"]
     },
     "priority": "high"
+  },
+  "CUSTOM_REMINDER": {
+    "recipients": ["user"],
+    "channels": {
+      "user": ["email", "in_app", "sms", "whatsapp"]
+    },
+    "priority": "high",
+    "dynamic_channels": true
   }
 }

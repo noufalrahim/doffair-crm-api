@@ -117,9 +117,49 @@
 
 ---
 
-### Step 4: Vendor Selects Service Type
+### Step 4: Get Available Service Types (For Vendor to Choose)
 
-**Endpoint**: `POST /vendor/service-types/select`
+**Endpoint**: `GET /vendor/helpers/service-types`
+
+**Description**: After login, vendor needs to see what service types are available to select from.
+
+**Expected Response**:
+```json
+{
+  "success": true,
+  "success_message": "Service types retrieved successfully",
+  "data": {
+    "service_types": [
+      {
+        "id": "679a1b2c3d4e5f6a7b8c9d0e",
+        "code": "grooming",
+        "display_name": "Pet Grooming",
+        "description": "Professional grooming services",
+        "mode": "booking",
+        "images": []
+      },
+      {
+        "id": "679a1b2c3d4e5f6a7b8c9d0f",
+        "code": "veterinary",
+        "display_name": "Veterinary Services",
+        "description": "Medical care for pets",
+        "mode": "booking",
+        "images": []
+      }
+    ]
+  }
+}
+```
+
+**Action**: Frontend shows this list to vendor. Vendor can select which service types they want to offer.
+
+---
+
+### Step 5: Vendor Selects Service Types
+
+**Endpoint**: `POST /vendor/onboarding/{vendor_id}/service-types`
+
+**Replace** `{vendor_id}` with the vendor_id from Step 3 login response.
 
 **Request Body**:
 ```json
@@ -128,19 +168,30 @@
 }
 ```
 
-Replace `679a1b2c3d4e5f6a7b8c9d0e` with the actual service_type_id from Step 2.
+Replace the ID with actual service_type_id from Step 4 response.
 
 **Expected Response**:
 ```json
 {
   "success": true,
-  "message": "Service types selected successfully"
+  "success_message": "Service types selected successfully",
+  "data": {
+    "vendor_id": "679b1c2d3e4f5a6b7c8d9e0f",
+    "status": "APPROVED",
+    "service_types": [
+      {
+        "service_type_id": "679a1b2c3d4e5f6a7b8c9d0e",
+        "name": "Pet Grooming",
+        "images": []
+      }
+    ]
+  }
 }
 ```
 
 ---
 
-### Step 5: Add Vendor Location
+### Step 6: Add Vendor Location
 
 **Endpoint**: `POST /vendor/locations`
 
@@ -178,7 +229,7 @@ Replace `679a1b2c3d4e5f6a7b8c9d0e` with the actual service_type_id from Step 2.
 
 ---
 
-### Step 6: Create a Service
+### Step 7: Create a Service
 
 **Endpoint**: `POST /vendor/services/base`
 

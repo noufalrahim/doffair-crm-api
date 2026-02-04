@@ -46,9 +46,23 @@ class BookingStatus(str, Enum):
     REJECTED = "REJECTED"                    # Vendor rejected
     COMPLETED = "COMPLETED"                  # Service completed
     CANCELLED = "CANCELLED"                  # User/Vendor cancelled
+    OFFLINE = "OFFLINE"                      # Offline booking
 
 class PaymentStatus(str, Enum):
     PENDING = "PENDING"        # Payment initiated
     SUCCESS = "SUCCESS"        # Payment successful
     FAILED = "FAILED"          # Payment failed
     REFUNDED = "REFUNDED"      # Payment refunded (vendor rejected)
+
+class ReminderType(str, Enum):
+    FOLLOW_UP = "FOLLOW_UP"           # General follow-up
+    MEDICATION = "MEDICATION"         # Medication reminder
+    REPEAT_SERVICE = "REPEAT_SERVICE" # Service due again
+    CHECKUP = "CHECKUP"              # Scheduled checkup
+    CUSTOM = "CUSTOM"                # Custom reminder
+
+class ReminderStatus(str, Enum):
+    PENDING = "PENDING"    # Scheduled, not sent yet
+    SENT = "SENT"          # Successfully sent
+    FAILED = "FAILED"      # Failed to send
+    CANCELLED = "CANCELLED" # Cancelled by vendor
