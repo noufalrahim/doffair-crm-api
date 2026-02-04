@@ -1,0 +1,11 @@
+🔔 *{{ title }}*
+
+{{ message }}
+
+📅 *Scheduled:* {{ scheduled_at }}
+
+{% if notes %}
+📝 *Note:* {{ notes }}
+{% endif %}
+
+_This is an automated reminder from DOF Fair_

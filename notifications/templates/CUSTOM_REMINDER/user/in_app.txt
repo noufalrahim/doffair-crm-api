@@ -1,0 +1,7 @@
+{{ message }}
+
+Scheduled: {{ scheduled_at }}
+
+{% if notes %}
+Note: {{ notes }}
+{% endif %}
