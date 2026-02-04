@@ -90,12 +90,11 @@ async def create_reminder(
         
     except ValueError as e:
         logger.error(f"Validation error: {str(e)}")
-        return error_response(message=str(e), status_code=400).model_dump()
+        return error_response(message=str(e)).model_dump()
     except Exception as e:
         logger.error(f"Failed to create reminder: {str(e)}")
         return error_response(
-            message=f"Failed to create reminder: {str(e)}",
-            status_code=500
+            message=f"Failed to create reminder: {str(e)}"
         ).model_dump()
 
 
@@ -119,8 +118,7 @@ async def get_reminder(
         
         if not reminder:
             return error_response(
-                message=f"Reminder {reminder_id} not found",
-                status_code=404
+                message=f"Reminder {reminder_id} not found"
             ).model_dump()
         
         response_data = ReminderResponse(
@@ -153,8 +151,7 @@ async def get_reminder(
     except Exception as e:
         logger.error(f"Failed to get reminder: {str(e)}")
         return error_response(
-            message=f"Failed to get reminder: {str(e)}",
-            status_code=500
+            message=f"Failed to get reminder: {str(e)}"
         ).model_dump()
 
 
@@ -226,8 +223,7 @@ async def list_reminders(
     except Exception as e:
         logger.error(f"Failed to list reminders: {str(e)}")
         return error_response(
-            message=f"Failed to list reminders: {str(e)}",
-            status_code=500
+            message=f"Failed to list reminders: {str(e)}"
         ).model_dump()
 
 
@@ -255,8 +251,7 @@ async def update_reminder(
         
         if not update_data:
             return error_response(
-                message="No fields to update",
-                status_code=400
+                message="No fields to update"
             ).model_dump()
         
         reminder = await reminder_service.update_reminder(
@@ -268,8 +263,7 @@ async def update_reminder(
         
         if not reminder:
             return error_response(
-                message=f"Reminder {reminder_id} not found",
-                status_code=404
+                message=f"Reminder {reminder_id} not found"
             ).model_dump()
         
         response_data = ReminderResponse(
@@ -304,12 +298,11 @@ async def update_reminder(
         
     except ValueError as e:
         logger.error(f"Validation error: {str(e)}")
-        return error_response(message=str(e), status_code=400).model_dump()
+        return error_response(message=str(e)).model_dump()
     except Exception as e:
         logger.error(f"Failed to update reminder: {str(e)}")
         return error_response(
-            message=f"Failed to update reminder: {str(e)}",
-            status_code=500
+            message=f"Failed to update reminder: {str(e)}"
         ).model_dump()
 
 
@@ -336,8 +329,7 @@ async def delete_reminder(
         
         if not success:
             return error_response(
-                message=f"Reminder {reminder_id} not found",
-                status_code=404
+                message=f"Reminder {reminder_id} not found"
             ).model_dump()
         
         return success_response(
@@ -346,12 +338,11 @@ async def delete_reminder(
         
     except ValueError as e:
         logger.error(f"Validation error: {str(e)}")
-        return error_response(message=str(e), status_code=400).model_dump()
+        return error_response(message=str(e)).model_dump()
     except Exception as e:
         logger.error(f"Failed to delete reminder: {str(e)}")
         return error_response(
-            message=f"Failed to delete reminder: {str(e)}",
-            status_code=500
+            message=f"Failed to delete reminder: {str(e)}"
         ).model_dump()
 
 
@@ -383,10 +374,9 @@ async def send_reminder_now(
         
     except ValueError as e:
         logger.error(f"Validation error: {str(e)}")
-        return error_response(message=str(e), status_code=400).model_dump()
+        return error_response(message=str(e)).model_dump()
     except Exception as e:
         logger.error(f"Failed to send reminder: {str(e)}")
         return error_response(
-            message=f"Failed to send reminder: {str(e)}",
-            status_code=500
+            message=f"Failed to send reminder: {str(e)}"
         ).model_dump()

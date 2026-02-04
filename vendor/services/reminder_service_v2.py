@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 from odmantic import AIOEngine
 from typing import Optional, List
+from bson import ObjectId
 from vendor.models.reminder import Reminder
 from user.models.booking import Booking
 from notifications.events.publisher import event_publisher
@@ -36,7 +37,7 @@ async def create_reminder(
         # Get booking to extract customer info
         booking = await engine.find_one(
             Booking,
-            (Booking.id == booking_id) & (Booking.vendor_id == vendor_id)
+            (Booking.id == ObjectId(booking_id)) & (Booking.vendor_id == vendor_id)
         )
         
         if not booking:
@@ -82,11 +83,13 @@ async def get_reminder(
     vendor_id: str,
     reminder_id: str
 ) -> Optional[Reminder]:
-    """Get single reminder by ID"""
+    """
+    Get a specific reminder by ID
+    """
     try:
         reminder = await engine.find_one(
             Reminder,
-            (Reminder.id == reminder_id) & (Reminder.vendor_id == vendor_id)
+            (Reminder.id == ObjectId(reminder_id)) & (Reminder.vendor_id == vendor_id)
         )
         
         if not reminder:
@@ -240,7 +243,7 @@ async def send_reminder_now(
             raise ValueError(f"Reminder already {reminder.status}")
         
         # Get booking for customer details
-        booking = await engine.find_one(Booking, Booking.id == reminder.booking_id)
+        booking = await engine.find_one(Booking, Booking.id == ObjectId(reminder.booking_id))
         
         if not booking:
             raise ValueError(f"Booking {reminder.booking_id} not found")
@@ -258,6 +261,11 @@ async def send_reminder_now(
         if reminder.send_in_app:
             channels.append("in_app")
         
+        # Format phone numbers with country code for SMS/WhatsApp
+        user_phone = booking.user_phone
+        if user_phone and not user_phone.startswith("+"):
+            user_phone = f"+91{user_phone}"  # Add India country code
+        
         # Publish event to notification system
         event_publisher.publish(
             event_type=EventType.CUSTOM_REMINDER,
@@ -266,8 +274,13 @@ async def send_reminder_now(
                 "booking_id": reminder.booking_id,
                 "customer_id": reminder.customer_id,
                 "customer_name": booking.user_name,
-                "customer_phone": booking.user_phone,
+                "customer_phone": user_phone,
                 "customer_email": booking.user_email,
+                # Notification system expects these field names
+                "user_id": reminder.customer_id,
+                "user_name": booking.user_name,
+                "user_phone": user_phone,
+                "user_email": booking.user_email,
                 "title": reminder.title,
                 "message": reminder.message,
                 "reminder_type": reminder.reminder_type,

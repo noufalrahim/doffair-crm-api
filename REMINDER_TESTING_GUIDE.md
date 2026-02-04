@@ -49,7 +49,7 @@ curl -X 'POST' \
   -H 'Authorization: Bearer YOUR_TOKEN' \
   -H 'Content-Type: application/json' \
   -d '{
-    "booking_id": "69830c42b18ec9ac59765093",
+    "booking_id": "YOUR_REAL_BOOKING_ID_FROM_STEP_0",
     "title": "Follow-up Checkup Reminder",
     "message": "Please visit for your follow-up checkup scheduled for tomorrow at 10 AM",
     "reminder_type": "FOLLOW_UP",

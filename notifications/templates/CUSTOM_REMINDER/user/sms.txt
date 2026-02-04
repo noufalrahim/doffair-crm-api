@@ -1,0 +1,7 @@
+{{ title }}
+
+{{ message }}
+
+Scheduled: {{ scheduled_at }}
+
+- DOF Fair
