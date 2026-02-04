@@ -19,27 +19,48 @@ from user.routers import leads as leads_router
 from user.routers import bookings as bookings_router
 from notifications.routers import notifications as notifications_router
 from notifications.routers import events as events_router
+from vendor.routers import offline_bookings_v2 as vendor_offline_bookings_router
+from vendor.routers import helpers as vendor_helpers_router
+from vendor.routers import prescriptions_v2 as vendor_prescriptions_router
+from vendor.routers import reminders_v2 as vendor_reminders_router
 
 
 app = FastAPI(title="Doffair API")
 
+# Admin routers
 app.include_router(admin_auth_router.router)
 app.include_router(service_type_router.router)
+app.include_router(admin_vendors_router.router)
+app.include_router(admin_amenities_router.router)
+
+# Vendor routers
 app.include_router(vendor_onboarding_router.router)
 app.include_router(vendor_auth_router.router)
 app.include_router(vendor_service_type_router.router)
 app.include_router(vendor_locations_router.router)
 app.include_router(vendor_services_router.router)
 app.include_router(vendor_images_router.router)
-app.include_router(admin_vendors_router.router)
-app.include_router(admin_amenities_router.router)
 app.include_router(vendor_amenities_router.router)
 app.include_router(vendor_service_area_router.router)
 app.include_router(doctors.router)
 app.include_router(doctor_availability.router)
 app.include_router(pricing.router)
+
+# Vendor offline booking system (WORKING)
+app.include_router(vendor_offline_bookings_router.router)
+app.include_router(vendor_helpers_router.router)
+
+# Vendor prescription management
+app.include_router(vendor_prescriptions_router.router)
+
+# Vendor reminder system
+app.include_router(vendor_reminders_router.router)
+
+# User routers
 app.include_router(user_auth_router.router)
 app.include_router(leads_router.router)
 app.include_router(bookings_router.router)
+
+# Notification routers
 app.include_router(notifications_router.router)
 app.include_router(events_router.router)

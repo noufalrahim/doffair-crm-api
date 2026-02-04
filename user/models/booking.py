@@ -58,6 +58,19 @@ class Booking(Model):
     cancelled_at: Optional[datetime] = None
     cancellation_reason: Optional[str] = None
     
+    # Offline Booking Support
+    is_offline: bool = False
+    customer_age: int = 0
+    customer_gender: Optional[str] = None
+    customer_address_full: Optional[str] = None
+    customer_city_stored: Optional[str] = None
+    customer_pincode_stored: Optional[str] = None
+    customer_blood_group: Optional[str] = None
+    customer_allergies: Optional[str] = None
+    customer_medical_conditions: Optional[str] = None
+    customer_notes: Optional[str] = None
+    payment_mode: Optional[str] = None
+    
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -75,5 +88,9 @@ class Booking(Model):
             {"fields": ["vendor_id", "status"]},
             # For user's bookings
             {"fields": ["user_id", "status"]},
+            # For offline bookings
+            {"fields": ["is_offline"]},
+            {"fields": ["vendor_id", "is_offline"]},
+            {"fields": ["vendor_id", "user_phone"]},  # Customer phone lookup
         ],
     }
