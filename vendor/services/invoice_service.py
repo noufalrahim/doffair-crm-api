@@ -188,15 +188,15 @@ async def generate_invoice_from_booking(
             detail=f"Cannot generate invoice. Booking status is {booking.status}. Must be COMPLETED."
         )
     
-    # Check if invoice already exists
-    existing_invoice = await engine.find_one(
-        Invoice,
-        (Invoice.booking_id == booking_id) & (Invoice.is_active == True)
-    )
+    # Check if invoice already exists using direct MongoDB query
+    existing_invoice = await engine.get_collection(Invoice).find_one({
+        "booking_id": booking_id,
+        "is_active": True
+    })
     if existing_invoice:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Invoice already exists for this booking: {existing_invoice.invoice_number}"
+            detail=f"Invoice already exists for this booking: {existing_invoice.get('invoice_number')}"
         )
     
     # Fetch vendor details
@@ -233,65 +233,88 @@ async def generate_invoice_from_booking(
         other_charges={}
     )
     
-    # Create invoice
-    invoice = Invoice(
-        vendor_id=vendor_id,
-        customer_id=booking.user_id,
-        booking_id=booking_id,
+    # Create invoice document directly in MongoDB to bypass ODMantic validation issues
+    now = datetime.utcnow()
+    due_date_value = now + timedelta(days=due_days)
+    
+    invoice_doc = {
+        "vendor_id": vendor_id,
+        "customer_id": booking.user_id,
+        "booking_id": booking_id,
         
-        invoice_number=invoice_number,
-        invoice_date=datetime.utcnow(),
-        due_date=datetime.utcnow() + timedelta(days=due_days),
+        "invoice_number": invoice_number,
+        "invoice_date": now,
+        "due_date": due_date_value,
         
-        # Customer details from booking
-        customer_name=booking.user_name,
-        customer_email=booking.user_email,
-        customer_phone=booking.user_phone,
-        customer_address=f"{booking.service_address or ''}, {booking.service_city or ''}, {booking.service_pincode or ''}".strip(', '),
+        # Customer details
+        "customer_name": booking.user_name,
+        "customer_email": booking.user_email,
+        "customer_phone": booking.user_phone,
+        "customer_address": f"{booking.service_address or ''}, {booking.service_city or ''}, {booking.service_pincode or ''}".strip(', '),
         
         # Vendor details
-        vendor_name=vendor.legal_name or vendor.business_name,
-        vendor_email=vendor.email,
-        vendor_phone=vendor.phone,
-        vendor_address=None,  # TODO: Add vendor address to Vendor model
-        vendor_gstin=None,  # TODO: Add GSTIN to Vendor model
+        "vendor_name": vendor.legal_name or f"Vendor {vendor_id[:8]}",
+        "vendor_email": vendor.primary_contact_email,
+        "vendor_phone": vendor.primary_contact_phone,
+        "vendor_address": None,
+        "vendor_gstin": None,
         
         # Service details
-        service_name=booking.service_name,
-        service_date=booking.booking_date,
+        "service_name": booking.service_name,
+        "service_date": booking.booking_date,
         
         # Financial details
-        subtotal=totals['subtotal'],
-        discount_amount=totals['discount_amount'],
-        discount_percentage=0.0,
+        "subtotal": totals['subtotal'],
+        "discount_amount": totals['discount_amount'],
+        "discount_percentage": 0.0,
         
         # Tax breakdown
-        tax_type=totals['tax_type'],
-        tax_amount=totals['tax_amount'],
-        cgst_amount=totals['cgst_amount'],
-        sgst_amount=totals['sgst_amount'],
-        igst_amount=totals['igst_amount'],
+        "tax_type": totals['tax_type'].value,
+        "tax_amount": totals['tax_amount'],
+        "cgst_amount": totals['cgst_amount'],
+        "sgst_amount": totals['sgst_amount'],
+        "igst_amount": totals['igst_amount'],
         
         # Charges
-        service_charge=totals['service_charge'],
-        other_charges=totals['other_charges'],
+        "service_charge": totals['service_charge'],
+        "other_charges": totals['other_charges'],
         
         # Totals
-        total_before_tax=totals['total_before_tax'],
-        total_tax=totals['total_tax'],
-        grand_total=totals['grand_total'],
+        "total_before_tax": totals['total_before_tax'],
+        "total_tax": totals['total_tax'],
+        "grand_total": totals['grand_total'],
         
         # Payment
-        paid_amount=0.0,
-        balance_due=totals['grand_total'],
+        "paid_amount": 0.0,
+        "balance_due": totals['grand_total'],
         
-        status=InvoiceStatus.GENERATED,
+        "status": InvoiceStatus.GENERATED.value,
+        "sent_at": None,
+        "sent_count": 0,
+        "cancelled_at": None,
+        "cancellation_reason": None,
+        "cancelled_by": None,
+        "payment_received_at": None,
+        "payment_method": None,
+        "payment_reference": None,
         
-        notes=notes,
-        terms_and_conditions=terms_and_conditions or "Payment due within 30 days. Thank you for your business!"
-    )
+        "notes": notes,
+        "terms_and_conditions": terms_and_conditions or "Payment due within 30 days. Thank you for your business!",
+        
+        "is_active": True,
+        "created_at": now,
+        "updated_at": now
+    }
     
-    await engine.save(invoice)
+    # Insert directly into MongoDB
+    result = await engine.get_collection(Invoice).insert_one(invoice_doc)
+    invoice_doc['_id'] = result.inserted_id
+    
+    # Map _id to id for model_construct
+    invoice_doc['id'] = invoice_doc.pop('_id')
+    
+    # Use model_construct to create Invoice object without validation
+    invoice = Invoice.model_construct(**invoice_doc)
     logger.info(f"📄 Invoice generated: {invoice_number} for booking {booking_id}")
     
     # Create audit log
@@ -335,16 +358,8 @@ async def send_invoice(
     Returns:
         Updated Invoice
     """
-    # Fetch invoice
-    invoice = await engine.find_one(
-        Invoice,
-        (Invoice.id == ObjectId(invoice_id)) & (Invoice.vendor_id == vendor_id)
-    )
-    if not invoice:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Invoice not found or access denied"
-        )
+    # Fetch invoice using MongoDB to bypass validation
+    invoice = await get_invoice_by_id(engine, vendor_id, invoice_id)
     
     # Validate can send
     if not validate_invoice_send_allowed(invoice.status):
@@ -379,13 +394,20 @@ async def send_invoice(
         logger.error(f"Failed to send invoice notification: {str(e)}")
         # Don't fail the whole operation if notification fails
     
-    # Update invoice
-    invoice.status = InvoiceStatus.SENT
-    invoice.sent_at = datetime.utcnow()
-    invoice.sent_count += 1
-    invoice.updated_at = datetime.utcnow()
+    # Update invoice in MongoDB directly
+    now = datetime.utcnow()
+    await engine.get_collection(Invoice).update_one(
+        {"_id": ObjectId(invoice_id)},
+        {"$set": {
+            "status": InvoiceStatus.SENT.value,
+            "sent_at": now,
+            "updated_at": now
+        },
+        "$inc": {"sent_count": 1}}
+    )
     
-    await engine.save(invoice)
+    # Fetch updated invoice
+    invoice = await get_invoice_by_id(engine, vendor_id, invoice_id)
     
     # Create audit log
     action = InvoiceAuditAction.RESENT if invoice.sent_count > 1 else InvoiceAuditAction.SENT
@@ -415,21 +437,24 @@ async def get_vendor_invoices(
 ) -> List[Invoice]:
     """Get all invoices for vendor with filters"""
     
-    query = (Invoice.vendor_id == vendor_id) & (Invoice.is_active == True)
+    # Build MongoDB query to bypass ODMantic validation
+    mongo_query = {"vendor_id": vendor_id, "is_active": True}
     
     if status_filter:
-        query &= (Invoice.status == status_filter)
+        mongo_query["status"] = status_filter.value
     
     if customer_id:
-        query &= (Invoice.customer_id == customer_id)
+        mongo_query["customer_id"] = customer_id
     
-    invoices = await engine.find(
-        Invoice,
-        query,
-        sort=Invoice.created_at.desc(),
-        limit=limit,
-        skip=skip
-    )
+    # Fetch from MongoDB directly
+    cursor = engine.get_collection(Invoice).find(mongo_query).sort("created_at", -1).skip(skip).limit(limit)
+    raw_invoices = await cursor.to_list(length=limit)
+    
+    # Map _id to id for each invoice and use model_construct
+    invoices = []
+    for inv in raw_invoices:
+        inv['id'] = inv.pop('_id')
+        invoices.append(Invoice.model_construct(**inv))
     
     return invoices
 
@@ -440,17 +465,23 @@ async def get_invoice_by_id(
     invoice_id: str
 ) -> Invoice:
     """Get single invoice by ID"""
-    invoice = await engine.find_one(
-        Invoice,
-        (Invoice.id == ObjectId(invoice_id)) & (Invoice.vendor_id == vendor_id)
-    )
+    # Fetch directly from MongoDB to bypass ODMantic validation
+    raw_invoice = await engine.get_collection(Invoice).find_one({
+        "_id": ObjectId(invoice_id),
+        "vendor_id": vendor_id
+    })
     
-    if not invoice:
+    if not raw_invoice:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Invoice not found or access denied"
         )
     
+    # Map _id to id for model_construct
+    raw_invoice['id'] = raw_invoice.pop('_id')
+    
+    # Use model_construct to create Invoice object without validation
+    invoice = Invoice.model_construct(**raw_invoice)
     return invoice
 
 
@@ -558,23 +589,38 @@ async def mark_invoice_paid(
             detail=f"Cannot mark {invoice.status} invoice as paid"
         )
     
-    # Update paid amount
-    old_paid_amount = invoice.paid_amount
-    invoice.paid_amount += payload.paid_amount
-    invoice.balance_due = calculate_balance_due(invoice.grand_total, invoice.paid_amount)
+    # Calculate new amounts
+    new_paid_amount = invoice.paid_amount + payload.paid_amount
+    new_balance_due = calculate_balance_due(invoice.grand_total, new_paid_amount)
     
-    # Update status
-    if invoice.balance_due <= 0:
-        invoice.status = InvoiceStatus.PAID
-        invoice.payment_received_at = payload.payment_date or datetime.utcnow()
+    # Determine new status
+    if new_balance_due <= 0:
+        new_status = InvoiceStatus.PAID.value
+        payment_received_at = payload.payment_date or datetime.utcnow()
     else:
-        invoice.status = InvoiceStatus.PARTIALLY_PAID
+        new_status = InvoiceStatus.PARTIALLY_PAID.value
+        payment_received_at = None
     
-    invoice.payment_method = payload.payment_method
-    invoice.payment_reference = payload.payment_reference
-    invoice.updated_at = datetime.utcnow()
+    # Update in MongoDB directly
+    now = datetime.utcnow()
+    update_doc = {
+        "paid_amount": new_paid_amount,
+        "balance_due": new_balance_due,
+        "status": new_status,
+        "payment_method": payload.payment_method,
+        "payment_reference": payload.payment_reference,
+        "updated_at": now
+    }
+    if payment_received_at:
+        update_doc["payment_received_at"] = payment_received_at
     
-    await engine.save(invoice)
+    await engine.get_collection(Invoice).update_one(
+        {"_id": ObjectId(invoice_id)},
+        {"$set": update_doc}
+    )
+    
+    # Fetch updated invoice
+    invoice = await get_invoice_by_id(engine, vendor_id, invoice_id)
     
     # Create audit log
     await create_audit_log(
@@ -611,13 +657,21 @@ async def cancel_invoice(
             detail=f"Cannot cancel invoice with status {invoice.status}"
         )
     
-    invoice.status = InvoiceStatus.CANCELLED
-    invoice.cancelled_at = datetime.utcnow()
-    invoice.cancellation_reason = reason
-    invoice.cancelled_by = vendor_id
-    invoice.updated_at = datetime.utcnow()
+    # Update in MongoDB directly
+    now = datetime.utcnow()
+    await engine.get_collection(Invoice).update_one(
+        {"_id": ObjectId(invoice_id)},
+        {"$set": {
+            "status": InvoiceStatus.CANCELLED.value,
+            "cancelled_at": now,
+            "cancellation_reason": reason,
+            "cancelled_by": vendor_id,
+            "updated_at": now
+        }}
+    )
     
-    await engine.save(invoice)
+    # Fetch updated invoice
+    invoice = await get_invoice_by_id(engine, vendor_id, invoice_id)
     
     # Create audit log
     await create_audit_log(

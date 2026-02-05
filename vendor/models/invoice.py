@@ -103,7 +103,7 @@ class Invoice(Model):
     # Invoice identifiers
     invoice_number: str  # Auto-generated: INV-2026-0001
     invoice_date: datetime = Field(default_factory=datetime.utcnow)
-    due_date: Optional[datetime] = None
+    due_date: Optional[datetime] = Field(default=None)
     
     # Customer details (cached for invoice record)
     customer_name: str
@@ -151,16 +151,16 @@ class Invoice(Model):
     status: InvoiceStatus = InvoiceStatus.DRAFT
     
     # Notifications
-    sent_at: Optional[datetime] = None
+    sent_at: Optional[datetime] = Field(default=None)
     sent_count: int = 0  # Number of times invoice was sent
     
     # Cancellation
-    cancelled_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = Field(default=None)
     cancellation_reason: Optional[str] = None
     cancelled_by: Optional[str] = None  # vendor_id who cancelled
     
     # Payment
-    payment_received_at: Optional[datetime] = None
+    payment_received_at: Optional[datetime] = Field(default=None)
     payment_method: Optional[str] = None
     payment_reference: Optional[str] = None
     
