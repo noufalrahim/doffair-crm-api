@@ -66,3 +66,31 @@ class ReminderStatus(str, Enum):
     SENT = "SENT"          # Successfully sent
     FAILED = "FAILED"      # Failed to send
     CANCELLED = "CANCELLED" # Cancelled by vendor
+
+class InvoiceStatus(str, Enum):
+    DRAFT = "DRAFT"              # Invoice created but not finalized
+    GENERATED = "GENERATED"      # Auto-generated from booking
+    SENT = "SENT"                # Sent to customer
+    PAID = "PAID"                # Payment received
+    PARTIALLY_PAID = "PARTIALLY_PAID"  # Partial payment
+    OVERDUE = "OVERDUE"          # Payment overdue
+    CANCELLED = "CANCELLED"      # Invoice cancelled
+    REFUNDED = "REFUNDED"        # Full refund issued
+
+class TaxType(str, Enum):
+    NONE = "NONE"                # No tax
+    GST = "GST"                  # Goods and Services Tax (combined)
+    CGST_SGST = "CGST_SGST"      # Central + State GST (intra-state)
+    IGST = "IGST"                # Integrated GST (inter-state)
+    VAT = "VAT"                  # Value Added Tax
+    CUSTOM = "CUSTOM"            # Custom tax configuration
+
+class InvoiceAuditAction(str, Enum):
+    CREATED = "CREATED"          # Invoice created
+    GENERATED = "GENERATED"      # Auto-generated from booking
+    EDITED = "EDITED"            # Invoice edited
+    SENT = "SENT"                # Invoice sent to customer
+    RESENT = "RESENT"            # Invoice resent
+    CANCELLED = "CANCELLED"      # Invoice cancelled
+    PAYMENT_RECEIVED = "PAYMENT_RECEIVED"  # Payment marked as received
+    REFUNDED = "REFUNDED"        # Invoice refunded

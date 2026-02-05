@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
+        .content { background: #f9f9f9; padding: 20px; border: 1px solid #ddd; }
+        .invoice-details { background: white; padding: 15px; margin: 15px 0; border-left: 4px solid #4CAF50; }
+        .amount { font-size: 24px; color: #4CAF50; font-weight: bold; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f0f0f0; font-weight: bold; }
+        .button { display: inline-block; padding: 12px 30px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 Invoice from {{vendor_name}}</h1>
+        </div>
+        
+        <div class="content">
+            <p>Dear {{customer_name}},</p>
+            
+            <p>Thank you for choosing our services! Please find your invoice details below:</p>
+            
+            <div class="invoice-details">
+                <h2>Invoice #{{invoice_number}}</h2>
+                <table>
+                    <tr>
+                        <td><strong>Invoice Date:</strong></td>
+                        <td>{{invoice_date}}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Due Date:</strong></td>
+                        <td>{{due_date}}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Service:</strong></td>
+                        <td>{{service_name}}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Service Date:</strong></td>
+                        <td>{{service_date}}</td>
+                    </tr>
+                </table>
+                
+                <h3>Amount Due</h3>
+                <p class="amount">₹{{grand_total}}</p>
+                
+                <p><strong>Payment Status:</strong> {{balance_due}} remaining</p>
+            </div>
+            
+            <p><strong>Vendor Details:</strong></p>
+            <ul>
+                <li>{{vendor_name}}</li>
+                <li>Phone: {{vendor_phone}}</li>
+                <li>Email: {{vendor_email}}</li>
+            </ul>
+            
+            <p>Please make payment by the due date to avoid any late fees.</p>
+            
+            <p>If you have any questions about this invoice, please contact us.</p>
+            
+            <p>Best regards,<br>{{vendor_name}}</p>
+        </div>
+        
+        <div class="footer">
+            <p>This is an automated invoice notification from Doffair</p>
+        </div>
+    </div>
+</body>
+</html>
