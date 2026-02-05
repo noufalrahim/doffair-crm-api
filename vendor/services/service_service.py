@@ -123,12 +123,12 @@ async def update_service(
     service_id: str,
     payload,
 ):
-    service = await engine.find_one(
-        VendorService,
-        VendorService.id == ObjectId(service_id),
+    # First check if service exists using raw MongoDB query to avoid ODM validation issues
+    raw_service = await engine.get_collection(VendorService).find_one(
+        {"_id": ObjectId(service_id), "vendor_id": vendor_id}
     )
-
-    if not service or service.vendor_id != vendor_id:
+    
+    if not raw_service:
         raise HTTPException(status_code=404, detail="Service not found")
 
     # Extract pricing fields from payload
@@ -141,24 +141,45 @@ async def update_service(
         else:
             service_fields[field] = value
     
-    # Update service fields
-    for field, value in service_fields.items():
-        setattr(service, field, value)
-
-    service.updated_at = datetime.utcnow()
-    await engine.save(service)
+    # Update service fields directly in MongoDB to avoid ODM validation on old data
+    if service_fields:
+        service_fields['updated_at'] = datetime.utcnow()
+        await engine.get_collection(VendorService).update_one(
+            {"_id": ObjectId(service_id)},
+            {"$set": service_fields}
+        )
     
     # Update pricing if pricing fields provided
     if pricing_fields:
-        pricing = await engine.find_one(
-            ServicePricing,
-            (ServicePricing.service_id == service_id) & (ServicePricing.vendor_id == vendor_id)
+        pricing_fields['updated_at'] = datetime.utcnow()
+        result = await engine.get_collection(ServicePricing).update_one(
+            {"service_id": service_id, "vendor_id": vendor_id},
+            {"$set": pricing_fields}
         )
-        
-        if pricing:
-            for field, value in pricing_fields.items():
-                setattr(pricing, field, value)
-            pricing.updated_at = datetime.utcnow()
-            await engine.save(pricing)
+    
+    # Fetch the updated service data from MongoDB
+    updated_raw = await engine.get_collection(VendorService).find_one(
+        {"_id": ObjectId(service_id)}
+    )
+    
+    # Use model_construct to bypass validation (for legacy data with type issues)
+    # This creates a model instance without validation
+    service = VendorService.model_construct(
+        _id=updated_raw['_id'],
+        vendor_id=updated_raw.get('vendor_id'),
+        service_type_id=updated_raw.get('service_type_id'),
+        location_id=updated_raw.get('location_id'),
+        name=updated_raw.get('name'),
+        service_kind=updated_raw.get('service_kind'),
+        image_blob_paths=updated_raw.get('image_blob_paths', []),
+        description=updated_raw.get('description'),
+        duration_minutes=updated_raw.get('duration_minutes'),
+        label=updated_raw.get('label'),
+        delivery_mode=updated_raw.get('delivery_mode'),
+        included_service_ids=updated_raw.get('included_service_ids', []),
+        is_active=updated_raw.get('is_active', True),
+        created_at=updated_raw.get('created_at'),
+        updated_at=updated_raw.get('updated_at'),
+    )
     
     return service
