@@ -112,7 +112,7 @@ async def list_services(
     services = []
     for raw in raw_services:
         service = VendorService.model_construct(
-            _id=raw['_id'],
+            id=raw['_id'],
             vendor_id=raw.get('vendor_id'),
             service_type_id=raw.get('service_type_id'),
             location_id=raw.get('location_id'),
