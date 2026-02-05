@@ -59,6 +59,15 @@ async def create_new_booking(
         service_address=payload.service_address,
         service_city=payload.service_city,
         service_pincode=payload.service_pincode,
+        pet_name=payload.pet_name,
+        pet_type=payload.pet_type,
+        pet_breed=payload.pet_breed,
+        pet_age=payload.pet_age,
+        pet_weight=payload.pet_weight,
+        pet_gender=payload.pet_gender,
+        pet_medical_conditions=payload.pet_medical_conditions,
+        pet_special_notes=payload.pet_special_notes,
+        pet_images=payload.pet_images,
     )
     
     return CreateBookingResponse(
@@ -167,6 +176,15 @@ async def get_my_bookings(
                 created_at=booking.get("created_at"),
                 approved_at=booking.get("approved_at"),
                 rejected_at=booking.get("rejected_at"),
+                pet_name=booking.get("pet_name"),
+                pet_type=booking.get("pet_type"),
+                pet_breed=booking.get("pet_breed"),
+                pet_age=booking.get("pet_age"),
+                pet_weight=booking.get("pet_weight"),
+                pet_gender=booking.get("pet_gender"),
+                pet_medical_conditions=booking.get("pet_medical_conditions"),
+                pet_special_notes=booking.get("pet_special_notes"),
+                pet_images=booking.get("pet_images"),
             )
             for booking, payment in bookings_with_payments
         ]
@@ -217,6 +235,15 @@ async def get_vendor_my_bookings(
                 created_at=booking.get("created_at"),
                 approved_at=booking.get("approved_at"),
                 rejected_at=booking.get("rejected_at"),
+                pet_name=booking.get("pet_name"),
+                pet_type=booking.get("pet_type"),
+                pet_breed=booking.get("pet_breed"),
+                pet_age=booking.get("pet_age"),
+                pet_weight=booking.get("pet_weight"),
+                pet_gender=booking.get("pet_gender"),
+                pet_medical_conditions=booking.get("pet_medical_conditions"),
+                pet_special_notes=booking.get("pet_special_notes"),
+                pet_images=booking.get("pet_images"),
             )
             for booking, payment in bookings_with_payments
         ]
@@ -320,6 +347,15 @@ async def get_pending_approvals(
                 created_at=booking.get("created_at"),
                 approved_at=booking.get("approved_at"),
                 rejected_at=booking.get("rejected_at"),
+                pet_name=booking.get("pet_name"),
+                pet_type=booking.get("pet_type"),
+                pet_breed=booking.get("pet_breed"),
+                pet_age=booking.get("pet_age"),
+                pet_weight=booking.get("pet_weight"),
+                pet_gender=booking.get("pet_gender"),
+                pet_medical_conditions=booking.get("pet_medical_conditions"),
+                pet_special_notes=booking.get("pet_special_notes"),
+                pet_images=booking.get("pet_images"),
             )
             for booking, payment in bookings_with_payments
         ]

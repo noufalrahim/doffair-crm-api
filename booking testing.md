@@ -384,7 +384,37 @@ Replace `service_id` and `location_id` with your actual IDs.
 
 ## 📋 PART 2: Booking Flow (User Side)
 
-### Step 10: Create Booking
+### Step 10A: Upload Pet Images (Optional)
+
+**Endpoint**: `POST /pet-images/upload`
+
+**Description**: Upload pet photos before creating booking. You can upload multiple images.
+
+**How to upload in Swagger**:
+1. Click "Try it out"
+2. Click "Choose File" and select a pet image (JPG, PNG, WEBP)
+3. Max size: 10MB per image
+4. Click "Execute"
+
+**Expected Response**:
+```json
+{
+  "success": true,
+  "message": "Pet image uploaded successfully",
+  "data": {
+    "image_url": "https://youraccount.blob.core.windows.net/container/pet-images/user_id/abc123.jpg",
+    "blob_path": "pet-images/user_id/abc123.jpg",
+    "file_name": "my_dog.jpg",
+    "file_size": 245678
+  }
+}
+```
+
+**Copy the `image_url`** - you'll use this in the booking request!
+
+---
+
+### Step 10B: Create Booking
 
 **Endpoint**: `POST /bookings/create`
 
@@ -409,6 +439,27 @@ Replace `service_id` and `location_id` with your actual IDs.
 }
 ```
 
+**Sample Data** (WITH PET DETAILS):
+```json
+{
+  "service_id": "679...",
+  "booking_date": "2026-01-10T14:00:00",
+  "delivery_mode": "CENTER",
+  "pet_name": "Max",
+  "pet_type": "dog",
+  "pet_breed": "Golden Retriever",
+  "pet_age": 24,
+  "pet_weight": 30.5,
+  "pet_gender": "male",
+  "pet_medical_conditions": "None",
+  "pet_special_notes": "Very friendly, loves treats",
+  "pet_images": [
+    "https://youraccount.blob.core.windows.net/container/pet-images/user_id/abc123.jpg",
+    "https://youraccount.blob.core.windows.net/container/pet-images/user_id/def456.jpg"
+  ]
+}
+```
+
 **Expected Response**:
 ```json
 {
@@ -424,6 +475,8 @@ Replace `service_id` and `location_id` with your actual IDs.
 ```
 
 **Copy the `booking_id`!**
+
+**Note**: Pet details (name, type, breed, age, weight, images) are stored in the booking and will be visible to the vendor when they approve it.
 
 ---
 
@@ -627,6 +680,14 @@ User creates booking
 - Leave 1 pending
 - Check all views work correctly
 
+### Scenario 4: Pet Details & Images
+```
+1. User uploads 2 pet images
+2. User creates booking with pet details + image URLs
+3. Vendor views pending approval → sees pet info & images
+4. Vendor approves booking → pet details saved ✅
+```
+
 ---
 
 ## 📊 Status Flow Diagram
@@ -647,6 +708,13 @@ CONFIRMED            REJECTED
 ---
 
 ## 🎯 Key Features to Test
+
+### ✅ Pet Image Upload Tests:
+1. Upload valid image (JPG/PNG) → Success
+2. Upload invalid file type (PDF) → Error
+3. Upload file > 10MB → Error
+4. Delete own image → Success
+5. Try to delete another user's image → Access denied
 
 ### ✅ Validation Tests:
 1. Try booking without login → 401 error

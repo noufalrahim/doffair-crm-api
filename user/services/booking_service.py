@@ -23,6 +23,15 @@ async def create_booking(
     service_address: str = None,
     service_city: str = None,
     service_pincode: str = None,
+    pet_name: str = None,
+    pet_type: str = None,
+    pet_breed: str = None,
+    pet_age: int = None,
+    pet_weight: float = None,
+    pet_gender: str = None,
+    pet_medical_conditions: str = None,
+    pet_special_notes: str = None,
+    pet_images: list[str] = None,
 ) -> Booking:
     """
     User creates a booking for a service
@@ -119,6 +128,15 @@ async def create_booking(
         discount_amount=discount_amount,
         final_amount=final_amount,
         status=BookingStatus.PENDING_PAYMENT,
+        pet_name=pet_name,
+        pet_type=pet_type,
+        pet_breed=pet_breed,
+        pet_age=pet_age,
+        pet_weight=pet_weight,
+        pet_gender=pet_gender,
+        pet_medical_conditions=pet_medical_conditions,
+        pet_special_notes=pet_special_notes,
+        pet_images=pet_images or [],
     )
     
     await engine.save(booking)
@@ -300,6 +318,16 @@ async def get_user_bookings(
             "approved_at": booking_doc.get("approved_at"),
             "rejected_at": booking_doc.get("rejected_at"),
             "payment_id": booking_doc.get("payment_id"),
+            # Pet details
+            "pet_name": booking_doc.get("pet_name"),
+            "pet_type": booking_doc.get("pet_type"),
+            "pet_breed": booking_doc.get("pet_breed"),
+            "pet_age": booking_doc.get("pet_age"),
+            "pet_weight": booking_doc.get("pet_weight"),
+            "pet_gender": booking_doc.get("pet_gender"),
+            "pet_medical_conditions": booking_doc.get("pet_medical_conditions"),
+            "pet_special_notes": booking_doc.get("pet_special_notes"),
+            "pet_images": booking_doc.get("pet_images", []),
         }
         result.append((booking_data, payment_data))
     
@@ -331,7 +359,7 @@ async def get_vendor_bookings(
     for booking_doc in booking_docs:
         payment_data = None
         if booking_doc.get("payment_id"):
-         
+            # Fetch payment directly from MongoDB to bypass ODMantic validation
             payment_doc = await engine.get_collection(Payment).find_one({"_id": ObjectId(booking_doc.get("payment_id"))})
             if payment_doc:
                 payment_data = {
@@ -368,6 +396,16 @@ async def get_vendor_bookings(
             "approved_at": booking_doc.get("approved_at"),
             "rejected_at": booking_doc.get("rejected_at"),
             "payment_id": booking_doc.get("payment_id"),
+            # Pet details
+            "pet_name": booking_doc.get("pet_name"),
+            "pet_type": booking_doc.get("pet_type"),
+            "pet_breed": booking_doc.get("pet_breed"),
+            "pet_age": booking_doc.get("pet_age"),
+            "pet_weight": booking_doc.get("pet_weight"),
+            "pet_gender": booking_doc.get("pet_gender"),
+            "pet_medical_conditions": booking_doc.get("pet_medical_conditions"),
+            "pet_special_notes": booking_doc.get("pet_special_notes"),
+            "pet_images": booking_doc.get("pet_images", []),
         }
         result.append((booking_data, payment_data))
     

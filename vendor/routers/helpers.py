@@ -12,6 +12,7 @@ from vendor.models.vendor_location import VendorLocation
 from vendor.models.vendor_service import VendorService
 from vendor.models.vendor_service_type import VendorServiceType
 from admin.models.service_type import ServiceType
+from bson import ObjectId
 
 router = APIRouter(
     prefix="/vendor/helpers",
@@ -83,6 +84,62 @@ async def get_vendor_services(
     return success_response(
         message="Services retrieved successfully",
         data={"services": services_list}
+    ).model_dump()
+
+
+@router.get("/my-service-types", response_model=dict)
+async def get_my_service_types(
+    current_vendor: dict = Depends(get_current_vendor),
+    engine: AIOEngine = Depends(get_engine)
+):
+    """
+    Get service types that THIS vendor has selected and offers
+    Returns: [{ id, code, display_name, description, mode, is_active, images }]
+    """
+    vendor_id = current_vendor["vendor_id"]
+    
+    # Get vendor's selected service types
+    vendor_service_types = await engine.find(
+        VendorServiceType,
+        VendorServiceType.vendor_id == vendor_id
+    )
+    
+    if not vendor_service_types:
+        return success_response(
+            message="No service types found",
+            data={"service_types": []}
+        ).model_dump()
+    
+    # Get service type IDs
+    service_type_ids = [ObjectId(vst.service_type_id) for vst in vendor_service_types]
+    
+    # Fetch full service type details from admin
+    service_types = await engine.find(
+        ServiceType,
+        ServiceType.id.in_(service_type_ids)
+    )
+    
+    # Create a map for quick lookup
+    service_type_map = {str(st.id): st for st in service_types}
+    
+    # Build response with vendor-specific data
+    types_list = []
+    for vst in vendor_service_types:
+        st = service_type_map.get(vst.service_type_id)
+        if st:
+            types_list.append({
+                "id": str(st.id),
+                "code": st.code,
+                "display_name": st.display_name,
+                "description": st.description or "",
+                "mode": st.mode.value if hasattr(st.mode, 'value') else st.mode,
+                "is_active": vst.is_active,  # Vendor's active status
+                "images": build_image_list(st.image_blob_paths)
+            })
+    
+    return success_response(
+        message="Service types retrieved successfully",
+        data={"service_types": types_list}
     ).model_dump()
 
 

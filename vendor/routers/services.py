@@ -19,6 +19,8 @@ from vendor.services.service_service import (
     mark_services_configured,
     update_service,
 )
+from vendor.models.service_pricing import ServicePricing
+from vendor.utils.pricing import calculate_final_price
 
 router = APIRouter(
     prefix="/vendor/onboarding",
@@ -98,6 +100,14 @@ async def get_services(
         location_id,
         service_type_id,
     )
+    
+    # Fetch pricing for all services
+    service_ids = [str(s.id) for s in services]
+    pricings = await engine.find(
+        ServicePricing,
+        ServicePricing.service_id.in_(service_ids)
+    )
+    pricing_map = {p.service_id: p for p in pricings}
 
     return success_response(
         data=[
@@ -109,6 +119,15 @@ async def get_services(
                 service_type_id=s.service_type_id,
                 label=s.label,
                 images=build_image_list(s.image_blob_paths),
+                is_active=s.is_active,
+                base_price=pricing_map[str(s.id)].base_price if str(s.id) in pricing_map else None,
+                discount_type=pricing_map[str(s.id)].discount_type if str(s.id) in pricing_map else None,
+                discount_value=pricing_map[str(s.id)].discount_value if str(s.id) in pricing_map else None,
+                final_price=calculate_final_price(
+                    pricing_map[str(s.id)].base_price,
+                    pricing_map[str(s.id)].discount_type,
+                    pricing_map[str(s.id)].discount_value
+                ) if str(s.id) in pricing_map else None,
             )
             for s in services
         ]

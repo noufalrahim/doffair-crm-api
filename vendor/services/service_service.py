@@ -5,7 +5,9 @@ from fastapi import HTTPException, status
 
 from vendor.models.vendor import Vendor
 from vendor.models.vendor_service import VendorService
-from core.enums import VendorStatus
+from vendor.models.service_pricing import ServicePricing
+from core.enums import VendorStatus, DiscountType
+from vendor.utils.pricing import calculate_final_price
 
 
 async def create_base_service(engine: AIOEngine, vendor_id: str, payload):
@@ -23,6 +25,18 @@ async def create_base_service(engine: AIOEngine, vendor_id: str, payload):
     )
 
     await engine.save(service)
+    
+    # Create pricing for this service
+    pricing = ServicePricing(
+        vendor_id=vendor_id,
+        service_id=str(service.id),
+        location_id=payload.location_id,
+        base_price=payload.base_price,
+        discount_type=payload.discount_type,
+        discount_value=payload.discount_value,
+    )
+    await engine.save(pricing)
+    
     return service
 
 
@@ -66,6 +80,18 @@ async def create_combo_service(engine: AIOEngine, vendor_id: str, payload):
     )
 
     await engine.save(combo)
+    
+    # Create pricing for this combo service
+    pricing = ServicePricing(
+        vendor_id=vendor_id,
+        service_id=str(combo.id),
+        location_id=payload.location_id,
+        base_price=payload.base_price,
+        discount_type=payload.discount_type,
+        discount_value=payload.discount_value,
+    )
+    await engine.save(pricing)
+    
     return combo
 
 
@@ -105,9 +131,34 @@ async def update_service(
     if not service or service.vendor_id != vendor_id:
         raise HTTPException(status_code=404, detail="Service not found")
 
+    # Extract pricing fields from payload
+    pricing_fields = {}
+    service_fields = {}
+    
     for field, value in payload.dict(exclude_unset=True).items():
+        if field in ['base_price', 'discount_type', 'discount_value']:
+            pricing_fields[field] = value
+        else:
+            service_fields[field] = value
+    
+    # Update service fields
+    for field, value in service_fields.items():
         setattr(service, field, value)
 
     service.updated_at = datetime.utcnow()
     await engine.save(service)
+    
+    # Update pricing if pricing fields provided
+    if pricing_fields:
+        pricing = await engine.find_one(
+            ServicePricing,
+            (ServicePricing.service_id == service_id) & (ServicePricing.vendor_id == vendor_id)
+        )
+        
+        if pricing:
+            for field, value in pricing_fields.items():
+                setattr(pricing, field, value)
+            pricing.updated_at = datetime.utcnow()
+            await engine.save(pricing)
+    
     return service
