@@ -16,7 +16,7 @@ class VendorService(Model):
     image_blob_paths: List[str] = []
 
     label: Optional[str] = None
-    delivery_mode: ServiceDeliveryMode 
+    delivery_mode: Optional[ServiceDeliveryMode] = None
     is_active: bool = True  # Active/Inactive state for services
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
