@@ -10,18 +10,16 @@ class VendorService(Model):
     service_type_id: str
     location_id: str
     name: str
-    service_kind: str  # BASE | COMBO
+    service_kind: str
 
-    # 🔥 REQUIRED FOR IMAGE PIPELINE
     image_blob_paths: List[str] = []
 
-    # Optional fields
     description: Optional[str] = None
     duration_minutes: Optional[int] = None
     label: Optional[str] = None
     delivery_mode: Optional[ServiceDeliveryMode] = None
-    included_service_ids: List[str] = []  # For COMBO services
-    is_active: bool = True  # Active/Inactive state for services
+    included_service_ids: List[str] = []
+    is_active: bool = True
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

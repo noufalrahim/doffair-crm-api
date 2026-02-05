@@ -101,12 +101,36 @@ async def list_services(
     location_id: str,
     service_type_id: str,
 ):
-    return await engine.find(
-        VendorService,
-        (VendorService.vendor_id == vendor_id)
-        & (VendorService.location_id == location_id)
-        & (VendorService.service_type_id == service_type_id),
-    )
+    # Fetch raw documents from MongoDB to bypass ODM validation issues with legacy data
+    raw_services = await engine.get_collection(VendorService).find({
+        "vendor_id": vendor_id,
+        "location_id": location_id,
+        "service_type_id": service_type_id
+    }).to_list(length=None)
+    
+    # Use model_construct to create service objects without validation
+    services = []
+    for raw in raw_services:
+        service = VendorService.model_construct(
+            _id=raw['_id'],
+            vendor_id=raw.get('vendor_id'),
+            service_type_id=raw.get('service_type_id'),
+            location_id=raw.get('location_id'),
+            name=raw.get('name'),
+            service_kind=raw.get('service_kind'),
+            image_blob_paths=raw.get('image_blob_paths', []),
+            description=raw.get('description'),
+            duration_minutes=raw.get('duration_minutes'),
+            label=raw.get('label'),
+            delivery_mode=raw.get('delivery_mode'),
+            included_service_ids=raw.get('included_service_ids', []),
+            is_active=raw.get('is_active', True),
+            created_at=raw.get('created_at'),
+            updated_at=raw.get('updated_at'),
+        )
+        services.append(service)
+    
+    return services
 
 
 async def mark_services_configured(engine: AIOEngine, vendor_id: str):
