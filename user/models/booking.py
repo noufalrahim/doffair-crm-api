@@ -58,6 +58,17 @@ class Booking(Model):
     cancelled_at: Optional[datetime] = None
     cancellation_reason: Optional[str] = None
     
+    # Pet/Dog Details (for pet services)
+    pet_name: Optional[str] = None
+    pet_type: Optional[str] = None  # dog, cat, bird, etc.
+    pet_breed: Optional[str] = None
+    pet_age: Optional[int] = None  # in months
+    pet_weight: Optional[float] = None  # in kg
+    pet_gender: Optional[str] = None  # male, female
+    pet_medical_conditions: Optional[str] = None
+    pet_special_notes: Optional[str] = None
+    pet_images: list[str] = []  # Image URLs/blob paths for pet photos
+    
     # Offline Booking Support
     is_offline: bool = False
     customer_age: int = 0

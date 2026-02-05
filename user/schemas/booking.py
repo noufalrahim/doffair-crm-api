@@ -20,6 +20,17 @@ class CreateBookingRequest(BaseModel):
     service_address: Optional[str] = None
     service_city: Optional[str] = None
     service_pincode: Optional[str] = None
+    
+    # Pet Details (for pet services)
+    pet_name: Optional[str] = Field(None, description="Pet's name")
+    pet_type: Optional[str] = Field(None, description="dog, cat, bird, etc.")
+    pet_breed: Optional[str] = Field(None, description="Pet breed")
+    pet_age: Optional[int] = Field(None, description="Pet age in months")
+    pet_weight: Optional[float] = Field(None, description="Pet weight in kg")
+    pet_gender: Optional[str] = Field(None, description="male or female")
+    pet_medical_conditions: Optional[str] = Field(None, description="Any medical conditions")
+    pet_special_notes: Optional[str] = Field(None, description="Special instructions for pet care")
+    pet_images: Optional[list[str]] = Field(None, description="URLs or paths to pet images")
 
 
 class CreateBookingResponse(BaseModel):
@@ -111,6 +122,17 @@ class BookingResponse(BaseModel):
     created_at: datetime
     approved_at: Optional[datetime]
     rejected_at: Optional[datetime]
+    
+    # Pet Details
+    pet_name: Optional[str] = None
+    pet_type: Optional[str] = None
+    pet_breed: Optional[str] = None
+    pet_age: Optional[int] = None
+    pet_weight: Optional[float] = None
+    pet_gender: Optional[str] = None
+    pet_medical_conditions: Optional[str] = None
+    pet_special_notes: Optional[str] = None
+    pet_images: Optional[list[str]] = None
 
 
 # ---------------------------------------------------------

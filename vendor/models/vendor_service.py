@@ -17,6 +17,7 @@ class VendorService(Model):
 
     label: Optional[str] = None
     delivery_mode: ServiceDeliveryMode 
+    is_active: bool = True  # Active/Inactive state for services
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
