@@ -11,29 +11,32 @@ from vendor.services.doctor_availability_service import add_doctor_availability
 
 router = APIRouter(
     prefix="/vendor/onboarding",
-    tags=["Vendor Onboarding - Doctor Availability"],
+    tags=["Vendor Onboarding - Availability"],
 )
 
 
-@router.post("/{vendor_id}/doctors/{doctor_id}/availability")
+@router.post("/{vendor_id}/availability")
 async def add_availability(
     vendor_id: str,
-    doctor_id: str,
-    payload: DoctorAvailabilityRequest,
+    payload: list[DoctorAvailabilityRequest],
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
     if token["vendor_id"] != vendor_id:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    availability = await add_doctor_availability(engine, doctor_id, payload)
+    availabilities = await add_doctor_availability(engine, payload)
 
     return success_response(
         message="Availability added",
-        data={
-            "doctor_id": doctor_id,
-            "day_of_week": availability.day_of_week,
-            "start_time": availability.start_time,
-            "end_time": availability.end_time,
-        },
+        data=[
+            {
+                "service_type_id": a.service_type_id,
+                "doctor_id": a.doctor_id,
+                "day_of_week": a.day_of_week,
+                "start_time": a.start_time,
+                "end_time": a.end_time,
+            }
+            for a in availabilities
+        ],
     )

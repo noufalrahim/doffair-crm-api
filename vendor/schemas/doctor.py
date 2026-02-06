@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 
 
 class DoctorCreateRequest(BaseModel):
@@ -9,6 +10,8 @@ class DoctorCreateRequest(BaseModel):
 
 
 class DoctorAvailabilityRequest(BaseModel):
+    service_type_id: str
+    doctor_id: Optional[str] = None
     day_of_week: int
     start_time: str
     end_time: str
