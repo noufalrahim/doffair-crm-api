@@ -18,22 +18,25 @@ router = APIRouter(
 @router.post("/{vendor_id}/availability")
 async def add_availability(
     vendor_id: str,
-    payload: DoctorAvailabilityRequest,
+    payload: list[DoctorAvailabilityRequest],
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
     if token["vendor_id"] != vendor_id:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    availability = await add_doctor_availability(engine, payload)
+    availabilities = await add_doctor_availability(engine, payload)
 
     return success_response(
         message="Availability added",
-        data={
-            "service_type_id": availability.service_type_id,
-            "doctor_id": availability.doctor_id,
-            "day_of_week": availability.day_of_week,
-            "start_time": availability.start_time,
-            "end_time": availability.end_time,
-        },
+        data=[
+            {
+                "service_type_id": a.service_type_id,
+                "doctor_id": a.doctor_id,
+                "day_of_week": a.day_of_week,
+                "start_time": a.start_time,
+                "end_time": a.end_time,
+            }
+            for a in availabilities
+        ],
     )

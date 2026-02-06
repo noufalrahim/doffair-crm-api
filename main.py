@@ -27,7 +27,17 @@ from vendor.routers import reminders_v2 as vendor_reminders_router
 from vendor.routers import profile as vendor_profile_router
 
 
+from core.config import settings
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="Doffair API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Admin routers
 app.include_router(admin_auth_router.router)
