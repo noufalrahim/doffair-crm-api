@@ -120,6 +120,9 @@ async def get_services(
                 label=s.label,
                 images=build_image_list(s.image_blob_paths),
                 is_active=s.is_active,
+                description=s.description,
+                duration_minutes=s.duration_minutes,
+                delivery_mode=s.delivery_mode,
                 base_price=pricing_map[str(s.id)].base_price if str(s.id) in pricing_map else None,
                 discount_type=pricing_map[str(s.id)].discount_type if str(s.id) in pricing_map else None,
                 discount_value=pricing_map[str(s.id)].discount_value if str(s.id) in pricing_map else None,
@@ -151,10 +154,37 @@ async def update_vendor_service(
 
     service = await update_service(engine, vendor_id, service_id, payload)
 
+    # Fetch updated pricing
+    pricing = await engine.find_one(
+        ServicePricing,
+        (ServicePricing.service_id == service_id) & (ServicePricing.vendor_id == vendor_id)
+    )
+    
+    base_price = pricing.base_price if pricing else None
+    discount_type = pricing.discount_type if pricing else None
+    discount_value = pricing.discount_value if pricing else None
+    
     return success_response(
         message="Service updated",
-        data={
-            "service_id": str(service.id),
-            "images": build_image_list(service.image_blob_paths),  # ✅ RETURN UPDATED IMAGES
-        },
+        data=VendorServiceResponse(
+            id=str(service.id),
+            name=service.name,
+            service_kind=service.service_kind,
+            location_id=service.location_id,
+            service_type_id=service.service_type_id,
+            label=service.label,
+            images=build_image_list(service.image_blob_paths),
+            is_active=service.is_active,
+            description=service.description,
+            duration_minutes=service.duration_minutes,
+            delivery_mode=service.delivery_mode,
+            base_price=base_price,
+            discount_type=discount_type,
+            discount_value=discount_value,
+            final_price=calculate_final_price(
+                base_price,
+                discount_type,
+                discount_value
+            ) if base_price is not None else None,
+        )
     )

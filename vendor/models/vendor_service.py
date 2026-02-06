@@ -13,7 +13,7 @@ class VendorService(Model):
     service_kind: str
 
     image_blob_paths: List[str] = []
-
+    
     description: Optional[str] = None
     duration_minutes: Optional[int] = None
     label: Optional[str] = None
