@@ -25,6 +25,7 @@ from vendor.routers import helpers as vendor_helpers_router
 from vendor.routers import prescriptions_v2 as vendor_prescriptions_router
 from vendor.routers import reminders_v2 as vendor_reminders_router
 from vendor.routers import profile as vendor_profile_router
+from vendor.routers import invoices as vendor_invoices_router
 
 
 from core.config import settings
@@ -68,6 +69,9 @@ app.include_router(vendor_prescriptions_router.router)
 
 # Vendor reminder system
 app.include_router(vendor_reminders_router.router)
+
+# Vendor invoice system
+app.include_router(vendor_invoices_router.router)
 
 # User routers
 app.include_router(user_auth_router.router)

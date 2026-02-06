@@ -1,0 +1,17 @@
+📄 *Invoice from {{vendor_name}}*
+
+*Invoice #{{invoice_number}}*
+
+💰 *Amount Due:* ₹{{grand_total}}
+📅 *Due Date:* {{due_date}}
+
+🛎️ *Service:* {{service_name}}
+📆 *Service Date:* {{service_date}}
+
+Please make payment by the due date.
+
+For queries, contact:
+📞 {{vendor_phone}}
+✉️ {{vendor_email}}
+
+Thank you! 🙏

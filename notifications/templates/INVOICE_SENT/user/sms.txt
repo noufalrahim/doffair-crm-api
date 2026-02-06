@@ -1,0 +1,10 @@
+Invoice #{{invoice_number}} from {{vendor_name}}
+
+Amount Due: ₹{{grand_total}}
+Due Date: {{due_date}}
+
+Service: {{service_name}}
+
+Please make payment by due date. Contact {{vendor_phone}} for queries.
+
+-Doffair

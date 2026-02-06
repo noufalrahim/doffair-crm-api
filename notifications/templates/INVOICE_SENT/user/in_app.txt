@@ -1,0 +1,5 @@
+Invoice #{{invoice_number}} from {{vendor_name}}
+
+Amount: ₹{{grand_total}} | Due: {{due_date}}
+
+Tap to view invoice details
