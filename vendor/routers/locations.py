@@ -23,18 +23,13 @@ router = APIRouter(
 )
 
 
-@router.post("/{vendor_id}/locations")
+@router.post("/locations")
 async def add_vendor_location(
-    vendor_id: str,
     payload: VendorLocationCreateRequest,
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
-    if token.get("vendor_id") != vendor_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Access denied",
-        )
+    vendor_id = token["vendor_id"]
 
     location, vendor = await create_location(
         engine=engine,
@@ -51,17 +46,12 @@ async def add_vendor_location(
     )
 
 
-@router.get("/{vendor_id}/locations")
+@router.get("/locations")
 async def get_vendor_locations(
-    vendor_id: str,
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
-    if token.get("vendor_id") != vendor_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Access denied",
-        )
+    vendor_id = token["vendor_id"]
 
     locations = await list_locations(engine, vendor_id)
 
@@ -82,16 +72,14 @@ async def get_vendor_locations(
 
 
 
-@router.patch("/{vendor_id}/locations/{location_id}")
+@router.patch("/locations/{location_id}")
 async def update_vendor_location(
-    vendor_id: str,
     location_id: str,
     payload: VendorLocationUpdateRequest,
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
-    if token["vendor_id"] != vendor_id:
-        raise HTTPException(status_code=403, detail="Access denied")
+    vendor_id = token["vendor_id"]
 
     location = await update_location(engine, vendor_id, location_id, payload)
 

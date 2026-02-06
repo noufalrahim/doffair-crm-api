@@ -28,19 +28,13 @@ router = APIRouter(
 # Select Vendor Service Types (CREATE)
 # ---------------------------------------------------------
 
-@router.post("/{vendor_id}/service-types")
+@router.post("/service-types")
 async def select_vendor_service_types(
-    vendor_id: str,
     payload: VendorServiceTypeSelectRequest,
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
-    # Vendor can update only their own data
-    if token.get("vendor_id") != vendor_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Access denied",
-        )
+    vendor_id = token["vendor_id"]
 
     vendor = await select_service_types(
         engine=engine,
@@ -77,19 +71,14 @@ async def select_vendor_service_types(
 # Update Vendor Service Type (Activate / Deactivate)
 # ---------------------------------------------------------
 
-@router.patch("/{vendor_id}/service-types/{service_type_id}")
+@router.patch("/service-types/{service_type_id}")
 async def update_vendor_service_type_api(
-    vendor_id: str,
     service_type_id: str,
     payload: VendorServiceTypeUpdateRequest,
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
-    if token["vendor_id"] != vendor_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Access denied",
-        )
+    vendor_id = token["vendor_id"]
 
     await update_vendor_service_type(
         engine,

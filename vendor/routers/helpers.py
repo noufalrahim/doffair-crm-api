@@ -40,7 +40,7 @@ async def get_vendor_locations(
         {
             "id": str(loc.id),
             "name": loc.name,
-            "address": f"{loc.address}, {loc.city}, {loc.pincode}"
+            "address": f"{loc.address_line_1}, {loc.city}, {loc.pincode}"
         }
         for loc in locations
     ]
@@ -129,6 +129,7 @@ async def get_my_service_types(
         if st:
             types_list.append({
                 "id": str(st.id),
+                "service_type_id": str(vst.id),  # Vendor's VendorServiceType record ID
                 "code": st.code,
                 "display_name": st.display_name,
                 "description": st.description or "",
