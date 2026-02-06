@@ -4,15 +4,20 @@ from vendor.models.doctor_availability import DoctorAvailability
 
 async def add_doctor_availability(
     engine: AIOEngine,
-    doctor_id: str,
-    payload,
+    payload: list,
 ):
-    availability = DoctorAvailability(
-        doctor_id=doctor_id,
-        day_of_week=payload.day_of_week,
-        start_time=payload.start_time,
-        end_time=payload.end_time,
-    )
+    import asyncio
 
-    await engine.save(availability)
-    return availability
+    availabilities = [
+        DoctorAvailability(
+            service_type_id=p.service_type_id,
+            doctor_id=p.doctor_id,
+            day_of_week=p.day_of_week,
+            start_time=p.start_time,
+            end_time=p.end_time,
+        )
+        for p in payload
+    ]
+
+    await asyncio.gather(*[engine.save(a) for a in availabilities])
+    return availabilities

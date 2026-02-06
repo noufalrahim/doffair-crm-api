@@ -47,6 +47,10 @@ class VendorServiceResponse(BaseModel):
     images: List[ImageSet] = []
     is_active: bool = True
     
+    description: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    delivery_mode: Optional[ServiceDeliveryMode] = None
+    
     # Pricing info
     base_price: Optional[float] = None
     discount_type: Optional[DiscountType] = None
