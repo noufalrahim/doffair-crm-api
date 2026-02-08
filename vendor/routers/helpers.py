@@ -20,6 +20,19 @@ router = APIRouter(
 )
 
 
+
+SERVICE_TYPE_METADATA = {
+    "grooming": {"url": "/groom/overview", "icon": "/services/groom.png"},
+    "vet": {"url": "/vet/overview", "icon": "/services/vet.png"},
+    "boarding": {"url": "/boarding/overview", "icon": "/services/boarding.png"},
+    "training": {"url": "/train/overview", "icon": "/services/train.png"},
+    "shop": {"url": "/shop/overview", "icon": "/services/shop.png"},
+    "walking": {"url": "/pet-walker/overview", "icon": "/services/walker.png"},
+    "adoption": {"url": "/adoption/overview", "icon": "/services/adoption.png"},
+    "daycare": {"url": "/daycare/overview", "icon": "/services/daycare.png"}, 
+}
+
+
 @router.get("/locations", response_model=dict)
 async def get_vendor_locations(
     current_vendor: dict = Depends(get_current_vendor),
@@ -94,7 +107,7 @@ async def get_my_service_types(
 ):
     """
     Get service types that THIS vendor has selected and offers
-    Returns: [{ id, code, display_name, description, mode, is_active, images }]
+    Returns: [{ id, code, display_name, description, mode, is_active, images, url, icon }]
     """
     vendor_id = current_vendor["vendor_id"]
     
@@ -124,9 +137,19 @@ async def get_my_service_types(
     
     # Build response with vendor-specific data
     types_list = []
+    
+    # Always include Dashboard if requested, but usually this is a static frontend route. 
+    # However, for the purpose of the sidebar menu which seems dynamically driven:
+    # We might want to prepend 'Dashboard' manually if it's not in the DB types.
+    # The user request implies they want these items to be available.
+    # Since this endpoint returns "my-service-types", it implies configured services.
+    # Dashboard is likely not a "service type" in the DB.
+    # We will stick to enriching the DB items for now.
+    
     for vst in vendor_service_types:
         st = service_type_map.get(vst.service_type_id)
         if st:
+            metadata = SERVICE_TYPE_METADATA.get(st.code, {})
             types_list.append({
                 "id": str(st.id),
                 "service_type_id": str(vst.id),  # Vendor's VendorServiceType record ID
@@ -135,7 +158,9 @@ async def get_my_service_types(
                 "description": st.description or "",
                 "mode": st.mode.value if hasattr(st.mode, 'value') else st.mode,
                 "is_active": vst.is_active,  # Vendor's active status
-                "images": build_image_list(st.image_blob_paths)
+                "images": build_image_list(st.image_blob_paths),
+                "url": metadata.get("url", ""),
+                "icon": metadata.get("icon", "")
             })
     
     return success_response(
@@ -152,7 +177,7 @@ async def get_all_service_types(
     """
     Get all available service types (from admin) for vendor to choose from
     This is used during onboarding or when vendor wants to add new service types
-    Returns: [{ id, code, display_name, description, mode, images }]
+    Returns: [{ id, code, display_name, description, mode, images, url, icon }]
     """
     # Get all active service types from admin
     service_types = await engine.find(
@@ -167,7 +192,9 @@ async def get_all_service_types(
             "display_name": st.display_name,
             "description": st.description or "",
             "mode": st.mode.value if hasattr(st.mode, 'value') else st.mode,
-            "images": build_image_list(st.image_blob_paths)
+            "images": build_image_list(st.image_blob_paths),
+            "url": SERVICE_TYPE_METADATA.get(st.code, {}).get("url", ""),
+            "icon": SERVICE_TYPE_METADATA.get(st.code, {}).get("icon", "")
         }
         for st in service_types
     ]
