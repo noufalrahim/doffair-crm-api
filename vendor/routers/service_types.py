@@ -15,6 +15,7 @@ from vendor.schemas.service_type import (
 from vendor.services.service_type_service import (
     select_service_types,
     update_vendor_service_type,
+    delete_vendor_service_type,
 )
 from admin.models.service_type import ServiceType  # ✅ for image fetch
 
@@ -104,4 +105,28 @@ async def update_vendor_service_type_api(
                 else []
             ),
         },
+    )
+
+
+
+# ---------------------------------------------------------
+# Delete Vendor Service Type
+# ---------------------------------------------------------
+
+@router.delete("/service-types/{service_type_id}")
+async def delete_vendor_service_type_api(
+    service_type_id: str,
+    token: dict = Depends(require_vendor()),
+    engine: AIOEngine = Depends(get_engine),
+):
+    vendor_id = token["vendor_id"]
+
+    await delete_vendor_service_type(
+        engine,
+        vendor_id,
+        service_type_id,
+    )
+
+    return success_response(
+        message="Service type deleted successfully",
     )

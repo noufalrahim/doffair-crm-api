@@ -27,7 +27,9 @@ class Settings(BaseSettings):
     # Database (MongoDB)
     # -------------------------
     MONGODB_URI: str
+    MONGODB_URI_SECONDARY: str | None = None
     MONGODB_DB_NAME: str = "doffair"
+    MONGODB_DB_NAME_SECONDARY: str = "doffair_dev"
 
     AZURE_BLOB_CONNECTION_STRING: str
     AZURE_BLOB_CONTAINER: str

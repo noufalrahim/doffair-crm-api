@@ -26,12 +26,13 @@ from vendor.routers import prescriptions_v2 as vendor_prescriptions_router
 from vendor.routers import reminders_v2 as vendor_reminders_router
 from vendor.routers import profile as vendor_profile_router
 from vendor.routers import invoices as vendor_invoices_router
+from vendor.routers import bookings as vendor_bookings_router
 
 
 from core.config import settings
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="Doffair API")
+app = FastAPI(title="Doffair API", swagger_ui_parameters={"persistAuthorization": True})
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -56,6 +57,7 @@ app.include_router(vendor_services_router.router)
 app.include_router(vendor_images_router.router)
 app.include_router(vendor_amenities_router.router)
 app.include_router(vendor_service_area_router.router)
+app.include_router(vendor_bookings_router.router)
 app.include_router(doctors.router)
 app.include_router(doctor_availability.router)
 app.include_router(pricing.router)

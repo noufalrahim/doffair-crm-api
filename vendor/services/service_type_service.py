@@ -86,3 +86,29 @@ async def update_vendor_service_type(
     vst.updated_at = datetime.utcnow()
     await engine.save(vst)
     return vst
+
+
+async def delete_vendor_service_type(
+    engine: AIOEngine,
+    vendor_id: str,
+    service_type_id: str,
+):
+    vst = await engine.find_one(
+        VendorServiceType,
+        (VendorServiceType.vendor_id == vendor_id)
+        & (VendorServiceType.service_type_id == service_type_id),
+    )
+    
+    if not vst:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service type not found",
+        )
+        
+    # Check if vendor is editable
+    vendor = await engine.find_one(Vendor, Vendor.id == ObjectId(vendor_id))
+    ensure_vendor_editable(vendor)
+
+    await engine.delete(vst)
+    
+    return True
