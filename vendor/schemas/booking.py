@@ -1,6 +1,9 @@
-from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional, List
+from pydantic import BaseModel
+
+class BookingStatusUpdate(BaseModel):
+    status: str
 
 class UserSummary(BaseModel):
     name: str = "Unknown"
@@ -46,6 +49,7 @@ class VendorBookingResponse(BaseModel):
     final_amount: float
     vendor_notes: Optional[str] = None
     created_at: datetime
+    is_offline: bool = False
     
     # Nested Objects
     user: UserSummary

@@ -149,15 +149,21 @@ async def get_my_service_types(
     for vst in vendor_service_types:
         st = service_type_map.get(vst.service_type_id)
         if st:
-            metadata = SERVICE_TYPE_METADATA.get(st.code, {})
+            # Find metadata matching ANY of the codes
+            metadata = {}
+            for code in st.code:
+                if code in SERVICE_TYPE_METADATA:
+                    metadata = SERVICE_TYPE_METADATA[code]
+                    break
+            
             types_list.append({
                 "id": str(st.id),
-                "service_type_id": str(vst.id),  # Vendor's VendorServiceType record ID
+                "service_type_id": str(vst.id),
                 "code": st.code,
                 "display_name": st.display_name,
                 "description": st.description or "",
                 "mode": st.mode.value if hasattr(st.mode, 'value') else st.mode,
-                "is_active": vst.is_active,  # Vendor's active status
+                "is_active": vst.is_active,
                 "images": build_image_list(st.image_blob_paths),
                 "url": metadata.get("url", ""),
                 "icon": metadata.get("icon", "")
@@ -185,19 +191,25 @@ async def get_all_service_types(
         ServiceType.is_active == True
     )
     
-    types_list = [
-        {
+    types_list = []
+    for st in service_types:
+        # Find metadata matching ANY of the codes
+        metadata = {}
+        for code in st.code:
+            if code in SERVICE_TYPE_METADATA:
+                metadata = SERVICE_TYPE_METADATA[code]
+                break
+                
+        types_list.append({
             "id": str(st.id),
             "code": st.code,
             "display_name": st.display_name,
             "description": st.description or "",
             "mode": st.mode.value if hasattr(st.mode, 'value') else st.mode,
             "images": build_image_list(st.image_blob_paths),
-            "url": SERVICE_TYPE_METADATA.get(st.code, {}).get("url", ""),
-            "icon": SERVICE_TYPE_METADATA.get(st.code, {}).get("icon", "")
-        }
-        for st in service_types
-    ]
+            "url": metadata.get("url", ""),
+            "icon": metadata.get("icon", "")
+        })
     
     return success_response(
         message="Service types retrieved successfully",

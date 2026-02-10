@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 
 # ---------------------------------------------------------
@@ -14,10 +14,6 @@ class VendorServiceTypeUpdateRequest(BaseModel):
     is_active: bool
 
 
-# ---------------------------------------------------------
-# Responses (READ) — REQUIRED
-# ---------------------------------------------------------
-
 class ImageSet(BaseModel):
     original: str
     medium: str
@@ -25,7 +21,8 @@ class ImageSet(BaseModel):
 
 
 class VendorServiceTypeResponse(BaseModel):
-    service_type_id: str
+    id: str
     name: str
-    is_active: bool
+    description: Optional[str] = None
     images: List[ImageSet] = []
+    is_active: bool

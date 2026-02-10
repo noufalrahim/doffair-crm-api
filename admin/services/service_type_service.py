@@ -11,14 +11,21 @@ async def create_service_type(
     engine: AIOEngine,
     payload: ServiceTypeCreate,
 ) -> ServiceType:
+    # Check if ANY of the codes in the list already exist
+    # Since 'code' is a list field in DB, we check if any exist in any document's code list.
+    # $in operator checks if value exists in array field.
+    # We want to know if *any* new code is already present.
+    # Query: { "code": { "$in": payload.code } }
+    
     existing = await engine.find_one(
         ServiceType,
-        ServiceType.code == payload.code,
+        {"code": {"$in": payload.code}}
     )
+    
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Service type with this code already exists",
+            detail="One or more codes already exist in a service type",
         )
 
     service_type = ServiceType(

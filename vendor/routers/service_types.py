@@ -18,6 +18,7 @@ from vendor.services.service_type_service import (
     delete_vendor_service_type,
 )
 from admin.models.service_type import ServiceType  # ✅ for image fetch
+from vendor.models.vendor_service_type import VendorServiceType
 
 
 router = APIRouter(
@@ -129,4 +130,62 @@ async def delete_vendor_service_type_api(
 
     return success_response(
         message="Service type deleted successfully",
+    )
+
+
+    return success_response(
+        message="Service type deleted successfully",
+    )
+
+
+# ---------------------------------------------------------
+# Get Vendor Service Type by ID (simpler path)
+# ---------------------------------------------------------
+
+router_general = APIRouter(
+    prefix="/vendor/service-types",
+    tags=["Vendor Service Types"],
+)
+
+@router_general.get("/{service_type_id}")
+async def get_vendor_service_type_api(
+    service_type_id: str,
+    token: dict = Depends(require_vendor()),
+    engine: AIOEngine = Depends(get_engine),
+):
+    vendor_id = token["vendor_id"]
+
+    # 1. Fetch VendorServiceType status
+    vst = await engine.find_one(
+        VendorServiceType,
+        (VendorServiceType.vendor_id == vendor_id)
+        & (VendorServiceType.service_type_id == service_type_id),
+    )
+
+    if not vst:
+         raise HTTPException(
+            status_code=404,
+            detail="Service type not found or not selected by vendor",
+        )
+
+    # 2. Fetch Admin ServiceType details
+    st = await engine.find_one(
+        ServiceType,
+        ServiceType.id == ObjectId(service_type_id),
+    )
+    
+    if not st:
+         raise HTTPException(status_code=404, detail="Service type definition not found")
+
+    # 3. Return combined response
+    from vendor.schemas.service_type import VendorServiceTypeResponse
+    
+    return success_response(
+        data=VendorServiceTypeResponse(
+            id=str(st.id),
+            name=st.display_name,
+            description=st.description,
+            images=build_image_list(st.image_blob_paths),
+            is_active=vst.is_active,
+        )
     )

@@ -15,7 +15,7 @@ class ImageSet(BaseModel):
 
 
 class ServiceTypeCreate(BaseModel):
-    code: str = Field(..., examples=["grooming"])
+    code: List[str] = Field(..., examples=[["grooming", "groomer"]])
     display_name: str = Field(..., examples=["Pet Grooming"])
     description: Optional[str] = None
     mode: ServiceMode
@@ -23,7 +23,7 @@ class ServiceTypeCreate(BaseModel):
 
 class ServiceTypeResponse(BaseModel):
     id: str
-    code: str
+    code: List[str]
     display_name: str
     description: Optional[str]
     mode: ServiceMode

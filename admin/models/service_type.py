@@ -6,7 +6,7 @@ from core.enums import ServiceMode
 
 
 class ServiceType(Model):
-    code: str = Field(unique=True)              # grooming, vet, cafe
+    code: List[str] = Field(unique=True)        # ['groomer', 'groom', 'grooming']
     display_name: str                           # Pet Grooming
     description: Optional[str] = None           # ← FIXED
     mode: ServiceMode                           # booking | lead
