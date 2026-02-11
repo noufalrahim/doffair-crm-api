@@ -4,6 +4,7 @@ from typing import Optional
 
 
 class DoctorAvailability(Model):
+    vendor_id: str
     service_type_id: str
     doctor_id: Optional[str] = None
 
@@ -14,8 +15,9 @@ class DoctorAvailability(Model):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = {
-        "collection": "doctor_availability",
+        "collection": "availability",
         "indexes": [
+            {"fields": ["vendor_id"]},
             {"fields": ["service_type_id"]},
             {"fields": ["doctor_id"]},
         ],
