@@ -33,14 +33,13 @@ async def select_service_types(
 
     service_types = await engine.find(
         ServiceType,
-        (ServiceType.id.in_(service_type_oids)) &
-        (ServiceType.is_active == True)
+        ServiceType.id.in_(service_type_oids)
     )
 
     if len(service_types) != len(service_type_ids):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="One or more service types are invalid or inactive",
+            detail="One or more service types are invalid",
         )
 
     # Create vendor-service-type mappings (idempotent)
@@ -55,6 +54,7 @@ async def select_service_types(
             vst = VendorServiceType(
                 vendor_id=vendor_id,
                 service_type_id=str(st.id),
+                is_active=st.is_active,
             )
             await engine.save(vst)
 

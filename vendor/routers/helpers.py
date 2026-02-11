@@ -21,35 +21,6 @@ router = APIRouter(
 
 
 
-SERVICE_TYPE_METADATA = {
-    "grooming": {"url": "/groom/overview", "icon": "/services/groom.png"},
-    "vet": {"url": "/vet/overview", "icon": "/services/vet.png"},
-    "boarding": {"url": "/boarding/overview", "icon": "/services/boarding.png"},
-    "training": {"url": "/train/overview", "icon": "/services/train.png"},
-    "shop": {"url": "/shop/overview", "icon": "/services/shop.png"},
-    "walking": {"url": "/pet-walker/overview", "icon": "/services/walker.png"},
-    "adoption": {"url": "/adoption/overview", "icon": "/services/adoption.png"},
-    "daycare": {"url": "/daycare/overview", "icon": "/services/daycare.png"}, 
-}
-
-SERVICE_TYPE_PRIORITY_ORDER = ["vet", "grooming", "boarding", "petcafe"]
-
-def get_service_priority(codes):
-    """
-    Returns priority index for sorting based on service codes.
-    Lower index = Higher priority (displayed first).
-    """
-    if not codes:
-        return len(SERVICE_TYPE_PRIORITY_ORDER)
-        
-    for code in codes:
-        if code in SERVICE_TYPE_PRIORITY_ORDER:
-            return SERVICE_TYPE_PRIORITY_ORDER.index(code)
-    
-    # If not found in priority list, push to the end
-    return len(SERVICE_TYPE_PRIORITY_ORDER)
-
-
 @router.get("/locations", response_model=dict)
 async def get_vendor_locations(
     current_vendor: dict = Depends(get_current_vendor),
@@ -166,13 +137,6 @@ async def get_my_service_types(
     for vst in vendor_service_types:
         st = service_type_map.get(vst.service_type_id)
         if st:
-            # Find metadata matching ANY of the codes
-            metadata = {}
-            for code in st.code:
-                if code in SERVICE_TYPE_METADATA:
-                    metadata = SERVICE_TYPE_METADATA[code]
-                    break
-            
             types_list.append({
                 "id": str(st.id),
                 "service_type_id": str(vst.id),
@@ -182,12 +146,13 @@ async def get_my_service_types(
                 "mode": st.mode.value if hasattr(st.mode, 'value') else st.mode,
                 "is_active": vst.is_active,
                 "images": build_image_list(st.image_blob_paths),
-                "url": metadata.get("url", ""),
-                "icon": metadata.get("icon", "")
+                "url": st.url or "",
+                "icon": st.icon or "",
+                "priority": st.priority
             })
             
-    # Sort the list based on priority order
-    types_list.sort(key=lambda x: get_service_priority(x['code']))
+    # Sort the list based on priority field
+    types_list.sort(key=lambda x: x.get('priority', 100))
     
     return success_response(
         message="Service types retrieved successfully",
@@ -205,21 +170,11 @@ async def get_all_service_types(
     This is used during onboarding or when vendor wants to add new service types
     Returns: [{ id, code, display_name, description, mode, images, url, icon }]
     """
-    # Get all active service types from admin
-    service_types = await engine.find(
-        ServiceType,
-        ServiceType.is_active == True
-    )
+    # Get all service types from admin
+    service_types = await engine.find(ServiceType)
     
     types_list = []
     for st in service_types:
-        # Find metadata matching ANY of the codes
-        metadata = {}
-        for code in st.code:
-            if code in SERVICE_TYPE_METADATA:
-                metadata = SERVICE_TYPE_METADATA[code]
-                break
-                
         types_list.append({
             "id": str(st.id),
             "code": st.code,
@@ -227,12 +182,14 @@ async def get_all_service_types(
             "description": st.description or "",
             "mode": st.mode.value if hasattr(st.mode, 'value') else st.mode,
             "images": build_image_list(st.image_blob_paths),
-            "url": metadata.get("url", ""),
-            "icon": metadata.get("icon", "")
+            "url": st.url or "",
+            "icon": st.icon or "",
+            "priority": st.priority,
+            "is_active": st.is_active
         })
         
-    # Sort the list based on priority order
-    types_list.sort(key=lambda x: get_service_priority(x['code']))
+    # Sort the list based on priority field
+    types_list.sort(key=lambda x: x.get('priority', 100))
     
     return success_response(
         message="Service types retrieved successfully",

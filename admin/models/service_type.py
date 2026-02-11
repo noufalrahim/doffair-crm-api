@@ -12,6 +12,9 @@ class ServiceType(Model):
     mode: ServiceMode                           # booking | lead
     is_active: bool = True
     image_blob_paths: List[str] = []
+    url: Optional[str] = None
+    icon: Optional[str] = None
+    priority: int = 100
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
