@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://localhost:4200",
+        "http://localhost:8100",
     ]
 
     # -------------------------
