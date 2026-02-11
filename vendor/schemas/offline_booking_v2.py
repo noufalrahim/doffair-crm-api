@@ -4,6 +4,7 @@ Offline booking schemas - Simplified version
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional
 from datetime import datetime
+from core.enums import ServiceDeliveryMode
 
 
 class CreateOfflineBookingSimple(BaseModel):
@@ -31,7 +32,7 @@ class CreateOfflineBookingSimple(BaseModel):
     
     # Booking details
     booking_date: datetime
-    delivery_mode: str = "CENTER"
+    delivery_mode: ServiceDeliveryMode = ServiceDeliveryMode.CENTER
     service_address: Optional[str] = None
     service_city: Optional[str] = None
     service_pincode: Optional[str] = None
@@ -80,7 +81,7 @@ class OfflineBookingResponse(BaseModel):
     
     # Booking
     booking_date: datetime
-    delivery_mode: str
+    delivery_mode: ServiceDeliveryMode
     final_amount: float
     payment_mode: Optional[str]
     status: str

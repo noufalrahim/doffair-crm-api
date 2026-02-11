@@ -18,6 +18,7 @@ from vendor.services.service_service import (
     list_services,
     mark_services_configured,
     update_service,
+    delete_service,
 )
 from vendor.models.service_pricing import ServicePricing
 from vendor.utils.pricing import calculate_final_price
@@ -123,6 +124,7 @@ async def get_services(
                 description=s.description,
                 duration_minutes=s.duration_minutes,
                 delivery_mode=s.delivery_mode,
+                dog_sizes=s.dog_sizes,
                 base_price=pricing_map[str(s.id)].base_price if str(s.id) in pricing_map else None,
                 discount_type=pricing_map[str(s.id)].discount_type if str(s.id) in pricing_map else None,
                 discount_value=pricing_map[str(s.id)].discount_value if str(s.id) in pricing_map else None,
@@ -178,6 +180,7 @@ async def update_vendor_service(
             description=service.description,
             duration_minutes=service.duration_minutes,
             delivery_mode=service.delivery_mode,
+            dog_sizes=service.dog_sizes,
             base_price=base_price,
             discount_type=discount_type,
             discount_value=discount_value,
@@ -188,3 +191,19 @@ async def update_vendor_service(
             ) if base_price is not None else None,
         )
     )
+
+
+# ---------------------------------------------------------
+# Delete Vendor Service
+# ---------------------------------------------------------
+
+@router.delete("/services/{service_id}")
+async def delete_vendor_service(
+    service_id: str,
+    token: dict = Depends(require_vendor()),
+    engine: AIOEngine = Depends(get_engine),
+):
+    vendor_id = token["vendor_id"]
+    await delete_service(engine, vendor_id, service_id)
+
+    return success_response(message="Service deleted successfully")

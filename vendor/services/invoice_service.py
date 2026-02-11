@@ -24,6 +24,8 @@ from vendor.utils.invoice_utils import (
 from core.enums import InvoiceStatus, InvoiceAuditAction, BookingStatus
 from notifications.events.publisher import event_publisher
 from notifications.events.types import EventType, EventSource
+from core.database import get_secondary_engine
+from core.enums import ServiceDeliveryMode
 
 logger = logging.getLogger(__name__)
 
@@ -169,23 +171,131 @@ async def generate_invoice_from_booking(
             Booking,
             (Booking.id == ObjectId(booking_id)) & (Booking.vendor_id == vendor_id)
         )
-        if not booking:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Booking {booking_id} not found or access denied"
-            )
     except Exception as e:
         logger.error(f"Error fetching booking {booking_id}: {str(e)}")
+        booking = None
+        
+    # LOGIC UPDATE: Fallback to Secondary DB for Legacy Bookings
+    if not booking:
+        try:
+            logger.info(f"Booking {booking_id} not found in primary DB. Checking secondary DB for legacy booking...")
+            secondary_engine = get_secondary_engine()
+            
+            # Fetch raw to handle legacy schema
+            if ObjectId.is_valid(booking_id):
+                query = {"_id": ObjectId(booking_id)}
+            else:
+                query = {"_id": booking_id}
+                
+            legacy_doc = await secondary_engine.get_collection(Booking).find_one(query)
+            
+            if legacy_doc:
+                # Check vendor ownership (legacy field: serviceProviderId or vendor_id)
+                doc_vendor_id = str(legacy_doc.get("serviceProviderId") or legacy_doc.get("vendor_id") or "")
+                
+                if doc_vendor_id == vendor_id:
+                    # ---------------------------------------------------------
+                    # Map Legacy Doc to Booking Object
+                    # ---------------------------------------------------------
+                    
+                    # 1. Calculate Final Amount from Services List
+                    services = legacy_doc.get("services", [])
+                    final_amount = float(legacy_doc.get("bookingAmount", 0))
+                    service_name = "Unknown Service"
+                    
+                    if not final_amount and services:
+                         # Sum up prices if bookingAmount missing
+                         final_amount = sum(float(s.get("price", 0)) for s in services)
+                         if services:
+                             service_name = services[0].get("name", "Unknown Service")
+                    
+                    if not service_name and legacy_doc.get("service_name"):
+                        service_name = legacy_doc.get("service_name")
+                        
+                    # 2. Fetch User Details if missing
+                    user_id = legacy_doc.get("userId") or legacy_doc.get("user_id")
+                    user_name = legacy_doc.get("user_name", "Unknown")
+                    user_email = legacy_doc.get("user_email", "Unknown")
+                    user_phone = legacy_doc.get("user_phone", "Unknown")
+                    
+                    if user_id and (user_name == "Unknown" or user_email == "Unknown"):
+                        try:
+                            user_coll = secondary_engine.database.get_collection("users")
+                            user_doc = await user_coll.find_one({"_id": user_id}) 
+                            if not user_doc and ObjectId.is_valid(user_id):
+                                user_doc = await user_coll.find_one({"_id": ObjectId(user_id)})
+                                
+                            if user_doc:
+                                if user_name == "Unknown":
+                                    user_name = user_doc.get("username") or user_doc.get("firstName") or "Unknown"
+                                if user_email == "Unknown":
+                                    user_email = user_doc.get("email", "Unknown")
+                                if user_phone == "Unknown":
+                                    user_phone = user_doc.get("phoneNumber") or user_doc.get("phone", "Unknown")
+                        except Exception as e:
+                            logger.warning(f"Failed to fetch user details for legacy booking: {e}")
+
+                    # 3. Status Mapping
+                    raw_status = legacy_doc.get("status")
+                    mapped_status = BookingStatus.PENDING_PAYMENT
+                    if raw_status:
+                        raw_status_str = str(raw_status).lower()
+                        if raw_status_str == "completed":
+                            mapped_status = BookingStatus.COMPLETED
+                        elif raw_status_str == "confirmed":
+                            mapped_status = BookingStatus.CONFIRMED
+                        elif raw_status_str == "cancelled":
+                            mapped_status = BookingStatus.CANCELLED
+                            
+                    # 4. Construct Booking Object
+                    booking = Booking.model_construct(
+                        id=legacy_doc.get("_id"),
+                        user_id=str(user_id) if user_id else "unknown",
+                        vendor_id=vendor_id,
+                        service_name=service_name,
+                        service_type_name=legacy_doc.get("serviceType", "Unknown"),
+                        booking_date=legacy_doc.get("startTime") or legacy_doc.get("booking_date") or datetime.utcnow(),
+                        delivery_mode=ServiceDeliveryMode.CENTER, # Default
+                        
+                        user_name=user_name,
+                        user_email=user_email,
+                        user_phone=user_phone,
+                        
+                        base_amount=final_amount,
+                        final_amount=final_amount,
+                        discount_amount=0.0,
+                        
+                        status=mapped_status,
+                        is_offline=False # Implicitly online if from legacy
+                    )
+                    logger.info(f"✅ Mapped legacy booking {booking_id} to Booking model")
+                    
+        except Exception as e:
+            logger.error(f"Error fetching/mapping legacy booking {booking_id}: {str(e)}")
+            # Fallthrough to 404
+            
+    if not booking:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid booking ID: {booking_id}"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Booking {booking_id} not found or access denied"
         )
     
-    # Check if booking is completed
-    if booking.status != BookingStatus.COMPLETED:
+    # Check if booking is completed (or confirmed if offline)
+    is_valid_status = False
+    
+    if hasattr(booking, 'is_offline') and booking.is_offline:
+        # Offline bookings are valid if CONFIRMED or COMPLETED
+        if booking.status in [BookingStatus.CONFIRMED.value, BookingStatus.COMPLETED.value, BookingStatus.CONFIRMED, BookingStatus.COMPLETED]:
+            is_valid_status = True
+    else:
+        # Online bookings must be COMPLETED
+        if booking.status == BookingStatus.COMPLETED:
+            is_valid_status = True
+            
+    if not is_valid_status:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot generate invoice. Booking status is {booking.status}. Must be COMPLETED."
+            detail=f"Cannot generate invoice. Booking status is {booking.status}. Must be COMPLETED (or CONFIRMED for offline bookings)."
         )
     
     # Check if invoice already exists using direct MongoDB query
@@ -432,10 +542,13 @@ async def get_vendor_invoices(
     vendor_id: str,
     status_filter: Optional[InvoiceStatus] = None,
     customer_id: Optional[str] = None,
+    search: Optional[str] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
     limit: int = 50,
     skip: int = 0
-) -> List[Invoice]:
-    """Get all invoices for vendor with filters"""
+) -> tuple[List[Invoice], int]:
+    """Get all invoices for vendor with filters and search"""
     
     # Build MongoDB query to bypass ODMantic validation
     mongo_query = {"vendor_id": vendor_id, "is_active": True}
@@ -445,6 +558,31 @@ async def get_vendor_invoices(
     
     if customer_id:
         mongo_query["customer_id"] = customer_id
+        
+    # Date Filtering (Due Date)
+    if start_date or end_date:
+        date_query = {}
+        if start_date:
+            date_query["$gte"] = start_date
+        if end_date:
+            date_query["$lte"] = end_date
+            
+        mongo_query["due_date"] = date_query
+        
+    # Search Implementation
+    if search:
+        search_criteria = []
+        search_criteria.append({"invoice_number": {"$regex": search, "$options": "i"}})
+        search_criteria.append({"customer_name": {"$regex": search, "$options": "i"}})
+        
+        if ObjectId.is_valid(search):
+            search_criteria.append({"_id": ObjectId(search)})
+            
+        if search_criteria:
+            mongo_query["$or"] = search_criteria
+    
+    # Get total count
+    total = await engine.get_collection(Invoice).count_documents(mongo_query)
     
     # Fetch from MongoDB directly
     cursor = engine.get_collection(Invoice).find(mongo_query).sort("created_at", -1).skip(skip).limit(limit)
@@ -456,7 +594,7 @@ async def get_vendor_invoices(
         inv['id'] = inv.pop('_id')
         invoices.append(Invoice.model_construct(**inv))
     
-    return invoices
+    return invoices, total
 
 
 async def get_invoice_by_id(

@@ -25,8 +25,9 @@ async def upsert_service_area(
     if not service:
         raise ValueError("Service not found")
 
-    if service.delivery_mode == "CENTER":
-        raise ValueError("CENTER services do not require service area")
+    from core.enums import ServiceDeliveryMode
+    if service.delivery_mode == ServiceDeliveryMode.CENTER:
+        raise ValueError(f"{ServiceDeliveryMode.CENTER} services do not require service area")
 
     if payload.area_type == "RADIUS" and not payload.radius_km:
         raise ValueError("radius_km required for RADIUS")

@@ -15,6 +15,8 @@ from user.schemas.booking import (
     ApproveBookingRequest,
     RejectBookingRequest,
     VendorActionResponse,
+    UserSummary,
+    PetSummary,
 )
 from user.services.booking_service import (
     create_booking,
@@ -71,7 +73,7 @@ async def create_new_booking(
     )
     
     return CreateBookingResponse(
-        booking_id=str(booking.id),
+        id=str(booking.id),
         service_name=booking.service_name,
         vendor_name=booking.vendor_name,
         booking_date=booking.booking_date,
@@ -103,7 +105,7 @@ async def initiate_booking_payment(
     
     return InitiatePaymentResponse(
         payment_id=str(payment.id),
-        booking_id=str(booking.id),
+        id=str(booking.id),
         amount=payment.amount,
         currency="INR",
         payment_gateway_order_id=payment.payment_gateway_order_id,
@@ -133,7 +135,7 @@ async def confirm_booking_payment(
     )
     
     return ConfirmPaymentResponse(
-        booking_id=str(booking.id),
+        id=str(booking.id),
         payment_id=str(payment.id),
         status=booking.status,
         message="Payment confirmed! Your booking is now pending vendor approval.",
@@ -144,6 +146,7 @@ async def confirm_booking_payment(
 async def get_my_bookings(
     token: dict = Depends(require_user),
     engine: AIOEngine = Depends(get_engine),
+    status: str = Query(None, description="Filter by status"),
     limit: int = Query(50, ge=1, le=100),
     skip: int = Query(0, ge=0),
 ):
@@ -152,42 +155,53 @@ async def get_my_bookings(
     """
     user_id = token.get("user_id")
     
-    bookings_with_payments = await get_user_bookings(engine, user_id, limit, skip)
+    bookings_with_payments, total = await get_user_bookings(engine, user_id, status_filter=status, limit=limit, skip=skip)
     
     return success_response(
-        data=[
-            BookingResponse(
-                booking_id=booking.get("id"),
-                user_name=booking.get("user_name"),
-                user_phone=booking.get("user_phone"),
-                user_email=booking.get("user_email"),
-                vendor_name=booking.get("vendor_name"),
-                vendor_phone=booking.get("vendor_phone"),
-                service_name=booking.get("service_name"),
-                service_type_name=booking.get("service_type_name"),
-                booking_date=booking.get("booking_date"),
-                delivery_mode=booking.get("delivery_mode"),
-                service_address=booking.get("service_address"),
-                final_amount=booking.get("final_amount"),
-                status=booking.get("status"),
-                payment_status=payment.get("status") if payment else None,
-                vendor_notes=booking.get("vendor_notes"),
-                rejection_reason=booking.get("rejection_reason"),
-                created_at=booking.get("created_at"),
-                approved_at=booking.get("approved_at"),
-                rejected_at=booking.get("rejected_at"),
-                pet_name=booking.get("pet_name"),
-                pet_type=booking.get("pet_type"),
-                pet_breed=booking.get("pet_breed"),
-                pet_age=booking.get("pet_age"),
-                pet_weight=booking.get("pet_weight"),
-                pet_gender=booking.get("pet_gender"),
-                pet_medical_conditions=booking.get("pet_medical_conditions"),
-                pet_special_notes=booking.get("pet_special_notes"),
-                pet_images=booking.get("pet_images"),
-            )
-            for booking, payment in bookings_with_payments
-        ]
+        data={
+            "data": [
+                BookingResponse(
+                    id=booking.get("id"),
+                    vendor_name=booking.get("vendor_name"),
+                    vendor_phone=booking.get("vendor_phone"),
+                    service_name=booking.get("service_name"),
+                    service_type_name=booking.get("service_type_name"),
+                    booking_date=booking.get("booking_date"),
+                    delivery_mode=booking.get("delivery_mode"),
+                    service_address=booking.get("service_address"),
+                    final_amount=booking.get("final_amount"),
+                    status=booking.get("status"),
+                    payment_status=payment.get("status") if payment else None,
+                    vendor_notes=booking.get("vendor_notes"),
+                    rejection_reason=booking.get("rejection_reason"),
+                    created_at=booking.get("created_at"),
+                    approved_at=booking.get("approved_at"),
+                    rejected_at=booking.get("rejected_at"),
+                    user=UserSummary(
+                        name=booking.get("user_name", "Unknown"),
+                        phone=booking.get("user_phone", "Unknown"),
+                        email=booking.get("user_email", "Unknown")
+                    ),
+                    pet=PetSummary(
+                        name=booking.get("pet_name"),
+                        type=booking.get("pet_type"),
+                        breed=booking.get("pet_breed"),
+                        age=booking.get("pet_age"),
+                        weight=booking.get("pet_weight"),
+                        gender=booking.get("pet_gender"),
+                        medical_conditions=booking.get("pet_medical_conditions"),
+                        special_notes=booking.get("pet_special_notes"),
+                        images=booking.get("pet_images")
+                    ) if booking.get("pet_name") else None
+                ).model_dump(exclude_none=True)
+                for booking, payment in bookings_with_payments
+            ],
+            "meta": {
+                "total": total,
+                "skip": skip,
+                "limit": limit
+            }
+        }
     )
 
 
@@ -200,6 +214,7 @@ async def get_vendor_my_bookings(
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
     status: str = Query(None, description="Filter by status: PENDING_APPROVAL, CONFIRMED, etc."),
+    service_type_id: str = Query(None, description="Filter by service type ID"),
     limit: int = Query(50, ge=1, le=100),
     skip: int = Query(0, ge=0),
 ):
@@ -209,44 +224,56 @@ async def get_vendor_my_bookings(
     """
     vendor_id = token.get("vendor_id")
     
-    bookings_with_payments = await get_vendor_bookings(
-        engine, vendor_id, status_filter=status, limit=limit, skip=skip
+    # Offline Bookings ONLY (Modern Primary DB)
+    bookings_with_payments, total = await get_vendor_bookings(
+        engine, vendor_id, status_filter=status, limit=limit, skip=skip, is_offline=True, service_type_id=service_type_id
     )
     
     return success_response(
-        data=[
-            BookingResponse(
-                booking_id=booking.get("id"),
-                user_name=booking.get("user_name"),
-                user_phone=booking.get("user_phone"),
-                user_email=booking.get("user_email"),
-                vendor_name=booking.get("vendor_name"),
-                vendor_phone=booking.get("vendor_phone"),
-                service_name=booking.get("service_name"),
-                service_type_name=booking.get("service_type_name"),
-                booking_date=booking.get("booking_date"),
-                delivery_mode=booking.get("delivery_mode"),
-                service_address=booking.get("service_address"),
-                final_amount=booking.get("final_amount"),
-                status=booking.get("status"),
-                payment_status=payment.get("status") if payment else None,
-                vendor_notes=booking.get("vendor_notes"),
-                rejection_reason=booking.get("rejection_reason"),
-                created_at=booking.get("created_at"),
-                approved_at=booking.get("approved_at"),
-                rejected_at=booking.get("rejected_at"),
-                pet_name=booking.get("pet_name"),
-                pet_type=booking.get("pet_type"),
-                pet_breed=booking.get("pet_breed"),
-                pet_age=booking.get("pet_age"),
-                pet_weight=booking.get("pet_weight"),
-                pet_gender=booking.get("pet_gender"),
-                pet_medical_conditions=booking.get("pet_medical_conditions"),
-                pet_special_notes=booking.get("pet_special_notes"),
-                pet_images=booking.get("pet_images"),
-            )
-            for booking, payment in bookings_with_payments
-        ]
+        data={
+            "data": [
+                BookingResponse(
+                    id=booking.get("id"),
+                    vendor_name=booking.get("vendor_name"),
+                    vendor_phone=booking.get("vendor_phone"),
+                    service_name=booking.get("service_name"),
+                    service_type_name=booking.get("service_type_name"),
+                    booking_date=booking.get("booking_date"),
+                    delivery_mode=booking.get("delivery_mode"),
+                    service_address=booking.get("service_address"),
+                    final_amount=booking.get("final_amount"),
+                    status=booking.get("status"),
+                    payment_status=payment.get("status") if payment else None,
+                    vendor_notes=booking.get("vendor_notes"),
+                    rejection_reason=booking.get("rejection_reason"),
+                    created_at=booking.get("created_at"),
+                    approved_at=booking.get("approved_at"),
+                    rejected_at=booking.get("rejected_at"),
+                    user=UserSummary(
+                        name=booking.get("user_name", "Unknown"),
+                        phone=booking.get("user_phone", "Unknown"),
+                        email=booking.get("user_email", "Unknown")
+                    ),
+                    pet=PetSummary(
+                        name=booking.get("pet_name"),
+                        type=booking.get("pet_type"),
+                        breed=booking.get("pet_breed"),
+                        age=booking.get("pet_age"),
+                        weight=booking.get("pet_weight"),
+                        gender=booking.get("pet_gender"),
+                        medical_conditions=booking.get("pet_medical_conditions"),
+                        special_notes=booking.get("pet_special_notes"),
+                        images=booking.get("pet_images")
+                    ) if booking.get("pet_name") else None
+                ).model_dump(exclude_none=True)
+                for booking, payment in bookings_with_payments
+            ],
+            "meta": {
+                "total": total,
+                "skip": skip,
+                "limit": limit
+            }
+        }
     )
 
 
@@ -271,7 +298,7 @@ async def vendor_approve_booking(
     )
     
     return VendorActionResponse(
-        booking_id=str(booking.id),
+        id=str(booking.id),
         status=booking.status,
         message=f"Booking approved successfully! Service scheduled for {booking.booking_date.strftime('%Y-%m-%d %H:%M')}",
         refund_initiated=False,
@@ -302,7 +329,7 @@ async def vendor_reject_booking(
     refund_initiated = payment and payment.get("status") == "REFUNDED"
     
     return VendorActionResponse(
-        booking_id=str(booking.id),
+        id=str(booking.id),
         status=booking.status,
         message=f"Booking rejected. {('Refund has been initiated.' if refund_initiated else 'No refund needed.')}",
         refund_initiated=refund_initiated,
@@ -321,42 +348,53 @@ async def get_pending_approvals(
     """
     vendor_id = token.get("vendor_id")
     
-    bookings_with_payments = await get_vendor_bookings(
+    bookings_with_payments, total = await get_vendor_bookings(
         engine, vendor_id, status_filter=BookingStatus.PENDING_APPROVAL, limit=limit, skip=0
     )
     
     return success_response(
-        data=[
-            BookingResponse(
-                booking_id=booking.get("id"),
-                user_name=booking.get("user_name"),
-                user_phone=booking.get("user_phone"),
-                user_email=booking.get("user_email"),
-                vendor_name=booking.get("vendor_name"),
-                vendor_phone=booking.get("vendor_phone"),
-                service_name=booking.get("service_name"),
-                service_type_name=booking.get("service_type_name"),
-                booking_date=booking.get("booking_date"),
-                delivery_mode=booking.get("delivery_mode"),
-                service_address=booking.get("service_address"),
-                final_amount=booking.get("final_amount"),
-                status=booking.get("status"),
-                payment_status=payment.get("status") if payment else None,
-                vendor_notes=booking.get("vendor_notes"),
-                rejection_reason=booking.get("rejection_reason"),
-                created_at=booking.get("created_at"),
-                approved_at=booking.get("approved_at"),
-                rejected_at=booking.get("rejected_at"),
-                pet_name=booking.get("pet_name"),
-                pet_type=booking.get("pet_type"),
-                pet_breed=booking.get("pet_breed"),
-                pet_age=booking.get("pet_age"),
-                pet_weight=booking.get("pet_weight"),
-                pet_gender=booking.get("pet_gender"),
-                pet_medical_conditions=booking.get("pet_medical_conditions"),
-                pet_special_notes=booking.get("pet_special_notes"),
-                pet_images=booking.get("pet_images"),
-            )
-            for booking, payment in bookings_with_payments
-        ]
+        data={
+            "data": [
+                BookingResponse(
+                    id=booking.get("id"),
+                    vendor_name=booking.get("vendor_name"),
+                    vendor_phone=booking.get("vendor_phone"),
+                    service_name=booking.get("service_name"),
+                    service_type_name=booking.get("service_type_name"),
+                    booking_date=booking.get("booking_date"),
+                    delivery_mode=booking.get("delivery_mode"),
+                    service_address=booking.get("service_address"),
+                    final_amount=booking.get("final_amount"),
+                    status=booking.get("status"),
+                    payment_status=payment.get("status") if payment else None,
+                    vendor_notes=booking.get("vendor_notes"),
+                    rejection_reason=booking.get("rejection_reason"),
+                    created_at=booking.get("created_at"),
+                    approved_at=booking.get("approved_at"),
+                    rejected_at=booking.get("rejected_at"),
+                    user=UserSummary(
+                        name=booking.get("user_name", "Unknown"),
+                        phone=booking.get("user_phone", "Unknown"),
+                        email=booking.get("user_email", "Unknown")
+                    ),
+                    pet=PetSummary(
+                        name=booking.get("pet_name"),
+                        type=booking.get("pet_type"),
+                        breed=booking.get("pet_breed"),
+                        age=booking.get("pet_age"),
+                        weight=booking.get("pet_weight"),
+                        gender=booking.get("pet_gender"),
+                        medical_conditions=booking.get("pet_medical_conditions"),
+                        special_notes=booking.get("pet_special_notes"),
+                        images=booking.get("pet_images")
+                    ) if booking.get("pet_name") else None
+                ).model_dump(exclude_none=True)
+                for booking, payment in bookings_with_payments
+            ],
+            "meta": {
+                "total": total,
+                "skip": 0,
+                "limit": limit
+            }
+        }
     )

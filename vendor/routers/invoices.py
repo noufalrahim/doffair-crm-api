@@ -2,6 +2,7 @@
 Invoice Management API Endpoints
 Complete CRUD operations with audit trail
 """
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from odmantic import AIOEngine
 from typing import Optional
@@ -238,6 +239,9 @@ async def get_all_invoices(
     engine: AIOEngine = Depends(get_engine),
     status: Optional[InvoiceStatus] = Query(None, description="Filter by status"),
     customer_id: Optional[str] = Query(None, description="Filter by customer"),
+    search: Optional[str] = Query(None, description="Search by Invoice #, Customer Name, or ID"),
+    due_date_start: Optional[datetime] = Query(None, description="Filter by due date (start)"),
+    due_date_end: Optional[datetime] = Query(None, description="Filter by due date (end)"),
     limit: int = Query(50, ge=1, le=100),
     skip: int = Query(0, ge=0),
 ):
@@ -247,39 +251,51 @@ async def get_all_invoices(
     **Filters:**
     - status: Filter by invoice status
     - customer_id: Filter by specific customer
+    - search: Search by Invoice #, Customer Name, or ID
+    - due_date_start/end: Filter by due date range
     - limit: Number of results (default 50, max 100)
     - skip: Skip first N results for pagination
     """
     vendor_id = token.get("vendor_id")
     
     try:
-        invoices = await get_vendor_invoices(
+        invoices, total = await get_vendor_invoices(
             engine=engine,
             vendor_id=vendor_id,
             status_filter=status,
             customer_id=customer_id,
+            search=search,
+            start_date=due_date_start,
+            end_date=due_date_end,
             limit=limit,
             skip=skip
         )
         
         return success_response(
-            data=[
-                InvoiceListResponse(
-                    id=str(inv.id),
-                    invoice_number=inv.invoice_number,
-                    invoice_date=inv.invoice_date,
-                    due_date=inv.due_date,
-                    customer_name=inv.customer_name,
-                    service_name=inv.service_name,
-                    grand_total=inv.grand_total,
-                    paid_amount=inv.paid_amount,
-                    balance_due=inv.balance_due,
-                    status=inv.status,
-                    sent_count=inv.sent_count,
-                    created_at=inv.created_at
-                ).model_dump()
-                for inv in invoices
-            ]
+            data={
+                "data": [
+                    InvoiceListResponse(
+                        id=str(inv.id),
+                        invoice_number=inv.invoice_number,
+                        invoice_date=inv.invoice_date,
+                        due_date=inv.due_date,
+                        customer_name=inv.customer_name,
+                        service_name=inv.service_name,
+                        grand_total=inv.grand_total,
+                        paid_amount=inv.paid_amount,
+                        balance_due=inv.balance_due,
+                        status=inv.status,
+                        sent_count=inv.sent_count,
+                        created_at=inv.created_at
+                    ).model_dump()
+                    for inv in invoices
+                ],
+                "meta": {
+                    "total": total,
+                    "skip": skip,
+                    "limit": limit
+                }
+            }
         ).model_dump()
         
     except Exception as e:

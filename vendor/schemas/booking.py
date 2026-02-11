@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel
+from core.enums import ServiceDeliveryMode
 
 class BookingStatusUpdate(BaseModel):
     status: str
@@ -45,7 +46,7 @@ class VendorBookingResponse(BaseModel):
     service_name: str
     services: List[ServiceSummary] = []
     service_type_name: str
-    delivery_mode: str
+    delivery_mode: ServiceDeliveryMode
     final_amount: float
     vendor_notes: Optional[str] = None
     created_at: datetime

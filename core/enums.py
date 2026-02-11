@@ -14,6 +14,11 @@ class ServiceMode(str, Enum):
     BOOKING = "booking"
     LEAD = "lead"
 
+class DogSize(str, Enum):
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE = "large"
+
 
 
 
@@ -34,19 +39,20 @@ class DiscountType(str, Enum):
     PERCENT = "PERCENT"  # 10% off
 
 class ServiceDeliveryMode(str, Enum):
-    CENTER = "CENTER"   # only at vendor location
-    HOME = "HOME"       # only at customer location
-    BOTH = "BOTH"       # vendor + home
+    CENTER = "In-Center"   
+    HOME = "At Home"      
+    BOTH = "Both"  
 
 class BookingStatus(str, Enum):
-    PENDING_PAYMENT = "PENDING_PAYMENT"      # User created booking, payment not done
-    PAYMENT_FAILED = "PAYMENT_FAILED"        # Payment failed
-    PENDING_APPROVAL = "PENDING_APPROVAL"    # Payment done, waiting for vendor
-    CONFIRMED = "CONFIRMED"                  # Vendor approved
-    REJECTED = "REJECTED"                    # Vendor rejected
-    COMPLETED = "COMPLETED"                  # Service completed
-    CANCELLED = "CANCELLED"                  # User/Vendor cancelled
-    OFFLINE = "OFFLINE"                      # Offline booking
+    PENDING_PAYMENT = "pending_payment"      # User created booking, payment not done
+    PAYMENT_FAILED = "payment_failed"        # Payment failed
+    PENDING_APPROVAL = "pending_approval"    # Payment done, waiting for vendor
+    CONFIRMED = "confirmed"                  # Vendor approved
+    REJECTED = "rejected"                    # Vendor rejected
+    COMPLETED = "completed"                  # Service completed
+    CANCELLED = "cancelled"                  # User/Vendor cancelled
+    ONGOING = "ongoing"                      # Service is in progress
+    OFFLINE = "offline"                      # Offline booking
 
 class PaymentStatus(str, Enum):
     PENDING = "PENDING"        # Payment initiated

@@ -21,6 +21,7 @@ async def create_base_service(engine: AIOEngine, vendor_id: str, payload):
         service_kind="BASE",
         included_service_ids=[],
         delivery_mode=payload.delivery_mode,
+        dog_sizes=payload.dog_sizes or [],
 
     )
 
@@ -77,6 +78,7 @@ async def create_combo_service(engine: AIOEngine, vendor_id: str, payload):
         description=payload.description,
         service_kind="COMBO",
         included_service_ids=payload.included_service_ids,
+        dog_sizes=payload.dog_sizes or [],
     )
 
     await engine.save(combo)
@@ -175,3 +177,29 @@ async def update_service(
             pass
     
     return service
+
+async def delete_service(
+    engine: AIOEngine,
+    vendor_id: str,
+    service_id: str,
+):
+    service = await engine.find_one(
+        VendorService,
+        VendorService.id == ObjectId(service_id),
+    )
+
+    if not service or service.vendor_id != vendor_id:
+        raise HTTPException(status_code=404, detail="Service not found")
+
+    # Delete the service
+    await engine.delete(service)
+
+    # Delete associated pricing
+    pricing = await engine.find_one(
+        ServicePricing,
+        (ServicePricing.service_id == service_id) & (ServicePricing.vendor_id == vendor_id)
+    )
+    if pricing:
+        await engine.delete(pricing)
+
+    return True

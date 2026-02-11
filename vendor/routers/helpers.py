@@ -32,6 +32,23 @@ SERVICE_TYPE_METADATA = {
     "daycare": {"url": "/daycare/overview", "icon": "/services/daycare.png"}, 
 }
 
+SERVICE_TYPE_PRIORITY_ORDER = ["vet", "grooming", "boarding", "petcafe"]
+
+def get_service_priority(codes):
+    """
+    Returns priority index for sorting based on service codes.
+    Lower index = Higher priority (displayed first).
+    """
+    if not codes:
+        return len(SERVICE_TYPE_PRIORITY_ORDER)
+        
+    for code in codes:
+        if code in SERVICE_TYPE_PRIORITY_ORDER:
+            return SERVICE_TYPE_PRIORITY_ORDER.index(code)
+    
+    # If not found in priority list, push to the end
+    return len(SERVICE_TYPE_PRIORITY_ORDER)
+
 
 @router.get("/locations", response_model=dict)
 async def get_vendor_locations(
@@ -168,6 +185,9 @@ async def get_my_service_types(
                 "url": metadata.get("url", ""),
                 "icon": metadata.get("icon", "")
             })
+            
+    # Sort the list based on priority order
+    types_list.sort(key=lambda x: get_service_priority(x['code']))
     
     return success_response(
         message="Service types retrieved successfully",
@@ -210,6 +230,9 @@ async def get_all_service_types(
             "url": metadata.get("url", ""),
             "icon": metadata.get("icon", "")
         })
+        
+    # Sort the list based on priority order
+    types_list.sort(key=lambda x: get_service_priority(x['code']))
     
     return success_response(
         message="Service types retrieved successfully",

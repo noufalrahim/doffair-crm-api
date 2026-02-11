@@ -27,6 +27,8 @@ from vendor.routers import reminders_v2 as vendor_reminders_router
 from vendor.routers import profile as vendor_profile_router
 from vendor.routers import invoices as vendor_invoices_router
 from vendor.routers import bookings as vendor_bookings_router
+from vendor.routers import customers as vendor_customers_router
+from vendor.routers import walkins as vendor_walkins_router
 
 
 from core.config import settings
@@ -59,6 +61,8 @@ app.include_router(vendor_images_router.router)
 app.include_router(vendor_amenities_router.router)
 app.include_router(vendor_service_area_router.router)
 app.include_router(vendor_bookings_router.router)
+app.include_router(vendor_customers_router.router)
+app.include_router(vendor_walkins_router.router)
 app.include_router(doctors.router)
 app.include_router(doctor_availability.router)
 app.include_router(pricing.router)

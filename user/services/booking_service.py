@@ -2,6 +2,7 @@ from odmantic import AIOEngine
 from fastapi import HTTPException
 from datetime import datetime
 from bson import ObjectId
+from typing import Optional
 
 from user.models.booking import Booking
 from user.models.payment import Payment
@@ -76,17 +77,23 @@ async def create_booking(
         raise HTTPException(status_code=404, detail="Pricing not found for this service")
     
     # 6. Validate delivery mode
-    if delivery_mode not in ["CENTER", "HOME", "BOTH"]:
-        raise HTTPException(status_code=400, detail="Invalid delivery_mode. Must be CENTER, HOME, or BOTH")
+    from core.enums import ServiceDeliveryMode
+    if delivery_mode not in [ServiceDeliveryMode.CENTER, ServiceDeliveryMode.HOME, ServiceDeliveryMode.BOTH]:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid delivery_mode. Must be {ServiceDeliveryMode.CENTER}, {ServiceDeliveryMode.HOME}, or {ServiceDeliveryMode.BOTH}"
+        )
     
     # Check if service supports this delivery mode
-    if service.delivery_mode == "CENTER" and delivery_mode == "HOME":
-        raise HTTPException(status_code=400, detail="This service is only available at vendor center")
-    elif service.delivery_mode == "HOME" and delivery_mode == "CENTER":
-        raise HTTPException(status_code=400, detail="This service is only available at home")
+    from core.enums import ServiceDeliveryMode
+    if service.delivery_mode == ServiceDeliveryMode.CENTER and delivery_mode == ServiceDeliveryMode.HOME:
+        raise HTTPException(status_code=400, detail=f"This service is only available {ServiceDeliveryMode.CENTER}")
+    elif service.delivery_mode == ServiceDeliveryMode.HOME and delivery_mode == ServiceDeliveryMode.CENTER:
+        raise HTTPException(status_code=400, detail=f"This service is only available {ServiceDeliveryMode.HOME}")
     
     # 7. Validate address for HOME delivery
-    if delivery_mode == "HOME" or delivery_mode == "BOTH":
+    from core.enums import ServiceDeliveryMode
+    if delivery_mode == ServiceDeliveryMode.HOME or delivery_mode == ServiceDeliveryMode.BOTH:
         if not service_address or not service_city or not service_pincode:
             raise HTTPException(
                 status_code=400,
@@ -265,92 +272,22 @@ async def confirm_payment(
 async def get_user_bookings(
     engine: AIOEngine,
     user_id: str,
-    limit: int = 50,
-    skip: int = 0,
-) -> list[tuple[dict, dict]]:
-    """
-    Get all bookings for a user with payment info
-    Returns booking and payment data as dicts to avoid validation issues
-    """
-    # Fetch bookings directly from MongoDB to bypass ODMantic validation
-    booking_docs = await engine.get_collection(Booking).find(
-        {"user_id": user_id}
-    ).sort("created_at", -1).skip(skip).limit(limit).to_list(length=limit)
-    
-    result = []
-    for booking_doc in booking_docs:
-        payment_data = None
-        if booking_doc.get("payment_id"):
-            # Fetch payment directly from MongoDB to bypass ODMantic validation
-            payment_doc = await engine.get_collection(Payment).find_one({"_id": ObjectId(booking_doc.get("payment_id"))})
-            if payment_doc:
-                payment_data = {
-                    "id": str(payment_doc["_id"]),
-                    "booking_id": payment_doc.get("booking_id"),
-                    "amount": payment_doc.get("amount"),
-                    "status": payment_doc.get("status"),
-                    "payment_method": payment_doc.get("payment_method"),
-                    "payment_gateway_order_id": payment_doc.get("payment_gateway_order_id"),
-                    "payment_gateway_payment_id": payment_doc.get("payment_gateway_payment_id"),
-                }
-        
-        # Convert booking doc to dict with string ID
-        booking_data = {
-            "id": str(booking_doc["_id"]),
-            "user_id": booking_doc.get("user_id"),
-            "vendor_id": booking_doc.get("vendor_id"),
-            "service_id": booking_doc.get("service_id"),
-            "user_name": booking_doc.get("user_name"),
-            "user_phone": booking_doc.get("user_phone"),
-            "user_email": booking_doc.get("user_email"),
-            "vendor_name": booking_doc.get("vendor_name"),
-            "vendor_phone": booking_doc.get("vendor_phone"),
-            "service_name": booking_doc.get("service_name"),
-            "service_type_name": booking_doc.get("service_type_name"),
-            "booking_date": booking_doc.get("booking_date"),
-            "delivery_mode": booking_doc.get("delivery_mode"),
-            "service_address": booking_doc.get("service_address"),
-            "final_amount": booking_doc.get("final_amount"),
-            "status": booking_doc.get("status"),
-            "vendor_notes": booking_doc.get("vendor_notes"),
-            "rejection_reason": booking_doc.get("rejection_reason"),
-            "created_at": booking_doc.get("created_at"),
-            "approved_at": booking_doc.get("approved_at"),
-            "rejected_at": booking_doc.get("rejected_at"),
-            "payment_id": booking_doc.get("payment_id"),
-            # Pet details
-            "pet_name": booking_doc.get("pet_name"),
-            "pet_type": booking_doc.get("pet_type"),
-            "pet_breed": booking_doc.get("pet_breed"),
-            "pet_age": booking_doc.get("pet_age"),
-            "pet_weight": booking_doc.get("pet_weight"),
-            "pet_gender": booking_doc.get("pet_gender"),
-            "pet_medical_conditions": booking_doc.get("pet_medical_conditions"),
-            "pet_special_notes": booking_doc.get("pet_special_notes"),
-            "pet_images": booking_doc.get("pet_images", []),
-        }
-        result.append((booking_data, payment_data))
-    
-    return result
-
-
-async def get_vendor_bookings(
-    engine: AIOEngine,
-    vendor_id: str,
     status_filter: str = None,
     limit: int = 50,
     skip: int = 0,
-) -> list[tuple[dict, dict]]:
+) -> tuple[list[tuple[dict, dict]], int]:
     """
-    Get all bookings for a vendor
-    Can filter by status (e.g., PENDING_APPROVAL)
-    Returns booking and payment data as dicts to avoid validation issues
+    Get all bookings for a user with payment info
+    Returns (bookings_list, total_count)
     """
-    query = {"vendor_id": vendor_id}
+    query = {"user_id": user_id}
     if status_filter:
         query["status"] = status_filter
-    
-    # Fetch bookings directly from MongoDB to bypass ODMantic validation
+        
+    # Get total count
+    total = await engine.get_collection(Booking).count_documents(query)
+
+    # Fetch bookings
     booking_docs = await engine.get_collection(Booking).find(
         query
     ).sort("created_at", -1).skip(skip).limit(limit).to_list(length=limit)
@@ -359,7 +296,6 @@ async def get_vendor_bookings(
     for booking_doc in booking_docs:
         payment_data = None
         if booking_doc.get("payment_id"):
-            # Fetch payment directly from MongoDB to bypass ODMantic validation
             payment_doc = await engine.get_collection(Payment).find_one({"_id": ObjectId(booking_doc.get("payment_id"))})
             if payment_doc:
                 payment_data = {
@@ -372,7 +308,6 @@ async def get_vendor_bookings(
                     "payment_gateway_payment_id": payment_doc.get("payment_gateway_payment_id"),
                 }
         
-        # Convert booking doc to dict with string ID
         booking_data = {
             "id": str(booking_doc["_id"]),
             "user_id": booking_doc.get("user_id"),
@@ -409,7 +344,93 @@ async def get_vendor_bookings(
         }
         result.append((booking_data, payment_data))
     
-    return result
+    return result, total
+
+
+async def get_vendor_bookings(
+    engine: AIOEngine,
+    vendor_id: str,
+    status_filter: str = None,
+    limit: int = 50,
+    skip: int = 0,
+    is_offline: Optional[bool] = None,
+    service_type_id: str = None,
+) -> tuple[list[tuple[dict, dict]], int]:
+    """
+    Get all bookings for a vendor
+    Returns (bookings_list, total_count)
+    """
+    query = {"vendor_id": vendor_id}
+    if status_filter:
+        query["status"] = status_filter
+    
+    if is_offline is not None:
+        query["is_offline"] = is_offline
+    
+    if service_type_id:
+        query["service_type_id"] = service_type_id
+    
+    # Get total count
+    total = await engine.get_collection(Booking).count_documents(query)
+    
+    # Fetch bookings
+    booking_docs = await engine.get_collection(Booking).find(
+        query
+    ).sort("created_at", -1).skip(skip).limit(limit).to_list(length=limit)
+    
+    result = []
+    for booking_doc in booking_docs:
+        payment_data = None
+        if booking_doc.get("payment_id"):
+            payment_doc = await engine.get_collection(Payment).find_one({"_id": ObjectId(booking_doc.get("payment_id"))})
+            if payment_doc:
+                payment_data = {
+                    "id": str(payment_doc["_id"]),
+                    "booking_id": payment_doc.get("booking_id"),
+                    "amount": payment_doc.get("amount"),
+                    "status": payment_doc.get("status"),
+                    "payment_method": payment_doc.get("payment_method"),
+                    "payment_gateway_order_id": payment_doc.get("payment_gateway_order_id"),
+                    "payment_gateway_payment_id": payment_doc.get("payment_gateway_payment_id"),
+                }
+        
+        booking_data = {
+            "id": str(booking_doc["_id"]),
+            "user_id": booking_doc.get("user_id"),
+            "vendor_id": booking_doc.get("vendor_id"),
+            "service_id": booking_doc.get("service_id"),
+            "user_name": booking_doc.get("user_name"),
+            "user_phone": booking_doc.get("user_phone"),
+            "user_email": booking_doc.get("user_email"),
+            "vendor_name": booking_doc.get("vendor_name"),
+            "vendor_phone": booking_doc.get("vendor_phone"),
+            "service_name": booking_doc.get("service_name"),
+            "service_type_name": booking_doc.get("service_type_name"),
+            "booking_date": booking_doc.get("booking_date"),
+            "delivery_mode": booking_doc.get("delivery_mode"),
+            "service_address": booking_doc.get("service_address"),
+            "final_amount": booking_doc.get("final_amount"),
+            "status": booking_doc.get("status"),
+            "vendor_notes": booking_doc.get("vendor_notes"),
+            "rejection_reason": booking_doc.get("rejection_reason"),
+            "created_at": booking_doc.get("created_at"),
+            "approved_at": booking_doc.get("approved_at"),
+            "rejected_at": booking_doc.get("rejected_at"),
+            "payment_id": booking_doc.get("payment_id"),
+            # Pet details
+            "pet_name": booking_doc.get("pet_name"),
+            "pet_type": booking_doc.get("pet_type"),
+            "pet_breed": booking_doc.get("pet_breed"),
+            "pet_age": booking_doc.get("pet_age"),
+            "pet_weight": booking_doc.get("pet_weight"),
+            "pet_gender": booking_doc.get("pet_gender"),
+            "pet_medical_conditions": booking_doc.get("pet_medical_conditions"),
+            "pet_special_notes": booking_doc.get("pet_special_notes"),
+            "pet_images": booking_doc.get("pet_images", []),
+        }
+        result.append((booking_data, payment_data))
+    
+    return result, total
 
 
 async def approve_booking(

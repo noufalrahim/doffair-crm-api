@@ -8,8 +8,6 @@ __pycache__/
 
 # Virtual Environment
 venv/
-env/
-ENV/
 .venv
 
 # IDE
@@ -18,9 +16,9 @@ ENV/
 *.swp
 *.swo
 
-# Environment variables
-.env.local
-.env.*.local
+.env
+.env.example
+
 
 # OS
 .DS_Store

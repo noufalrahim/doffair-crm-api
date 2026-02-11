@@ -1,12 +1,29 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
-from core.enums import BookingStatus, PaymentStatus
+from core.enums import BookingStatus, PaymentStatus, ServiceDeliveryMode
 
 
 # ---------------------------------------------------------
 # User: Create Booking
 # ---------------------------------------------------------
+
+class UserSummary(BaseModel):
+    name: str
+    phone: str
+    email: str
+    image: Optional[str] = None
+
+class PetSummary(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    breed: Optional[str] = None
+    age: Optional[int] = None
+    weight: Optional[float] = None
+    gender: Optional[str] = None
+    medical_conditions: Optional[str] = None
+    special_notes: Optional[str] = None
+    images: Optional[list[str]] = None
 
 class CreateBookingRequest(BaseModel):
     """
@@ -14,7 +31,7 @@ class CreateBookingRequest(BaseModel):
     """
     service_id: str
     booking_date: datetime = Field(..., description="When the service will be performed")
-    delivery_mode: str = Field(..., description="CENTER, HOME, or BOTH")
+    delivery_mode: str = Field(..., description="'In-Center', 'At Home', or 'BOTH'")
     
     # For HOME delivery
     service_address: Optional[str] = None
@@ -37,9 +54,9 @@ class CreateBookingResponse(BaseModel):
     """
     Response after creating booking (before payment)
     """
-    booking_id: str
+    id: str
     service_name: str
-    vendor_name: str
+    vendor_name: Optional[str] = None
     booking_date: datetime
     final_amount: float
     status: BookingStatus
@@ -55,7 +72,7 @@ class InitiatePaymentRequest(BaseModel):
     """
     User initiates payment for a booking
     """
-    booking_id: str
+    id: str
     payment_method: str = "razorpay"
 
 
@@ -64,7 +81,7 @@ class InitiatePaymentResponse(BaseModel):
     Response with payment gateway details
     """
     payment_id: str
-    booking_id: str
+    id: str
     amount: float
     currency: str = "INR"
     payment_gateway_order_id: str  # Razorpay order_id
@@ -79,7 +96,7 @@ class ConfirmPaymentRequest(BaseModel):
     """
     User confirms payment was successful
     """
-    booking_id: str
+    id: str
     payment_id: str
     payment_gateway_payment_id: str  # Razorpay payment_id
     payment_gateway_signature: str   # Razorpay signature
@@ -89,7 +106,7 @@ class ConfirmPaymentResponse(BaseModel):
     """
     Response after payment confirmation
     """
-    booking_id: str
+    id: str
     payment_id: str
     status: BookingStatus
     message: str
@@ -103,36 +120,26 @@ class BookingResponse(BaseModel):
     """
     Detailed booking information
     """
-    booking_id: str
-    user_name: str
-    user_phone: str
-    user_email: str
-    vendor_name: str
-    vendor_phone: str
+    id: str
+    vendor_name: Optional[str] = None
+    vendor_phone: Optional[str] = None
     service_name: str
     service_type_name: str
     booking_date: datetime
-    delivery_mode: str
-    service_address: Optional[str]
+    delivery_mode: ServiceDeliveryMode
+    service_address: Optional[str] = None
     final_amount: float
     status: BookingStatus
-    payment_status: Optional[str]
-    vendor_notes: Optional[str]
-    rejection_reason: Optional[str]
+    payment_status: Optional[str] = None
+    vendor_notes: Optional[str] = None
+    rejection_reason: Optional[str] = None
     created_at: datetime
-    approved_at: Optional[datetime]
-    rejected_at: Optional[datetime]
+    approved_at: Optional[datetime] = None
+    rejected_at: Optional[datetime] = None
     
-    # Pet Details
-    pet_name: Optional[str] = None
-    pet_type: Optional[str] = None
-    pet_breed: Optional[str] = None
-    pet_age: Optional[int] = None
-    pet_weight: Optional[float] = None
-    pet_gender: Optional[str] = None
-    pet_medical_conditions: Optional[str] = None
-    pet_special_notes: Optional[str] = None
-    pet_images: Optional[list[str]] = None
+    # Nested Objects
+    user: UserSummary
+    pet: Optional[PetSummary] = None
 
 
 # ---------------------------------------------------------
@@ -157,7 +164,7 @@ class VendorActionResponse(BaseModel):
     """
     Response after vendor approves/rejects
     """
-    booking_id: str
+    id: str
     status: BookingStatus
     message: str
     refund_initiated: bool = False

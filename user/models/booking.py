@@ -1,7 +1,8 @@
 from datetime import datetime
 from odmantic import Model, Field
-from typing import Optional
-from core.enums import BookingStatus
+from core.enums import BookingStatus, ServiceDeliveryMode
+from pydantic import field_validator
+from typing import Optional, Any
 
 
 class Booking(Model):
@@ -11,25 +12,25 @@ class Booking(Model):
     # References
     user_id: str
     vendor_id: str
-    service_id: str
-    service_type_id: str
-    location_id: str
+    service_id: Optional[str] = None
+    service_type_id: Optional[str] = None
+    location_id: Optional[str] = None
     
     # Cached information for quick access
     user_name: str
     user_phone: str
     user_email: str
     
-    vendor_name: str
-    vendor_phone: str
-    vendor_email: str
+    vendor_name: Optional[str] = None
+    vendor_phone: Optional[str] = None
+    vendor_email: Optional[str] = None
     
     service_name: str
     service_type_name: str
     
     # Booking details
     booking_date: datetime  # When the service will be performed
-    delivery_mode: str  # CENTER, HOME, BOTH
+    delivery_mode: ServiceDeliveryMode
     
     # Address (for HOME delivery)
     service_address: Optional[str] = None
@@ -81,6 +82,18 @@ class Booking(Model):
     customer_medical_conditions: Optional[str] = None
     customer_notes: Optional[str] = None
     payment_mode: Optional[str] = None
+
+    @field_validator("delivery_mode", mode="before")
+    @classmethod
+    def map_delivery_mode(cls, v: Any) -> Any:
+        mapping = {
+            "CENTER": ServiceDeliveryMode.CENTER,
+            "HOME": ServiceDeliveryMode.HOME,
+            "BOTH": ServiceDeliveryMode.BOTH,
+        }
+        if v in mapping:
+            return mapping[v]
+        return v
     
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)

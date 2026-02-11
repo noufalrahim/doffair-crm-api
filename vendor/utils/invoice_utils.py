@@ -16,10 +16,9 @@ def generate_invoice_number(vendor_id: str, current_year: int, sequence: int) ->
     Format: INV-{YEAR}-{VENDOR_SHORT}-{SEQUENCE}
     Example: INV-2026-V123-0001
     """
-    vendor_short = vendor_id[:8]  # First 8 chars of vendor ID
-    sequence_str = str(sequence).zfill(4)  # Pad with zeros: 0001, 0002, etc.
+    vendor_short = vendor_id[:8]
+    sequence_str = str(sequence).zfill(4)
     return f"INV-{current_year}-{vendor_short}-{sequence_str}"
-
 
 def calculate_line_item_totals(
     quantity: float,
