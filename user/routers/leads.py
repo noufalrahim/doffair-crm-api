@@ -64,11 +64,11 @@ async def reveal_vendor_mobile(
     """
     user_id = token.get("user_id")
     
-    lead, service_type = await reveal_vendor_contact(
+    lead, vertical = await reveal_vendor_contact(
         engine=engine,
         user_id=user_id,
         vendor_id=payload.vendor_id,
-        service_type_id=payload.service_type_id,
+        vertical_id=payload.vertical_id,
     )
     
     return RevealMobileResponse(
@@ -76,7 +76,7 @@ async def reveal_vendor_mobile(
         vendor_name=lead.vendor_name,
         vendor_phone=lead.vendor_phone,
         vendor_email=lead.vendor_email,
-        service_type_name=service_type.display_name,
+        vertical_name=vertical.display_name,
         message=f"Contact revealed successfully! You can now reach out to {lead.vendor_name}.",
     )
 
@@ -93,7 +93,7 @@ async def get_my_leads(
     """
     user_id = token.get("user_id")
     
-    leads_with_service_types = await get_user_leads(engine, user_id, limit, skip)
+    leads_with_verticals = await get_user_leads(engine, user_id, limit, skip)
     
     return success_response(
         data=[
@@ -102,13 +102,13 @@ async def get_my_leads(
                 user_name=lead.user_name,
                 user_phone=lead.user_phone,
                 user_email=lead.user_email,
-                service_type_name=service_type.display_name if service_type else "Unknown",
+                vertical_name=vertical.display_name if vertical else "Unknown",
                 revealed_at=lead.revealed_at,
                 is_contacted=lead.is_contacted,
                 contacted_at=lead.contacted_at,
                 notes=lead.notes,
             )
-            for lead, service_type in leads_with_service_types
+            for lead, vertical in leads_with_verticals
         ]
     )
 
@@ -129,7 +129,7 @@ async def get_vendor_my_leads(
     """
     vendor_id = token.get("vendor_id")
     
-    leads_with_service_types = await get_vendor_leads(engine, vendor_id, limit, skip)
+    leads_with_verticals = await get_vendor_leads(engine, vendor_id, limit, skip)
     
     return success_response(
         data=[
@@ -138,13 +138,13 @@ async def get_vendor_my_leads(
                 user_name=lead.user_name,
                 user_phone=lead.user_phone,
                 user_email=lead.user_email,
-                service_type_name=service_type.display_name if service_type else "Unknown",
+                vertical_name=vertical.display_name if vertical else "Unknown",
                 revealed_at=lead.revealed_at,
                 is_contacted=lead.is_contacted,
                 contacted_at=lead.contacted_at,
                 notes=lead.notes,
             )
-            for lead, service_type in leads_with_service_types
+            for lead, vertical in leads_with_verticals
         ]
     )
 

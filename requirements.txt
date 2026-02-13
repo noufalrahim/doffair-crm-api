@@ -42,4 +42,7 @@ aiohttp==3.9.1
 
 cffi
 
+async_timeout
+
 uvicorn
+python-dotenv

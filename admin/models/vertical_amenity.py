@@ -2,8 +2,8 @@ from odmantic import Model, Field
 from datetime import datetime
 
 
-class ServiceTypeAmenity(Model):
-    service_type_id: str     # grooming, boarding, cafe
+class VerticalAmenity(Model):
+    vertical_id: str     # grooming, boarding, cafe
     amenity_code: str        # AC, CCTV
 
     is_required: bool = False  # future use (optional)
@@ -11,9 +11,9 @@ class ServiceTypeAmenity(Model):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = {
-        "collection": "service_type_amenities",
+        "collection": "vertical_amenities",
         "indexes": [
-            {"fields": ["service_type_id"]},
-            {"fields": ["service_type_id", "amenity_code"], "unique": True},
+            {"fields": ["vertical_id"]},
+            {"fields": ["vertical_id", "amenity_code"], "unique": True},
         ],
     }

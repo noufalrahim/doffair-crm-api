@@ -1,1 +1,1 @@
-Booking {{ booking_id }} rescheduled by {{ user_name }} to {{ scheduled_at }}. Service: {{ service_type }}.
+Booking {{ booking_id }} rescheduled by {{ user_name }} to {{ scheduled_at }}. Service: {{ vertical }}.

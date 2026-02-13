@@ -253,7 +253,7 @@ async def generate_invoice_from_booking(
                         user_id=str(user_id) if user_id else "unknown",
                         vendor_id=vendor_id,
                         service_name=service_name,
-                        service_type_name=legacy_doc.get("serviceType", "Unknown"),
+                        vertical_name=legacy_doc.get("serviceType", "Unknown"),
                         booking_date=legacy_doc.get("startTime") or legacy_doc.get("booking_date") or datetime.utcnow(),
                         delivery_mode=ServiceDeliveryMode.CENTER, # Default
                         

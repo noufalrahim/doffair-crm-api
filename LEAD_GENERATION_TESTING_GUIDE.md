@@ -8,7 +8,7 @@ The lead generation feature is now fully implemented with:
 - ✅ Lead tracking for vendors
 - ✅ Mark lead as contacted (vendor action)
 - ✅ Duplicate prevention
-- ✅ Service type mode validation (only LEAD mode services)
+- ✅ Vertical mode validation (only LEAD mode services)
 
 ---
 
@@ -48,9 +48,9 @@ The lead generation feature is now fully implemented with:
 
 ---
 
-### Step 2: Create LEAD Service Type (Admin)
+### Step 2: Create LEAD Vertical (Admin)
 
-**Endpoint**: `POST /admin/service-types`
+**Endpoint**: `POST /admin/verticals`
 
 **Sample Data**:
 ```json
@@ -77,7 +77,7 @@ The lead generation feature is now fully implemented with:
 }
 ```
 
-**Action**: Copy the `id` value (this is your `service_type_id`)
+**Action**: Copy the `id` value (this is your `vertical_id`)
 
 ---
 
@@ -112,27 +112,27 @@ The lead generation feature is now fully implemented with:
 
 ---
 
-### Step 4: Vendor Selects LEAD Service Type
+### Step 4: Vendor Selects LEAD Vertical
 
-**Endpoint**: `POST /vendor/onboarding/{vendor_id}/service-types`
+**Endpoint**: `POST /vendor/onboarding/{vendor_id}/verticals`
 
 **Sample Data** (replace {vendor_id} in URL):
 ```json
 {
-  "service_type_ids": [
+  "vertical_ids": [
     "67...abc"
   ]
 }
 ```
-(Use the service_type_id from Step 2)
+(Use the vertical_id from Step 2)
 
 **Expected Response**:
 ```json
 {
-  "message": "Service types selected successfully",
+  "message": "Verticals selected successfully",
   "data": {
     "vendor_id": "67...xyz",
-    "status": "SERVICE_TYPE_SELECTED"
+    "status": "VERTICAL_SELECTED"
   }
 }
 ```
@@ -231,10 +231,10 @@ The lead generation feature is now fully implemented with:
 ```json
 {
   "vendor_id": "67...xyz",
-  "service_type_id": "67...abc"
+  "vertical_id": "67...abc"
 }
 ```
-(Use vendor_id from Step 3 and service_type_id from Step 2)
+(Use vendor_id from Step 3 and vertical_id from Step 2)
 
 **Expected Response**:
 ```json
@@ -243,7 +243,7 @@ The lead generation feature is now fully implemented with:
   "vendor_name": "Pawsome Pet Care",
   "vendor_phone": "+919123456789",
   "vendor_email": "vendor@example.com",
-  "service_type_name": "Veterinary Consultation",
+  "vertical_name": "Veterinary Consultation",
   "message": "Contact revealed successfully! You can now reach out to Pawsome Pet Care."
 }
 ```
@@ -292,7 +292,7 @@ The lead generation feature is now fully implemented with:
       "user_name": "Rahul Kumar",
       "user_phone": "9876543210",
       "user_email": "rahul@example.com",
-      "service_type_name": "Veterinary Consultation",
+      "vertical_name": "Veterinary Consultation",
       "revealed_at": "2026-01-05T12:30:00Z",
       "is_contacted": false,
       "contacted_at": null,
@@ -331,7 +331,7 @@ The lead generation feature is now fully implemented with:
       "user_name": "Rahul Kumar",
       "user_phone": "9876543210",
       "user_email": "rahul@example.com",
-      "service_type_name": "Veterinary Consultation",
+      "vertical_name": "Veterinary Consultation",
       "revealed_at": "2026-01-05T12:30:00Z",
       "is_contacted": false,
       "contacted_at": null,
@@ -377,9 +377,9 @@ The lead generation feature is now fully implemented with:
 
 ## 🧪 Additional Test Cases
 
-### Test Case 1: Try to reveal BOOKING service (Should Fail)
+### Test Case 1: Try to reveal BOOKING vertical (Should Fail)
 
-**Action**: Create a service type with `mode: BOOKING` and try to reveal it
+**Action**: Create a vertical with `mode: BOOKING` and try to reveal it
 
 **Expected**: Error message "This service type is in BOOKING mode, not LEAD mode"
 
@@ -397,9 +397,9 @@ Create 2-3 more users and test:
 ### Test Case 3: Vendor with Multiple Service Types
 
 **Action**:
-1. Create 2 service types with mode: LEAD
+1. Create 2 verticals with mode: LEAD
 2. Vendor selects both
-3. User reveals contact for both service types
+3. User reveals contact for both verticals
 4. Vendor should see 2 separate leads
 
 ---
@@ -423,9 +423,9 @@ Create 2-3 more users and test:
 - Add notes to leads
 
 ✅ **Validation**:
-- Only LEAD mode services can be revealed
+- Only LEAD mode verticals can be revealed
 - Vendor must be active
-- Service type must exist
+- Vertical must exist
 
 
 Implementation Summary:
@@ -443,7 +443,7 @@ Test Results:
 ✅ Duplicate leads prevented
 ✅ Vendor can view all their leads
 ✅ Vendor can mark leads as contacted
-✅ Only LEAD mode services can be revealed
+✅ Only LEAD mode verticals can be revealed
 ✅ All validations working properly
 
 Database Collections Added:

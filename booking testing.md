@@ -8,6 +8,7 @@
 - ✅ Booking goes to vendor for approval
 - ✅ Vendor approves → Booking confirmed
 - ✅ Vendor rejects → Automatic refund
+- ✅ Vertical terminology integrated
 
 ---
 
@@ -16,7 +17,7 @@
 ### Prerequisites:
 1. Server running at http://localhost:8000
 2. Have a user account (or create one)
-3. Have a vendor with service type mode: "booking"
+3. Have a vendor with vertical mode: "booking"
 4. Have a service configured with pricing
 
 ---
@@ -51,9 +52,9 @@
 
 ---
 
-### Step 2: Create BOOKING Service Type
+### Step 2: Create BOOKING Vertical
 
-**Endpoint**: `POST /admin/service-types`
+**Endpoint**: `POST /admin/verticals`
 
 **Request Body**:
 ```json
@@ -83,7 +84,7 @@
 }
 ```
 
-**Action**: Copy the `id` value → This is your `service_type_id`
+**Action**: Copy the `id` value → This is your `vertical_id`
 
 ---
 
@@ -117,19 +118,19 @@
 
 ---
 
-### Step 4: Get Available Service Types (For Vendor to Choose)
+### Step 4: Get Available Verticals (For Vendor to Choose)
 
-**Endpoint**: `GET /vendor/helpers/service-types`
+**Endpoint**: `GET /vendor/helpers/verticals`
 
-**Description**: After login, vendor needs to see what service types are available to select from.
+**Description**: After login, vendor needs to see what verticals are available to select from.
 
 **Expected Response**:
 ```json
 {
   "success": true,
-  "success_message": "Service types retrieved successfully",
+  "success_message": "Verticals retrieved successfully",
   "data": {
-    "service_types": [
+    "verticals": [
       {
         "id": "679a1b2c3d4e5f6a7b8c9d0e",
         "code": "grooming",
@@ -151,24 +152,24 @@
 }
 ```
 
-**Action**: Frontend shows this list to vendor. Vendor can select which service types they want to offer.
+**Action**: Frontend shows this list to vendor. Vendor can select which verticals they want to offer.
 
 ---
 
-### Step 5: Vendor Selects Service Types
+### Step 5: Vendor Selects Verticals
 
-**Endpoint**: `POST /vendor/onboarding/{vendor_id}/service-types`
+**Endpoint**: `POST /vendor/onboarding/{vendor_id}/verticals`
 
 **Replace** `{vendor_id}` with the vendor_id from Step 3 login response.
 
 **Request Body**:
 ```json
 {
-  "service_type_ids": ["679a1b2c3d4e5f6a7b8c9d0e"]
+  "vertical_ids": ["679a1b2c3d4e5f6a7b8c9d0e"]
 }
 ```
 
-Replace the ID with actual service_type_id from Step 4 response.
+Replace the ID with actual vertical_id from Step 4 response.
 
 **Expected Response**:
 ```json
@@ -178,9 +179,9 @@ Replace the ID with actual service_type_id from Step 4 response.
   "data": {
     "vendor_id": "679b1c2d3e4f5a6b7c8d9e0f",
     "status": "APPROVED",
-    "service_types": [
+    "verticals": [
       {
-        "service_type_id": "679a1b2c3d4e5f6a7b8c9d0e",
+        "vertical_id": "679a1b2c3d4e5f6a7b8c9d0e",
         "name": "Pet Grooming",
         "images": []
       }
@@ -237,7 +238,7 @@ Replace the ID with actual service_type_id from Step 4 response.
 ```json
 {
   "location_id": "679c1d2e3f4a5b6c7d8e9f0a",
-  "service_type_id": "679a1b2c3d4e5f6a7b8c9d0e",
+  "vertical_id": "679a1b2c3d4e5f6a7b8c9d0e",
   "name": "Basic Pet Grooming",
   "description": "Complete grooming package for your pet",
   "duration_minutes": 60,
@@ -369,12 +370,12 @@ Replace `service_id` and `location_id` with your actual IDs.
 4. Paste user token and click "Authorize" then "Close"
 
 **✅ Setup Complete!** You now have:
-- ✅ Service type created (booking mode)
+- ✅ Vertical created (booking mode)
 - ✅ Vendor configured with location, service, and pricing
 - ✅ User account ready
 
 **Summary of IDs you should have**:
-- `service_type_id`: 679a1b2c3d4e5f6a7b8c9d0e
+- `vertical_id`: 679a1b2c3d4e5f6a7b8c9d0e
 - `vendor_id`: 679b1c2d3e4f5a6b7c8d9e0f
 - `location_id`: 679c1d2e3f4a5b6c7d8e9f0a
 - `service_id`: 679d1e2f3a4b5c6d7e8f9a0b
@@ -719,7 +720,7 @@ CONFIRMED            REJECTED
 ### ✅ Validation Tests:
 1. Try booking without login → 401 error
 2. Try booking non-existent service → 404 error
-3. Try booking LEAD mode service → Error (only booking mode)
+3. Try booking LEAD mode vertical → Error (only booking mode)
 4. Try HOME delivery without address → 400 error
 5. Try approving with wrong vendor → 403 error
 6. Try approving already confirmed booking → 400 error

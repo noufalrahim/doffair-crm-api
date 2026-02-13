@@ -165,7 +165,7 @@ async def get_my_bookings(
                     vendor_name=booking.get("vendor_name"),
                     vendor_phone=booking.get("vendor_phone"),
                     service_name=booking.get("service_name"),
-                    service_type_name=booking.get("service_type_name"),
+                    vertical_name=booking.get("vertical_name"),
                     booking_date=booking.get("booking_date"),
                     delivery_mode=booking.get("delivery_mode"),
                     service_address=booking.get("service_address"),
@@ -214,7 +214,7 @@ async def get_vendor_my_bookings(
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
     status: str = Query(None, description="Filter by status: PENDING_APPROVAL, CONFIRMED, etc."),
-    service_type_id: str = Query(None, description="Filter by service type ID"),
+    vertical_id: str = Query(None, description="Filter by vertical ID"),
     limit: int = Query(50, ge=1, le=100),
     skip: int = Query(0, ge=0),
 ):
@@ -226,7 +226,7 @@ async def get_vendor_my_bookings(
     
     # Offline Bookings ONLY (Modern Primary DB)
     bookings_with_payments, total = await get_vendor_bookings(
-        engine, vendor_id, status_filter=status, limit=limit, skip=skip, is_offline=True, service_type_id=service_type_id
+        engine, vendor_id, status_filter=status, limit=limit, skip=skip, is_offline=True, vertical_id=vertical_id
     )
     
     return success_response(
@@ -237,7 +237,7 @@ async def get_vendor_my_bookings(
                     vendor_name=booking.get("vendor_name"),
                     vendor_phone=booking.get("vendor_phone"),
                     service_name=booking.get("service_name"),
-                    service_type_name=booking.get("service_type_name"),
+                    vertical_name=booking.get("vertical_name"),
                     booking_date=booking.get("booking_date"),
                     delivery_mode=booking.get("delivery_mode"),
                     service_address=booking.get("service_address"),
@@ -360,7 +360,7 @@ async def get_pending_approvals(
                     vendor_name=booking.get("vendor_name"),
                     vendor_phone=booking.get("vendor_phone"),
                     service_name=booking.get("service_name"),
-                    service_type_name=booking.get("service_type_name"),
+                    vertical_name=booking.get("vertical_name"),
                     booking_date=booking.get("booking_date"),
                     delivery_mode=booking.get("delivery_mode"),
                     service_address=booking.get("service_address"),

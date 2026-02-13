@@ -6,7 +6,7 @@ from bson import ObjectId
 from user.models.lead import Lead
 from user.models.user import User
 from vendor.models.vendor import Vendor
-from admin.models.service_type import ServiceType
+from admin.models.vertical import Vertical
 
 
 DAILY_REVEAL_LIMIT = 5  # Maximum reveals per day per user
@@ -37,7 +37,7 @@ async def check_duplicate_lead(
     engine: AIOEngine,
     user_id: str,
     vendor_id: str,
-    service_type_id: str
+    vertical_id: str
 ) -> bool:
     """
     Check if lead already exists for this user-vendor-servicetype combination
@@ -45,9 +45,7 @@ async def check_duplicate_lead(
     """
     existing = await engine.find_one(
         Lead,
-        Lead.user_id == user_id,
-        Lead.vendor_id == vendor_id,
-        Lead.service_type_id == service_type_id,
+        (Lead.user_id == user_id) & (Lead.vendor_id == vendor_id) & (Lead.vertical_id == vertical_id),
     )
     return existing is not None
 
@@ -56,8 +54,8 @@ async def reveal_vendor_contact(
     engine: AIOEngine,
     user_id: str,
     vendor_id: str,
-    service_type_id: str,
-) -> tuple[Lead, ServiceType]:
+    vertical_id: str,
+) -> tuple[Lead, Vertical]:
     """
     User reveals vendor contact - creates a lead
     """
@@ -70,20 +68,18 @@ async def reveal_vendor_contact(
         )
     
     # 2. Check for duplicate
-    is_duplicate = await check_duplicate_lead(engine, user_id, vendor_id, service_type_id)
+    is_duplicate = await check_duplicate_lead(engine, user_id, vendor_id, vertical_id)
     if is_duplicate:
         # Return existing lead instead of creating new
         lead = await engine.find_one(
             Lead,
-            Lead.user_id == user_id,
-            Lead.vendor_id == vendor_id,
-            Lead.service_type_id == service_type_id,
+            (Lead.user_id == user_id) & (Lead.vendor_id == vendor_id) & (Lead.vertical_id == vertical_id),
         )
-        service_type = await engine.find_one(
-            ServiceType,
-            ServiceType.id == ObjectId(service_type_id),
+        vertical = await engine.find_one(
+            Vertical,
+            Vertical.id == ObjectId(vertical_id),
         )
-        return lead, service_type
+        return lead, vertical
     
     # 3. Get user details
     user = await engine.find_one(User, User.id == ObjectId(user_id))
@@ -98,26 +94,26 @@ async def reveal_vendor_contact(
     if not vendor.is_active:
         raise HTTPException(status_code=400, detail="Vendor is not active")
     
-    # 5. Get service type details
-    service_type = await engine.find_one(
-        ServiceType,
-        ServiceType.id == ObjectId(service_type_id),
+    # 5. Get vertical details
+    vertical = await engine.find_one(
+        Vertical,
+        Vertical.id == ObjectId(vertical_id),
     )
-    if not service_type:
-        raise HTTPException(status_code=404, detail="Service type not found")
+    if not vertical:
+        raise HTTPException(status_code=404, detail="Vertical not found")
     
-    # Check if service type is LEAD mode
-    if service_type.mode != "lead":
+    # Check if vertical is LEAD mode
+    if vertical.mode != "lead":
         raise HTTPException(
             status_code=400,
-            detail=f"This service type is in {service_type.mode} mode, not LEAD mode. You cannot reveal contact for booking services.",
+            detail=f"This vertical is in {vertical.mode} mode, not LEAD mode. You cannot reveal contact for booking services.",
         )
     
     # 6. Create lead
     lead = Lead(
         user_id=user_id,
         vendor_id=vendor_id,
-        service_type_id=service_type_id,
+        vertical_id=vertical_id,
         user_name=user.name,
         user_phone=user.phone,
         user_email=user.email,
@@ -127,7 +123,7 @@ async def reveal_vendor_contact(
     )
     
     await engine.save(lead)
-    return lead, service_type
+    return lead, vertical
 
 
 async def get_vendor_leads(
@@ -135,7 +131,7 @@ async def get_vendor_leads(
     vendor_id: str,
     limit: int = 50,
     skip: int = 0,
-) -> list[tuple[Lead, ServiceType]]:
+) -> list[tuple[Lead, Vertical]]:
     """
     Get all leads for a vendor with service type info
     """
@@ -147,14 +143,14 @@ async def get_vendor_leads(
         skip=skip,
     )
     
-    # Fetch service types
+    # Fetch verticals
     result = []
     for lead in leads:
-        service_type = await engine.find_one(
-            ServiceType,
-            ServiceType.id == ObjectId(lead.service_type_id),
+        vertical = await engine.find_one(
+            Vertical,
+            Vertical.id == ObjectId(lead.vertical_id),
         )
-        result.append((lead, service_type))
+        result.append((lead, vertical))
     
     return result
 
@@ -191,7 +187,7 @@ async def get_user_leads(
     user_id: str,
     limit: int = 50,
     skip: int = 0,
-) -> list[tuple[Lead, ServiceType]]:
+) -> list[tuple[Lead, Vertical]]:
     """
     Get all leads created by a user
     """
@@ -203,13 +199,13 @@ async def get_user_leads(
         skip=skip,
     )
     
-    # Fetch service types
+    # Fetch verticals
     result = []
     for lead in leads:
-        service_type = await engine.find_one(
-            ServiceType,
-            ServiceType.id == ObjectId(lead.service_type_id),
+        vertical = await engine.find_one(
+            Vertical,
+            Vertical.id == ObjectId(lead.vertical_id),
         )
-        result.append((lead, service_type))
+        result.append((lead, vertical))
     
     return result

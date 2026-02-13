@@ -1,5 +1,6 @@
+from typing import List, Optional
 from pydantic import BaseModel
-from typing import Optional, List
+from schemas.common import APIResponse
 
 
 class AmenityCreateRequest(BaseModel):
@@ -17,5 +18,17 @@ class AmenityResponse(BaseModel):
     is_active: bool
 
 
-class ServiceTypeAmenityMapRequest(BaseModel):
+class VerticalAmenityMapRequest(BaseModel):
     amenity_codes: List[str]
+
+
+class AmenityCreateResponse(APIResponse):
+    data: AmenityResponse
+
+
+class AmenityListResponse(APIResponse):
+    data: List[AmenityResponse]
+
+
+class AmenityMapResponse(APIResponse):
+    data: dict

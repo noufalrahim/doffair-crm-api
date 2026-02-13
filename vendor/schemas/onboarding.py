@@ -25,3 +25,20 @@ class VendorBasicInfoUpdateRequest(BaseModel):
     legal_name: Optional[str] = None
     gst_number: Optional[str] = None
     business_registration_number: Optional[str] = None
+
+
+class VendorOnboardingProgressResponse(BaseModel):
+    vendor_id: str
+    
+    # Progress status
+    mobile_verified: bool
+    email_verified: bool
+    basic_info_added: bool
+    verticals_added: bool
+    location_added: bool
+    bank_account_added: bool
+    
+    # Summary
+    percentage_completed: float
+    pending_steps: list[str]
+

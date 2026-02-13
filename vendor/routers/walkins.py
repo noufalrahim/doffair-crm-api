@@ -11,7 +11,7 @@ from user.models.booking import Booking
 from vendor.schemas.walkin import WalkinBookingCreate
 from core.enums import BookingStatus, ServiceDeliveryMode
 from vendor.models.vendor_service import VendorService
-from admin.models.service_type import ServiceType
+from admin.models.vertical import Vertical
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ async def create_walkin_booking(
         
         # Determine Service Details
         bk_service_name = ", ".join(walkin_data.services)
-        bk_service_type = "Walk-in"
+        bk_vertical_name = "Walk-in"
         bk_service_id = None
         
         if walkin_data.service_id:
@@ -49,9 +49,9 @@ async def create_walkin_booking(
                 if vs:
                     bk_service_name = vs.name
                     # Fetch Type
-                    st = await engine.find_one(ServiceType, ServiceType.id == ObjectId(vs.service_type_id))
+                    st = await engine.find_one(Vertical, Vertical.id == ObjectId(vs.vertical_id))
                     if st:
-                        bk_service_type = st.name
+                        bk_vertical_name = st.name
             except Exception as e:
                 logger.error(f"Error fetching service details for walkin: {e}")
         
@@ -85,7 +85,7 @@ async def create_walkin_booking(
             # Booking details
             service_id=bk_service_id,
             service_name=bk_service_name,
-            service_type_name=bk_service_type,
+            vertical_name=bk_vertical_name,
             delivery_mode=ServiceDeliveryMode.CENTER,
             booking_date=walkin_data.booking_date,
             

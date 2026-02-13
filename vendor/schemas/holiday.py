@@ -7,7 +7,7 @@ class HolidaySlotSchema(BaseModel):
     end_time: str = Field(..., description="HH:MM format")
 
 class HolidayCreateRequest(BaseModel):
-    service_type_id: Optional[str] = None
+    vertical_id: Optional[str] = None
     doctor_id: Optional[str] = None
     date: datetime
     name: str = Field(..., min_length=1, max_length=100)
@@ -16,7 +16,7 @@ class HolidayCreateRequest(BaseModel):
 
 class HolidayResponse(BaseModel):
     id: str
-    service_type_id: Optional[str]
+    vertical_id: Optional[str]
     doctor_id: Optional[str]
     date: datetime
     name: str

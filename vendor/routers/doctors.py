@@ -15,15 +15,13 @@ router = APIRouter(
 )
 
 
-@router.post("/{vendor_id}/doctors")
+@router.post("/doctors")
 async def add_doctor(
-    vendor_id: str,
     payload: DoctorCreateRequest,
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
-    if token["vendor_id"] != vendor_id:
-        raise HTTPException(status_code=403, detail="Access denied")
+    vendor_id = token["vendor_id"]
 
     doctor = await create_doctor(engine, vendor_id, payload)
 

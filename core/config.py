@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     # Server
     # -------------------------
     HOST: str = "0.0.0.0"
-    PORT: int = 8000
+    PORT: int = 8101
 
     # -------------------------
     # Security / JWT
@@ -41,6 +41,7 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://localhost:4200",
         "http://localhost:8100",
+        "http://localhost:9000"
     ]
 
     # -------------------------

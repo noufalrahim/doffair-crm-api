@@ -14,7 +14,7 @@ async def add_doctor_availability(
     availabilities = [
         DoctorAvailability(
             vendor_id=vendor_id,
-            service_type_id=p.service_type_id,
+            vertical_id=p.vertical_id,
             doctor_id=p.doctor_id,
             day_of_week=p.day_of_week,
             start_time=p.start_time,
@@ -23,6 +23,9 @@ async def add_doctor_availability(
         for p in payload
     ]
 
+    # Delete existing availability for this vendor
+    await engine.remove(DoctorAvailability, DoctorAvailability.vendor_id == vendor_id)
+
     await asyncio.gather(*[engine.save(a) for a in availabilities])
     return availabilities
 
@@ -30,7 +33,7 @@ async def add_doctor_availability(
 async def get_vendor_availability(
     engine: AIOEngine,
     vendor_id: str,
-    service_type_id: str = None,
+    vertical_id: str = None,
     doctor_id: str = None,
     specific_date: datetime = None,
 ):
@@ -57,11 +60,11 @@ async def get_vendor_availability(
         if doctor_id:
             relevant_holiday = next((h for h in holidays if h.get("doctor_id") == doctor_id), None)
         
-        if not relevant_holiday and service_type_id:
-            relevant_holiday = next((h for h in holidays if h.get("service_type_id") == service_type_id), None)
+        if not relevant_holiday and vertical_id:
+            relevant_holiday = next((h for h in holidays if h.get("vertical_id") == vertical_id), None)
             
         if not relevant_holiday:
-            relevant_holiday = next((h for h in holidays if not h.get("doctor_id") and not h.get("service_type_id")), None)
+            relevant_holiday = next((h for h in holidays if not h.get("doctor_id") and not h.get("vertical_id")), None)
             
         if relevant_holiday:
             if relevant_holiday.get("is_all_day"):
@@ -72,7 +75,7 @@ async def get_vendor_availability(
                 for s in relevant_holiday.get("slots", []):
                     slots.append(DoctorAvailability(
                         vendor_id=vendor_id,
-                        service_type_id=service_type_id or "HOLIDAY",
+                        vertical_id=vertical_id or "HOLIDAY",
                         day_of_week=specific_date.weekday(),
                         start_time=s.get("start_time"),
                         end_time=s.get("end_time")
@@ -88,12 +91,12 @@ async def get_vendor_availability(
         ]
     }
     
-    if service_type_id:
-        # Try both string and ObjectId for service_type_id
-        if ObjectId.is_valid(service_type_id):
-            query["service_type_id"] = {"$in": [service_type_id, ObjectId(service_type_id)]}
+    if vertical_id:
+        # Try both string and ObjectId for vertical_id
+        if ObjectId.is_valid(vertical_id):
+            query["vertical_id"] = {"$in": [vertical_id, ObjectId(vertical_id)]}
         else:
-            query["service_type_id"] = service_type_id
+            query["vertical_id"] = vertical_id
     
     # If doctor_id is provided, filter by it (trying both str and ObjectId)
     if doctor_id:

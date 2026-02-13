@@ -1,1 +1,1 @@
-Booking cancelled: {{ user_name }} cancelled {{ service_type }} scheduled for {{ scheduled_at }}. Booking ID: {{ booking_id }}.
+Booking cancelled: {{ user_name }} cancelled {{ vertical }} scheduled for {{ scheduled_at }}. Booking ID: {{ booking_id }}.

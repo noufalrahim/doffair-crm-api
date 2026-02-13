@@ -16,15 +16,13 @@ router = APIRouter(
 )
 
 
-@router.post("/{vendor_id}/pricing")
+@router.post("/pricing")
 async def configure_pricing(
-    vendor_id: str,
     payload: PricingCreateRequest,
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
-    if token["vendor_id"] != vendor_id:
-        raise HTTPException(status_code=403, detail="Access denied")
+    vendor_id = token["vendor_id"]
 
     print("O my god")
     pricing = await upsert_pricing(engine, vendor_id, payload)

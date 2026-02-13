@@ -8,7 +8,7 @@ class RevealMobileRequest(BaseModel):
     User clicks 'Reveal Mobile Number' button on vendor profile
     """
     vendor_id: str
-    service_type_id: str
+    vertical_id: str
 
 
 class RevealMobileResponse(BaseModel):
@@ -19,7 +19,7 @@ class RevealMobileResponse(BaseModel):
     vendor_name: str
     vendor_phone: str
     vendor_email: str
-    service_type_name: str
+    vertical_name: str
     message: str
 
 
@@ -31,7 +31,7 @@ class LeadResponse(BaseModel):
     user_name: str
     user_phone: str
     user_email: str
-    service_type_name: str
+    vertical_name: str
     revealed_at: datetime
     is_contacted: bool
     contacted_at: Optional[datetime]

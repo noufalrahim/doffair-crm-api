@@ -10,8 +10,8 @@ from utils.response import success_response
 from core.media import build_image_list
 from vendor.models.vendor_location import VendorLocation
 from vendor.models.vendor_service import VendorService
-from vendor.models.vendor_service_type import VendorServiceType
-from admin.models.service_type import ServiceType
+from vendor.models.vendor_vertical import VendorVertical
+from admin.models.vertical import Vertical
 from bson import ObjectId
 
 router = APIRouter(
@@ -60,7 +60,7 @@ async def get_vendor_services(
 ):
     """
     Get all services for a location
-    Returns: [{ id, name, service_type_id, service_type_name, price }]
+    Returns: [{ id, name, vertical_id, service_kind, price }]
     """
     vendor_id = current_vendor["vendor_id"]
     
@@ -74,7 +74,7 @@ async def get_vendor_services(
         {
             "id": str(svc.id),
             "name": svc.name,
-            "service_type_id": svc.service_type_id,
+            "vertical_id": svc.vertical_id,
             "service_kind": svc.service_kind,
             "delivery_mode": svc.delivery_mode.value if hasattr(svc.delivery_mode, 'value') else svc.delivery_mode,
             "label": svc.label
@@ -88,110 +88,102 @@ async def get_vendor_services(
     ).model_dump()
 
 
-@router.get("/my-service-types", response_model=dict)
-async def get_my_service_types(
+@router.get("/my-verticals", response_model=dict)
+async def get_my_verticals(
     current_vendor: dict = Depends(get_current_vendor),
     engine: AIOEngine = Depends(get_engine)
 ):
     """
-    Get service types that THIS vendor has selected and offers
+    Get verticals that THIS vendor has selected and offers
     Returns: [{ id, code, display_name, description, mode, is_active, images, url, icon }]
     """
     vendor_id = current_vendor["vendor_id"]
     
-    # Get vendor's selected service types
-    vendor_service_types = await engine.find(
-        VendorServiceType,
-        VendorServiceType.vendor_id == vendor_id
+    # Get vendor's selected verticals
+    vendor_verticals = await engine.find(
+        VendorVertical,
+        VendorVertical.vendor_id == vendor_id
     )
     
-    if not vendor_service_types:
+    if not vendor_verticals:
         return success_response(
-            message="No service types found",
-            data={"service_types": []}
+            message="No verticals found",
+            data={"verticals": []}
         ).model_dump()
     
-    # Get service type IDs
-    service_type_ids = [ObjectId(vst.service_type_id) for vst in vendor_service_types]
+    # Get vertical IDs
+    vertical_ids = [ObjectId(vst.vertical_id) for vst in vendor_verticals]
     
-    # Fetch full service type details from admin
-    service_types = await engine.find(
-        ServiceType,
-        ServiceType.id.in_(service_type_ids)
+    # Fetch full vertical details from admin
+    verticals_data = await engine.find(
+        Vertical,
+        Vertical.id.in_(vertical_ids)
     )
     
     # Create a map for quick lookup
-    service_type_map = {str(st.id): st for st in service_types}
+    vertical_map = {str(v.id): v for v in verticals_data}
     
     # Build response with vendor-specific data
-    types_list = []
+    verticals_list = []
     
-    # Always include Dashboard if requested, but usually this is a static frontend route. 
-    # However, for the purpose of the sidebar menu which seems dynamically driven:
-    # We might want to prepend 'Dashboard' manually if it's not in the DB types.
-    # The user request implies they want these items to be available.
-    # Since this endpoint returns "my-service-types", it implies configured services.
-    # Dashboard is likely not a "service type" in the DB.
-    # We will stick to enriching the DB items for now.
-    
-    for vst in vendor_service_types:
-        st = service_type_map.get(vst.service_type_id)
-        if st:
-            types_list.append({
-                "id": str(st.id),
-                "service_type_id": str(vst.id),
-                "code": st.code,
-                "display_name": st.display_name,
-                "description": st.description or "",
-                "mode": st.mode.value if hasattr(st.mode, 'value') else st.mode,
+    for vst in vendor_verticals:
+        v_def = vertical_map.get(vst.vertical_id)
+        if v_def:
+            verticals_list.append({
+                "id": str(v_def.id),
+                "vertical_id": str(vst.id),
+                "code": v_def.code,
+                "display_name": v_def.display_name,
+                "description": v_def.description or "",
+                "mode": v_def.mode.value if hasattr(v_def.mode, 'value') else v_def.mode,
                 "is_active": vst.is_active,
-                "images": build_image_list(st.image_blob_paths),
-                "url": st.url or "",
-                "icon": st.icon or "",
-                "priority": st.priority
+                "images": build_image_list(v_def.image_blob_paths),
+                "url": v_def.url or "",
+                "icon": v_def.icon or "",
+                "priority": v_def.priority
             })
             
     # Sort the list based on priority field
-    types_list.sort(key=lambda x: x.get('priority', 100))
+    verticals_list.sort(key=lambda x: x.get('priority', 100))
     
     return success_response(
-        message="Service types retrieved successfully",
-        data={"service_types": types_list}
+        message="Verticals retrieved successfully",
+        data={"verticals": verticals_list}
     ).model_dump()
 
 
-@router.get("/service-types", response_model=dict)
-async def get_all_service_types(
+@router.get("/verticals", response_model=dict)
+async def get_all_verticals(
     current_vendor: dict = Depends(get_current_vendor),
     engine: AIOEngine = Depends(get_engine)
 ):
     """
-    Get all available service types (from admin) for vendor to choose from
-    This is used during onboarding or when vendor wants to add new service types
+    Get all available verticals (from admin) for vendor to choose from
+    This is used during onboarding or when vendor wants to add new verticals
     Returns: [{ id, code, display_name, description, mode, images, url, icon }]
     """
-    # Get all service types from admin
-    service_types = await engine.find(ServiceType)
+    # Get all verticals from admin
+    verticals_data = await engine.find(Vertical)
     
-    types_list = []
-    for st in service_types:
-        types_list.append({
-            "id": str(st.id),
-            "code": st.code,
-            "display_name": st.display_name,
-            "description": st.description or "",
-            "mode": st.mode.value if hasattr(st.mode, 'value') else st.mode,
-            "images": build_image_list(st.image_blob_paths),
-            "url": st.url or "",
-            "icon": st.icon or "",
-            "priority": st.priority,
-            "is_active": st.is_active
+    verticals_list = []
+    for v in verticals_data:
+        verticals_list.append({
+            "id": str(v.id),
+            "code": v.code,
+            "display_name": v.display_name,
+            "description": v.description or "",
+            "mode": v.mode.value if hasattr(v.mode, 'value') else v.mode,
+            "images": build_image_list(v.image_blob_paths),
+            "url": v.url or "",
+            "icon": v.icon or "",
+            "priority": v.priority,
+            "is_active": v.is_active
         })
         
     # Sort the list based on priority field
-    types_list.sort(key=lambda x: x.get('priority', 100))
+    verticals_list.sort(key=lambda x: x.get('priority', 100))
     
     return success_response(
-        message="Service types retrieved successfully",
-        data={"service_types": types_list}
+        message="Verticals retrieved successfully",
+        data={"verticals": verticals_list}
     ).model_dump()

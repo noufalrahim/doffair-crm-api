@@ -15,15 +15,13 @@ router = APIRouter(
 )
 
 
-@router.post("/{vendor_id}/amenities")
+@router.post("/amenities")
 async def upsert_amenities(
-    vendor_id: str,
     payload: VendorAmenityUpsertRequest,
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
-    if token["vendor_id"] != vendor_id:
-        raise HTTPException(status_code=403, detail="Access denied")
+    vendor_id = token["vendor_id"]
 
     try:
         record = await upsert_vendor_amenities(engine, vendor_id, payload)
@@ -34,7 +32,7 @@ async def upsert_amenities(
         message="Amenities saved successfully",
         data={
             "location_id": record.location_id,
-            "service_type_id": record.service_type_id,
+            "vertical_id": record.vertical_id,
             "amenity_codes": record.amenity_codes,
         },
     )

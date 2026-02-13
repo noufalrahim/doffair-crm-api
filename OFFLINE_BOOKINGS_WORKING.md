@@ -43,10 +43,10 @@ Authorization: Bearer {token}
   "customer_medical_conditions": "Diabetes Type 2",
   "customer_notes": "Regular customer",
   "service_id": "507f1f77bcf86cd799439011",
-  "service_type_id": "507f1f77bcf86cd799439012",
+  "vertical_id": "507f1f77bcf86cd799439012",
   "location_id": "507f1f77bcf86cd799439013",
   "service_name": "Blood Test",
-  "service_type_name": "Lab Services",
+  "vertical_name": "Lab Services",
   "booking_date": "2026-02-10T10:00:00",
   "final_amount": 1500.0,
   "payment_mode": "CASH"
@@ -160,7 +160,7 @@ The offline booking will still work - it just saves the ID.
 - `location_id` - Any valid ID
 - `service_id` - Any valid ID
 - `service_name` - Type manually (e.g., "Blood Test")
-- `service_type_name` - Type manually (e.g., "Lab Services")
+- `vertical_name` - Type manually (e.g., "Lab Services")
 
 ---
 

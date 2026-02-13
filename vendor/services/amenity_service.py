@@ -4,7 +4,7 @@ from datetime import datetime
 from vendor.models.vendor_amenity import VendorAmenity
 from vendor.models.vendor import Vendor
 from admin.models.amenity import Amenity
-from admin.models.service_type_amenity import ServiceTypeAmenity
+from admin.models.vertical_amenity import VerticalAmenity
 from vendor.utils.guards import ensure_vendor_editable
 from bson import ObjectId
 
@@ -27,13 +27,13 @@ async def upsert_vendor_amenities(
     # Fetch allowed amenities
     # -----------------------------
     allowed_mappings = await engine.find(
-        ServiceTypeAmenity,
-        ServiceTypeAmenity.service_type_id == payload.service_type_id,
+        VerticalAmenity,
+        VerticalAmenity.vertical_id == payload.vertical_id,
     )
     allowed_codes = {m.amenity_code for m in allowed_mappings}
 
     if not allowed_codes:
-        raise ValueError("No amenities configured for this service type")
+        raise ValueError("No amenities configured for this vertical")
 
     # -----------------------------
     # Fetch active amenities
@@ -58,7 +58,7 @@ async def upsert_vendor_amenities(
         VendorAmenity,
         (VendorAmenity.vendor_id == vendor_id)
         & (VendorAmenity.location_id == payload.location_id)
-        & (VendorAmenity.service_type_id == payload.service_type_id),
+        & (VendorAmenity.vertical_id == payload.vertical_id),
     )
 
     if record:
@@ -68,7 +68,7 @@ async def upsert_vendor_amenities(
         record = VendorAmenity(
             vendor_id=vendor_id,
             location_id=payload.location_id,
-            service_type_id=payload.service_type_id,
+            vertical_id=payload.vertical_id,
             amenity_codes=payload.amenity_codes,
         )
 

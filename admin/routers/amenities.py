@@ -7,13 +7,18 @@ from utils.response import success_response
 
 from admin.schemas.amenity import (
     AmenityCreateRequest,
-    ServiceTypeAmenityMapRequest,
+    AmenityResponse,
+    AmenityCreateResponse,
+    AmenityListResponse,
+    AmenityMapResponse,
+    VerticalAmenityMapRequest,
 )
 from admin.services.amenity_service import (
     create_amenity,
     list_amenities,
-    map_amenities_to_service_type,
+    map_amenities_to_vertical,
 )
+from utils.response import success_response
 
 
 router = APIRouter(
@@ -22,7 +27,7 @@ router = APIRouter(
 )
 
 
-@router.post("", dependencies=[Depends(require_admin)])
+@router.post("", response_model=AmenityCreateResponse, dependencies=[Depends(require_admin)])
 async def create_amenity_api(
     payload: AmenityCreateRequest,
     engine: AIOEngine = Depends(get_engine),
@@ -31,15 +36,17 @@ async def create_amenity_api(
 
     return success_response(
         message="Amenity created successfully",
-        data={
-            "code": amenity.code,
-            "display_name": amenity.display_name,
-            "is_active": amenity.is_active,
-        },
-    )
+        data=AmenityResponse(
+            code=amenity.code,
+            display_name=amenity.display_name,
+            description=amenity.description,
+            icon=amenity.icon,
+            is_active=amenity.is_active,
+        ),
+    ).model_dump()
 
 
-@router.get("", dependencies=[Depends(require_admin)])
+@router.get("", response_model=AmenityListResponse, dependencies=[Depends(require_admin)])
 async def list_amenities_api(
     engine: AIOEngine = Depends(get_engine),
 ):
@@ -47,37 +54,38 @@ async def list_amenities_api(
 
     return success_response(
         data=[
-            {
-                "code": a.code,
-                "display_name": a.display_name,
-                "description": a.description,
-                "icon": a.icon,
-                "is_active": a.is_active,
-            }
+            AmenityResponse(
+                code=a.code,
+                display_name=a.display_name,
+                description=a.description,
+                icon=a.icon,
+                is_active=a.is_active,
+            )
             for a in amenities
         ]
-    )
+    ).model_dump()
 
 
 @router.post(
-    "/service-types/{service_type_id}",
+    "/verticals/{vertical_id}",
+    response_model=AmenityMapResponse,
     dependencies=[Depends(require_admin)],
 )
 async def map_amenities_api(
-    service_type_id: str,
-    payload: ServiceTypeAmenityMapRequest,
+    vertical_id: str,
+    payload: VerticalAmenityMapRequest,
     engine: AIOEngine = Depends(get_engine),
 ):
-    await map_amenities_to_service_type(
+    await map_amenities_to_vertical(
         engine,
-        service_type_id,
+        vertical_id,
         payload.amenity_codes,
     )
 
     return success_response(
-        message="Amenities mapped to service type",
+        message="Amenities mapped to vertical",
         data={
-            "service_type_id": service_type_id,
+            "vertical_id": vertical_id,
             "amenity_codes": payload.amenity_codes,
         },
-    )
+    ).model_dump()

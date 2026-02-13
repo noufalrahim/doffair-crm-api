@@ -9,7 +9,7 @@ from typing import Any
 
 class VendorService(Model):
     vendor_id: str
-    service_type_id: str
+    vertical_id: str
     location_id: str
     name: str
     service_kind: str
@@ -43,6 +43,6 @@ class VendorService(Model):
         "collection": "vendor_services",
         "indexes": [
             {"fields": ["vendor_id"]},
-            {"fields": ["service_type_id"]},
+            {"fields": ["vertical_id"]},
         ],
     }

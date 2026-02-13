@@ -9,7 +9,7 @@ import sys
 sys.path.append(os.getcwd())
 
 from core.database import get_engine
-from admin.models.service_type import ServiceType
+from admin.models.vertical import Vertical
 
 METADATA = {
     "grooming": {"url": "/groom/overview", "icon": "/services/groom.png", "priority": 1},
@@ -22,10 +22,10 @@ METADATA = {
 async def initialize():
     engine = get_engine()
     
-    print("Fetching service types...")
-    service_types = await engine.find(ServiceType)
+    print("Fetching verticals...")
+    verticals = await engine.find(Vertical)
     
-    for st in service_types:
+    for st in verticals:
         updated = False
         for code in st.code:
             if code in METADATA:

@@ -25,10 +25,10 @@ class CreateOfflineBookingSimple(BaseModel):
     
     # Service info
     service_id: str
-    service_type_id: str
+    vertical_id: str
     location_id: str
     service_name: str
-    service_type_name: str
+    vertical_name: str
     
     # Booking details
     booking_date: datetime
@@ -52,10 +52,10 @@ class CreateOfflineBookingSimple(BaseModel):
                 "customer_gender": "Male",
                 "customer_city": "Mumbai",
                 "service_id": "507f1f77bcf86cd799439011",
-                "service_type_id": "507f1f77bcf86cd799439012",
+                "vertical_id": "507f1f77bcf86cd799439012",
                 "location_id": "507f1f77bcf86cd799439013",
                 "service_name": "Blood Test",
-                "service_type_name": "Lab Services",
+                "vertical_name": "Lab Services",
                 "booking_date": "2026-02-10T10:00:00",
                 "final_amount": 1500.0,
                 "payment_mode": "CASH"
@@ -77,7 +77,7 @@ class OfflineBookingResponse(BaseModel):
     
     # Service
     service_name: str
-    service_type_name: str
+    vertical_name: str
     
     # Booking
     booking_date: datetime

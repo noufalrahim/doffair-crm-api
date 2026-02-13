@@ -3,9 +3,9 @@ from datetime import datetime
 from odmantic import Model, Field
 
 
-class VendorServiceType(Model):
+class VendorVertical(Model):
     vendor_id: str
-    service_type_id: str
+    vertical_id: str
 
     is_active: bool = True
 
@@ -15,8 +15,8 @@ class VendorServiceType(Model):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = {
-        "collection": "vendor_service_types",
+        "collection": "vendor_verticals",
         "indexes": [
-            {"fields": ["vendor_id", "service_type_id"], "unique": True},
+            {"fields": ["vendor_id", "vertical_id"], "unique": True},
         ],
     }

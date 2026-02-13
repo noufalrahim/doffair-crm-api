@@ -6,11 +6,11 @@ from typing import List, Optional
 # Requests (WRITE) — NO CHANGE
 # ---------------------------------------------------------
 
-class VendorServiceTypeSelectRequest(BaseModel):
-    service_type_ids: List[str]
+class VendorVerticalSelectRequest(BaseModel):
+    vertical_ids: List[str]
 
 
-class VendorServiceTypeUpdateRequest(BaseModel):
+class VendorVerticalUpdateRequest(BaseModel):
     is_active: bool
 
 
@@ -20,7 +20,7 @@ class ImageSet(BaseModel):
     thumbnail: str
 
 
-class VendorServiceTypeResponse(BaseModel):
+class VendorVerticalResponse(BaseModel):
     id: str
     name: str
     description: Optional[str] = None

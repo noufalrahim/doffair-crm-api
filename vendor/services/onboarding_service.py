@@ -113,3 +113,78 @@ async def update_basic_info_partial(
     vendor.updated_at = datetime.utcnow()
     await engine.save(vendor)
     return vendor
+
+
+async def get_vendor_onboarding_progress(engine: AIOEngine, vendor_id: str):
+    """
+    Calculate vendor onboarding progress
+    """
+    # 1. Fetch Vendor
+    vendor = await engine.find_one(Vendor, Vendor.id == ObjectId(vendor_id))
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # 2. Check Steps
+    
+    # Step 1: Mobile & Email (Always true if vendor exists, as they are required for creation)
+    mobile_verified = True
+    email_verified = True  
+    
+    # Step 2: Basic Info
+    # Check if essential fields are present (legal_name is the core field)
+    basic_info_added = bool(vendor.legal_name)
+
+    # Step 3: Verticals
+    # Check if at least one vertical is configured
+    from vendor.models.vendor_vertical import VendorVertical
+    vertical_count = await engine.count(
+        VendorVertical, 
+        VendorVertical.vendor_id == vendor_id
+    )
+    verticals_added = vertical_count > 0
+
+    # Step 4: Location
+    # Check if at least one location is added
+    from vendor.models.vendor_location import VendorLocation
+    location_count = await engine.count(
+        VendorLocation, 
+        VendorLocation.vendor_id == vendor_id
+    )
+    location_added = location_count > 0
+
+    # Step 5: Bank Account
+    # TODO: Implement bank account check when model is available
+    bank_account_added = False
+
+    # 3. Calculate Percentage
+    steps = [
+        ("mobile_verified", mobile_verified),
+        ("email_verified", email_verified),
+        ("basic_info", basic_info_added),
+        ("verticals", verticals_added),
+        ("location_details", location_added),
+        ("bank_account", bank_account_added)
+    ]
+
+    total_steps = len(steps)
+    completed_steps = sum(1 for _, completed in steps if completed)
+    
+    if total_steps > 0:
+        percentage = round((completed_steps / total_steps) * 100, 2)
+    else:
+        percentage = 0.0
+
+    # 4. Identify Pending Steps
+    pending = [name for name, completed in steps if not completed]
+
+    return {
+        "vendor_id": vendor_id,
+        "mobile_verified": mobile_verified,
+        "email_verified": email_verified,
+        "basic_info_added": basic_info_added,
+        "verticals_added": verticals_added,
+        "location_added": location_added,
+        "bank_account_added": bank_account_added,
+        "percentage_completed": percentage,
+        "pending_steps": pending
+    }

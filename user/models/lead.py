@@ -9,7 +9,7 @@ class Lead(Model):
     """
     user_id: str
     vendor_id: str
-    service_type_id: str
+    vertical_id: str
     
     # User information (cached for quick access)
     user_name: str
@@ -35,11 +35,11 @@ class Lead(Model):
         "indexes": [
             {"fields": ["user_id"]},
             {"fields": ["vendor_id"]},
-            {"fields": ["service_type_id"]},
+            {"fields": ["vertical_id"]},
             {"fields": ["revealed_at"]},
             # For checking daily limit
             {"fields": ["user_id", "revealed_at"]},
             # Prevent duplicate leads
-            {"fields": ["user_id", "vendor_id", "service_type_id"]},
+            {"fields": ["user_id", "vendor_id", "vertical_id"]},
         ],
     }

@@ -10,7 +10,7 @@ async def add_holiday(
 ):
     holiday = Holiday(
         vendor_id=vendor_id,
-        service_type_id=payload.get("service_type_id"),
+        vertical_id=payload.get("vertical_id"),
         doctor_id=payload.get("doctor_id"),
         date=payload.get("date"),
         name=payload.get("name"),

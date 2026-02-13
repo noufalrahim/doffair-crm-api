@@ -1,1 +1,1 @@
-New booking request! {{ service_type }} for {{ pet_name }} on {{ scheduled_at }}. Customer: {{ user_name }}. Booking ID: {{ booking_id }}.
+New booking request! {{ vertical }} for {{ pet_name }} on {{ scheduled_at }}. Customer: {{ user_name }}. Booking ID: {{ booking_id }}.

@@ -23,7 +23,7 @@ print("\n📝 Test creating service with correct field types...")
 try:
     service = VendorService(
         vendor_id="test123",
-        service_type_id="type123",
+        vertical_id="type123",
         location_id="loc123",
         name="Test Service",
         service_kind="BASE",

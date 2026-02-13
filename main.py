@@ -1,15 +1,18 @@
+from dotenv import load_dotenv
+load_dotenv()
 from fastapi import FastAPI
-
 from admin.routers import auth as admin_auth_router
-from admin.routers import service_types as service_type_router
+from admin.routers import verticals as admin_verticals_router
 from vendor.routers import onboarding as vendor_onboarding_router
 from vendor.routers import auth as vendor_auth_router
-from vendor.routers import service_types as vendor_service_type_router
+from vendor.routers import verticals as vendor_vertical_router
 from vendor.routers import locations as vendor_locations_router
 from vendor.routers import services as vendor_services_router
 from vendor.routers import images as vendor_images_router
 from admin.routers import vendors as admin_vendors_router
 from admin.routers import amenities as admin_amenities_router
+from admin.routers import admins as admin_admins_router
+from admin.routers import bookings as admin_bookings_router
 from vendor.routers import amenities as vendor_amenities_router
 from vendor.routers import service_area as vendor_service_area_router
 from vendor.routers import doctors, doctor_availability
@@ -29,6 +32,7 @@ from vendor.routers import invoices as vendor_invoices_router
 from vendor.routers import bookings as vendor_bookings_router
 from vendor.routers import customers as vendor_customers_router
 from vendor.routers import walkins as vendor_walkins_router
+from vendor.routers import uploads as vendor_uploads_router
 
 
 from core.config import settings
@@ -45,16 +49,18 @@ app.add_middleware(
 
 # Admin routers
 app.include_router(admin_auth_router.router)
-app.include_router(service_type_router.router)
+app.include_router(admin_verticals_router.router)
 app.include_router(admin_vendors_router.router)
 app.include_router(admin_amenities_router.router)
+app.include_router(admin_admins_router.router)
+app.include_router(admin_bookings_router.router)
 
 # Vendor routers
 app.include_router(vendor_onboarding_router.router)
 app.include_router(vendor_auth_router.router)
 app.include_router(vendor_profile_router.router)
-app.include_router(vendor_service_type_router.router)
-app.include_router(vendor_service_type_router.router_general)
+app.include_router(vendor_vertical_router.router)
+app.include_router(vendor_vertical_router.router_general)
 app.include_router(vendor_locations_router.router)
 app.include_router(vendor_services_router.router)
 app.include_router(vendor_images_router.router)
@@ -63,6 +69,7 @@ app.include_router(vendor_service_area_router.router)
 app.include_router(vendor_bookings_router.router)
 app.include_router(vendor_customers_router.router)
 app.include_router(vendor_walkins_router.router)
+app.include_router(vendor_uploads_router.router)
 app.include_router(doctors.router)
 app.include_router(doctor_availability.router)
 app.include_router(pricing.router)

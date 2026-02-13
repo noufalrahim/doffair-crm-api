@@ -38,7 +38,7 @@ class BookingEventData(BaseModel):
     booking_id: str
     user_id: str
     vendor_id: str
-    service_type: str
+    vertical: str
     scheduled_at: datetime
     pet_name: Optional[str] = None
     user_name: Optional[str] = None
@@ -51,7 +51,7 @@ class BookingEventData(BaseModel):
     cancellation_reason: Optional[str] = None
     previous_scheduled_at: Optional[datetime] = None
     
-    @field_validator("booking_id", "user_id", "vendor_id", "service_type")
+    @field_validator("booking_id", "user_id", "vendor_id", "vertical")
     @classmethod
     def validate_required_fields(cls, v):
         if not v or not str(v).strip():

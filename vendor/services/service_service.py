@@ -14,7 +14,7 @@ async def create_base_service(engine: AIOEngine, vendor_id: str, payload):
     service = VendorService(
         vendor_id=vendor_id,
         location_id=payload.location_id,
-        service_type_id=payload.service_type_id,
+        vertical_id=payload.vertical_id,
         name=payload.name,
         description=payload.description,
         duration_minutes=payload.duration_minutes,
@@ -63,17 +63,17 @@ async def create_combo_service(engine: AIOEngine, vendor_id: str, payload):
         if (
             svc.vendor_id != vendor_id
             or svc.location_id != payload.location_id
-            or svc.service_type_id != payload.service_type_id
+            or svc.vertical_id != payload.vertical_id
         ):
             raise HTTPException(
                 status_code=400,
-                detail="Included services must match vendor, location and service type",
+                detail="Included services must match vendor, location and vertical",
             )
 
     combo = VendorService(
         vendor_id=vendor_id,
         location_id=payload.location_id,
-        service_type_id=payload.service_type_id,
+        vertical_id=payload.vertical_id,
         name=payload.name,
         description=payload.description,
         service_kind="COMBO",
@@ -101,13 +101,13 @@ async def list_services(
     engine: AIOEngine,
     vendor_id: str,
     location_id: str,
-    service_type_id: str,
+    vertical_id: str,
 ):
     return await engine.find(
         VendorService,
         (VendorService.vendor_id == vendor_id)
         & (VendorService.location_id == location_id)
-        & (VendorService.service_type_id == service_type_id),
+        & (VendorService.vertical_id == vertical_id),
     )
 
 

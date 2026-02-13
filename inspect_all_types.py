@@ -32,10 +32,10 @@ async def inspect():
     types_found = {}
     for doc in docs:
         sp_type = doc.get("serviceProviderType")
-        st_name = doc.get("service_type_name")
-        st_legacy = doc.get("serviceType")
+        st_name = doc.get("vertical_name")
+        st_legacy = doc.get("vertical")
         
-        key = f"SPT:{sp_type} | STN:{st_name} | ST:{st_legacy}"
+        key = f"SPT:{sp_type} | VN:{st_name} | V:{st_legacy}"
         types_found[key] = types_found.get(key, 0) + 1
         
     for k, v in types_found.items():

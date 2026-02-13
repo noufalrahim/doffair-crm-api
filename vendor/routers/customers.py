@@ -19,6 +19,8 @@ router = APIRouter(
 @router.get("", response_model=dict)
 async def get_vendor_customers(
     phone: Optional[str] = None,
+    name: Optional[str] = None,
+    search: Optional[str] = None,
     token: dict = Depends(require_vendor()),
     secondary_engine: AIOEngine = Depends(get_secondary_engine),
     primary_engine: AIOEngine = Depends(get_engine),
@@ -26,10 +28,17 @@ async def get_vendor_customers(
     """
     Get all unique customers and their pet information for the authenticated vendor.
     Aggregates data from both online (secondary DB) and offline (primary DB) bookings.
+    
+    Query params:
+        phone: Filter by exact phone number
+        name: Filter by name (case-insensitive substring match)
+        search: Search across both phone and name fields (case-insensitive substring)
     """
     vendor_id = token.get("vendor_id")
     
     customers_dict = {} # Key: (phone, email)
+    
+    import re
     
     # --- 1. Fetch Online Bookings (Secondary DB) ---
     online_coll = secondary_engine.get_collection(Booking)
@@ -63,6 +72,41 @@ async def get_vendor_customers(
             u_ids = [u["_id"] for u in matching_users]
             online_criteria["$and"][-1]["$or"].append({"userId": {"$in": u_ids}})
     
+    if name:
+        name_regex = {"$regex": re.escape(name), "$options": "i"}
+        online_criteria["$and"].append({
+            "$or": [
+                {"user_name": name_regex},
+                {"name": name_regex},
+            ]
+        })
+    
+    if search:
+        search_regex = {"$regex": re.escape(search), "$options": "i"}
+        search_user_ids = []
+        # Also search users collection for matching phone/name
+        user_coll = secondary_engine.database.get_collection("users")
+        matching_users = await user_coll.find({
+            "$or": [
+                {"phoneNumber": search_regex},
+                {"phone": search_regex},
+                {"username": search_regex},
+                {"firstName": search_regex},
+            ]
+        }).to_list(length=200)
+        if matching_users:
+            search_user_ids = [u["_id"] for u in matching_users]
+        
+        search_or = [
+            {"user_phone": search_regex},
+            {"phone": search_regex},
+            {"user_name": search_regex},
+            {"name": search_regex},
+        ]
+        if search_user_ids:
+            search_or.append({"userId": {"$in": search_user_ids}})
+        online_criteria["$and"].append({"$or": search_or})
+    
     online_cursor = online_coll.find(online_criteria)
     
     # --- 2. Fetch Offline Bookings (Primary DB) ---
@@ -73,6 +117,14 @@ async def get_vendor_customers(
     }
     if phone:
         offline_criteria["user_phone"] = phone
+    if name:
+        offline_criteria["user_name"] = {"$regex": re.escape(name), "$options": "i"}
+    if search:
+        search_regex_val = {"$regex": re.escape(search), "$options": "i"}
+        offline_criteria["$or"] = [
+            {"user_phone": search_regex_val},
+            {"user_name": search_regex_val},
+        ]
     offline_cursor = offline_coll.find(offline_criteria)
 
     # Merge and Sort Bookings to find most recent pet per customer

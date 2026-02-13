@@ -1,1 +1,1 @@
-Booking {{ booking_id }} marked as completed. Customer: {{ user_name }}, Service: {{ service_type }}.
+Booking {{ booking_id }} marked as completed. Customer: {{ user_name }}, Service: {{ vertical }}.

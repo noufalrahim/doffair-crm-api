@@ -13,7 +13,7 @@ class Booking(Model):
     user_id: str
     vendor_id: str
     service_id: Optional[str] = None
-    service_type_id: Optional[str] = None
+    vertical_id: Optional[str] = None
     location_id: Optional[str] = None
     
     # Cached information for quick access
@@ -26,7 +26,7 @@ class Booking(Model):
     vendor_email: Optional[str] = None
     
     service_name: str
-    service_type_name: str
+    vertical_name: str
     
     # Booking details
     booking_date: datetime  # When the service will be performed
@@ -94,6 +94,13 @@ class Booking(Model):
         if v in mapping:
             return mapping[v]
         return v
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def validate_status(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return v.lower()
+        return v
     
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -105,6 +112,7 @@ class Booking(Model):
             {"fields": ["user_id"]},
             {"fields": ["vendor_id"]},
             {"fields": ["service_id"]},
+            {"fields": ["vertical_id"]},
             {"fields": ["status"]},
             {"fields": ["booking_date"]},
             {"fields": ["created_at"]},

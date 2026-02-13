@@ -3,16 +3,16 @@ from odmantic import AIOEngine
 from fastapi import HTTPException, status
 
 from vendor.models.vendor import Vendor
-from vendor.models.vendor_service_type import VendorServiceType
-from admin.models.service_type import ServiceType
+from vendor.models.vendor_vertical import VendorVertical
+from admin.models.vertical import Vertical
 from core.enums import VendorStatus
 from bson import ObjectId
 from vendor.utils.guards import ensure_vendor_editable
 
-async def select_service_types(
+async def select_verticals(
     engine: AIOEngine,
     vendor_id: str,
-    service_type_ids: list[str],
+    vertical_ids: list[str],
 ):
     # Validate vendor exists
     vendor = await engine.find_one(Vendor, Vendor.id == ObjectId(vendor_id))
@@ -24,42 +24,42 @@ async def select_service_types(
         )
 
     try:
-        service_type_oids = [ObjectId(st_id) for st_id in service_type_ids]
+        vertical_oids = [ObjectId(v_id) for v_id in vertical_ids]
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid service type id format",
+            detail="Invalid vertical id format",
         )
 
-    service_types = await engine.find(
-        ServiceType,
-        ServiceType.id.in_(service_type_oids)
+    verticals_data = await engine.find(
+        Vertical,
+        Vertical.id.in_(vertical_oids)
     )
 
-    if len(service_types) != len(service_type_ids):
+    if len(verticals_data) != len(vertical_ids):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="One or more service types are invalid",
+            detail="One or more verticals are invalid",
         )
 
-    # Create vendor-service-type mappings (idempotent)
-    for st in service_types:
+    # Create vendor-vertical mappings (idempotent)
+    for v in verticals_data:
         existing = await engine.find_one(
-            VendorServiceType,
-            (VendorServiceType.vendor_id == vendor_id)
-            & (VendorServiceType.service_type_id == str(st.id)),
+            VendorVertical,
+            (VendorVertical.vendor_id == vendor_id)
+            & (VendorVertical.vertical_id == str(v.id)),
         )
 
         if not existing:
-            vst = VendorServiceType(
+            vst = VendorVertical(
                 vendor_id=vendor_id,
-                service_type_id=str(st.id),
-                is_active=st.is_active,
+                vertical_id=str(v.id),
+                is_active=v.is_active,
             )
             await engine.save(vst)
 
     # Update vendor status
-    vendor.status = VendorStatus.SERVICE_TYPE_SELECTED
+    vendor.status = VendorStatus.VERTICAL_SELECTED
     vendor.updated_at = datetime.utcnow()
     await engine.save(vendor)
 
@@ -67,20 +67,20 @@ async def select_service_types(
 
 
 
-async def update_vendor_service_type(
+async def update_vendor_vertical(
     engine,
     vendor_id: str,
-    service_type_id: str,
+    vertical_id: str,
     is_active: bool,
 ):
     vst = await engine.find_one(
-        VendorServiceType,
-        (VendorServiceType.vendor_id == vendor_id)
-        & (VendorServiceType.service_type_id == service_type_id),
+        VendorVertical,
+        (VendorVertical.vendor_id == vendor_id)
+        & (VendorVertical.vertical_id == vertical_id),
     )
     ensure_vendor_editable(vst)
     if not vst:
-        raise HTTPException(status_code=404, detail="Service type not found")
+        raise HTTPException(status_code=404, detail="Vertical not found")
 
     vst.is_active = is_active
     vst.updated_at = datetime.utcnow()
@@ -88,21 +88,21 @@ async def update_vendor_service_type(
     return vst
 
 
-async def delete_vendor_service_type(
+async def delete_vendor_vertical(
     engine: AIOEngine,
     vendor_id: str,
-    service_type_id: str,
+    vertical_id: str,
 ):
     vst = await engine.find_one(
-        VendorServiceType,
-        (VendorServiceType.vendor_id == vendor_id)
-        & (VendorServiceType.service_type_id == service_type_id),
+        VendorVertical,
+        (VendorVertical.vendor_id == vendor_id)
+        & (VendorVertical.vertical_id == vertical_id),
     )
     
     if not vst:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Service type not found",
+            detail="Vertical not found",
         )
         
     # Check if vendor is editable

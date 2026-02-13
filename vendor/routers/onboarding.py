@@ -12,12 +12,14 @@ from vendor.schemas.onboarding import (
     VendorBasicInfoUpdateRequest,
     VendorSignupRequest,
     VendorBasicInfoRequest,
+    VendorOnboardingProgressResponse,
 )
 from vendor.services.onboarding_service import (
     signup_vendor,
     update_basic_info,
     get_vendor_status,
     update_basic_info_partial,
+    get_vendor_onboarding_progress,
 )
 
 from core.enums import VendorStatus
@@ -53,18 +55,13 @@ async def vendor_signup(
 # Vendor Basic Info (CREATE)
 # ---------------------------------------------------------
 
-@router.post("/{vendor_id}/basic-info")
+@router.post("/basic-info")
 async def vendor_basic_info(
-    vendor_id: str,
     payload: VendorBasicInfoRequest,
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
-    if token.get("vendor_id") != vendor_id:
-        raise HTTPException(
-            status_code=403,
-            detail="You are not allowed to update this vendor",
-        )
+    vendor_id = token.get("vendor_id")
 
     vendor = await update_basic_info(engine, vendor_id, payload)
 
@@ -82,17 +79,12 @@ async def vendor_basic_info(
 # Vendor Onboarding Status
 # ---------------------------------------------------------
 
-@router.get("/{vendor_id}/status")
+@router.get("/status")
 async def vendor_status(
-    vendor_id: str,
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
-    if token.get("vendor_id") != vendor_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Access denied",
-        )
+    vendor_id = token.get("vendor_id")
 
     vendor = await get_vendor_status(engine, vendor_id)
 
@@ -105,22 +97,41 @@ async def vendor_status(
     )
 
 
+@router.get("/progress", response_model=dict)
+async def get_onboarding_progress(
+    token: dict = Depends(require_vendor()),
+    engine: AIOEngine = Depends(get_engine),
+):
+    """
+    Get vendor onboarding progress (percentage and pending steps)
+    """
+    vendor_id = token.get("vendor_id")
+    if not vendor_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Vendor ID not found in token",
+        )
+
+    progress = await get_vendor_onboarding_progress(engine, vendor_id)
+
+    return success_response(
+        message="Onboarding progress retrieved successfully",
+        data=progress
+    ).model_dump()
+
+
+
 # ---------------------------------------------------------
 # Vendor Basic Info (UPDATE / PATCH)
 # ---------------------------------------------------------
 
-@router.patch("/{vendor_id}/basic-info")
+@router.patch("/basic-info")
 async def update_vendor_basic_info(
-    vendor_id: str,
     payload: VendorBasicInfoUpdateRequest,
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
-    if token["vendor_id"] != vendor_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Access denied",
-        )
+    vendor_id = token["vendor_id"]
 
     vendor = await update_basic_info_partial(engine, vendor_id, payload)
 
@@ -134,14 +145,12 @@ async def update_vendor_basic_info(
 
 
 
-@router.post("/{vendor_id}/submit-for-review")
+@router.post("/submit-for-review")
 async def submit_for_review(
-    vendor_id: str,
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
-    if token["vendor_id"] != vendor_id:
-        raise HTTPException(status_code=403)
+    vendor_id = token["vendor_id"]
 
     vendor = await engine.find_one(Vendor, Vendor.id == ObjectId(vendor_id))
     if not vendor:

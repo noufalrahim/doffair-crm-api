@@ -36,7 +36,7 @@ from vendor.models.vendor import Vendor
 from vendor.models.vendor_location import VendorLocation
 from vendor.models.vendor_service import VendorService
 from vendor.models.service_pricing import ServicePricing
-from admin.models.service_type import ServiceType
+from admin.models.vertical import Vertical
 from core.enums import (
     BookingStatus,
     VendorStatus,
@@ -65,21 +65,21 @@ async def create_completed_booking_for_testing(vendor_id: Optional[str] = None):
     
     try:
         # ============================================
-        # 1. Find or Create Service Type
+        # 1. Find or Create Vertical
         # ============================================
-        service_type = await engine.find_one(ServiceType, ServiceType.is_active == True)
-        if not service_type:
-            service_type = ServiceType(
+        vertical = await engine.find_one(Vertical, Vertical.is_active == True)
+        if not vertical:
+            vertical = Vertical(
                 code="pet_grooming",
                 display_name="Pet Grooming",
                 description="Professional pet grooming services",
                 mode=ServiceMode.BOOKING,
                 is_active=True
             )
-            await engine.save(service_type)
-            logger.info(f"✅ Created service type: {service_type.display_name}")
+            await engine.save(vertical)
+            logger.info(f"✅ Created vertical: {vertical.display_name}")
         else:
-            logger.info(f"✅ Using existing service type: {service_type.display_name}")
+            logger.info(f"✅ Using existing vertical: {vertical.display_name}")
         
         # ============================================
         # 2. Find or Create Vendor
@@ -149,14 +149,14 @@ async def create_completed_booking_for_testing(vendor_id: Optional[str] = None):
             VendorService,
             (VendorService.vendor_id == vendor_id) &
             (VendorService.location_id == location_id) &
-            (VendorService.service_type_id == str(service_type.id))
+            (VendorService.vertical_id == str(vertical.id))
         )
         
         if not service:
             service = VendorService(
                 vendor_id=vendor_id,
                 location_id=location_id,
-                service_type_id=str(service_type.id),
+                vertical_id=str(vertical.id),
                 name="Basic Grooming Package",
                 service_kind="BASE",
                 delivery_mode=ServiceDeliveryMode.CENTER,
@@ -221,7 +221,7 @@ async def create_completed_booking_for_testing(vendor_id: Optional[str] = None):
             user_id=user_id,
             vendor_id=vendor_id,
             service_id=service_id,
-            service_type_id=str(service_type.id),
+            vertical_id=str(vertical.id),
             location_id=location_id,
             
             # Cached info
@@ -232,7 +232,7 @@ async def create_completed_booking_for_testing(vendor_id: Optional[str] = None):
             vendor_phone=vendor.primary_contact_phone,
             vendor_email=vendor.primary_contact_email,
             service_name=service.name,
-            service_type_name=service_type.display_name,
+            vertical_name=vertical.display_name,
             
             # Booking details
             booking_date=booking_date,

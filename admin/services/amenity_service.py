@@ -2,7 +2,7 @@ from odmantic import AIOEngine
 from datetime import datetime
 
 from admin.models.amenity import Amenity
-from admin.models.service_type_amenity import ServiceTypeAmenity
+from admin.models.vertical_amenity import VerticalAmenity
 
 
 async def create_amenity(engine: AIOEngine, payload):
@@ -20,20 +20,20 @@ async def list_amenities(engine: AIOEngine):
     return await engine.find(Amenity, Amenity.is_active == True)
 
 
-async def map_amenities_to_service_type(
+async def map_amenities_to_vertical(
     engine: AIOEngine,
-    service_type_id: str,
+    vertical_id: str,
     amenity_codes: list[str],
 ):
     # Remove existing mappings
     await engine.remove(
-        ServiceTypeAmenity,
-        ServiceTypeAmenity.service_type_id == service_type_id,
+        VerticalAmenity,
+        VerticalAmenity.vertical_id == vertical_id,
     )
 
     mappings = [
-        ServiceTypeAmenity(
-            service_type_id=service_type_id,
+        VerticalAmenity(
+            vertical_id=vertical_id,
             amenity_code=code,
         )
         for code in amenity_codes

@@ -15,15 +15,13 @@ router = APIRouter(
 )
 
 
-@router.post("/{vendor_id}/service-area")
+@router.post("/service-area")
 async def configure_service_area(
-    vendor_id: str,
     payload: ServiceAreaUpsertRequest,
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
-    if token["vendor_id"] != vendor_id:
-        raise HTTPException(status_code=403, detail="Access denied")
+    vendor_id = token["vendor_id"]
 
     try:
         area = await upsert_service_area(engine, vendor_id, payload)

@@ -7,6 +7,11 @@ from utils.response import success_response
 
 from admin.services.vendor_review import get_vendor_review_snapshot
 from admin.services.vendor_approval import approve_vendor, reject_vendor
+from schemas.common import APIResponse
+
+from vendor.models.vendor import Vendor
+from admin.schemas.vendor import VendorSchema
+
 
 router = APIRouter(
     prefix="/admin/vendors",
@@ -14,7 +19,18 @@ router = APIRouter(
 )
 
 
-@router.get("/{vendor_id}/review-snapshot")
+@router.get("/", response_model=APIResponse)
+async def get_all_vendors(
+    engine: AIOEngine = Depends(get_engine),
+    _: dict = Depends(require_admin),
+):
+    vendors = await engine.find(Vendor)
+    return success_response(
+        data=[VendorSchema.model_validate(vendor) for vendor in vendors]
+    ).model_dump()
+
+
+@router.get("/{vendor_id}/review-snapshot", response_model=APIResponse)
 async def vendor_review_snapshot(
     vendor_id: str,
     engine: AIOEngine = Depends(get_engine),
@@ -25,10 +41,10 @@ async def vendor_review_snapshot(
     except ValueError:
         raise HTTPException(status_code=404, detail="Vendor not found")
 
-    return success_response(data=snapshot)
+    return success_response(data=snapshot).model_dump()
 
 
-@router.post("/{vendor_id}/approve")
+@router.post("/{vendor_id}/approve", response_model=APIResponse)
 async def approve_vendor_api(
     vendor_id: str,
     engine: AIOEngine = Depends(get_engine),
@@ -45,10 +61,10 @@ async def approve_vendor_api(
             "vendor_id": vendor_id,
             "status": vendor.status,
         },
-    )
+    ).model_dump()
 
 
-@router.post("/{vendor_id}/reject")
+@router.post("/{vendor_id}/reject", response_model=APIResponse)
 async def reject_vendor_api(
     vendor_id: str,
     reason: str,
@@ -67,4 +83,4 @@ async def reject_vendor_api(
             "status": vendor.status,
             "reason": reason,
         },
-    )
+    ).model_dump()

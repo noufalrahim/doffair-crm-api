@@ -139,7 +139,7 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
             status=status if isinstance(status, str) else str(status),
             service_name=service_name,
             services=services_list,
-            service_type_name=booking_doc.get("serviceType", "Unknown"),
+            vertical_name=booking_doc.get("serviceType", "Unknown"),
             delivery_mode=booking_doc.get("delivery_mode", "In-Center"),
             final_amount=float(booking_doc.get("bookingAmount", 0)),
             vendor_notes=booking_doc.get("instructions"),
@@ -154,7 +154,7 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
     # Map Modern Services (assuming same structure loosely or fields on booking?)
     # Booking model usually has detailed fields. Checking...
     # Booking model has `service_name`, but maybe not a list of services if it's single service booking?
-    # Inspecting user/models/booking.py earlier showed: service_name, service_type_name.
+    # Inspecting user/models/booking.py earlier showed: service_name, vertical_name.
     # It didn't explicitly show a `services` list field in the model definition I saw.
     # However, raw doc might have it if it's there.
     # Let's try to fetch `services` from raw doc even for modern if available, or just use single service details.
@@ -230,7 +230,7 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
             status=raw_status if isinstance(raw_status, str) else str(raw_status),
             service_name=booking.service_name,
             services=modern_services_list,
-            service_type_name=booking.service_type_name,
+            vertical_name=booking.vertical_name,
             delivery_mode=booking.delivery_mode,
             final_amount=booking.final_amount,
             vendor_notes=booking.vendor_notes,
@@ -255,7 +255,7 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
 
 
 from core.database import get_engine, get_secondary_engine
-from admin.models.service_type import ServiceType
+from admin.models.vertical import Vertical
 
 @router.get("")
 async def list_vendor_bookings(
@@ -263,7 +263,7 @@ async def list_vendor_bookings(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     search: Optional[str] = None,
-    service_type_id: Optional[str] = None,
+    vertical_id: Optional[str] = None,
     skip: int = 0,
     limit: int = 50,
     token: dict = Depends(require_vendor()),
@@ -276,22 +276,23 @@ async def list_vendor_bookings(
     - status: 'confirmed', 'pending', 'cancelled'
     - date range: start_date, end_date
     - search: booking_id (for now)
-    - service_type_id: Filter by Service Type (Mandatory, returns empty if missing)
+    - vertical_id: Filter by Vertical ID (Mandatory, returns empty if missing)
     - skip: Skip N results
     - limit: Limit results (default 50)
     """
-    if not service_type_id:
+    if not vertical_id:
         return success_response(data=[])
 
     # Fetch Service Type Codes from Primary DB
     service_type_codes = []
-    if service_type_id:
+    if vertical_id:
         try:
              # Validate ObjectId format
-             if not ObjectId.is_valid(service_type_id):
+             if not ObjectId.is_valid(vertical_id):
                  return success_response(data=[]) # Invalid ID -> No matches
 
-             st = await primary_engine.find_one(ServiceType, ServiceType.id == ObjectId(service_type_id))
+             from admin.models.vertical import Vertical
+             st = await primary_engine.find_one(Vertical, Vertical.id == ObjectId(vertical_id))
              if st:
                  service_type_codes = st.code # This is a List[str]
              else:
@@ -379,7 +380,7 @@ async def list_vendor_bookings(
     modern_docs_tuples, _TotalModern = await get_vendor_bookings(
         primary_engine, vendor_id, status_filter=primary_status_filter, 
         limit=1000, # Reasonable large limit for merging
-        skip=0, is_offline=False, service_type_id=service_type_id
+        skip=0, is_offline=False, vertical_id=vertical_id
     )
     
     modern_bookings = []
@@ -391,7 +392,7 @@ async def list_vendor_bookings(
             booking_date=booking_dict["booking_date"],
             status=booking_dict["status"],
             service_name=booking_dict["service_name"],
-            service_type_name=booking_dict["service_type_name"],
+            vertical_name=booking_dict["vertical_name"],
             delivery_mode=booking_dict["delivery_mode"],
             final_amount=booking_dict["final_amount"],
             vendor_notes=booking_dict["vendor_notes"],
@@ -435,7 +436,7 @@ async def list_vendor_bookings(
 async def list_combined_bookings(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    service_type_id: Optional[str] = None,
+    vertical_id: Optional[str] = None,
     skip: int = 0,
     limit: Optional[int] = None,
     token: dict = Depends(require_vendor()),
@@ -448,26 +449,26 @@ async def list_combined_bookings(
     
     Simplified:
     - No search or status filtering.
-    - Mandatory service_type_id.
+    - Mandatory vertical_id.
     - If limit is None, returns ALL remaining records from skip.
     """
-    if not service_type_id:
+    if not vertical_id:
         return success_response(data={"bookings": [], "meta": {"total": 0, "skip": skip, "limit": limit}})
 
     vendor_id = token.get("vendor_id")
     
-    # --- 1. Fetch Service Type Codes ---
-    service_type_codes = []
+    # --- 1. Fetch Vertical Codes ---
+    vertical_codes = []
     try:
-         if ObjectId.is_valid(service_type_id):
-             st = await primary_engine.find_one(ServiceType, ServiceType.id == ObjectId(service_type_id))
+         if ObjectId.is_valid(vertical_id):
+             st = await primary_engine.find_one(Vertical, Vertical.id == ObjectId(vertical_id))
              if st:
-                 service_type_codes = st.code
+                 vertical_codes = st.code
     except Exception:
          pass
     
     # If filter provided but no codes found, return empty matches immediately
-    if not service_type_codes:
+    if not vertical_codes:
          return success_response(data={"bookings": [], "meta": {"total": 0, "skip": skip, "limit": limit}})
 
     # --- 2. Build Criteria for Online Bookings (Secondary DB) ---
@@ -480,7 +481,7 @@ async def list_combined_bookings(
                     {"vendor_id": vendor_id}                    
                 ]
             },
-            {"serviceProviderType": {"$in": service_type_codes}}
+            {"serviceProviderType": {"$in": vertical_codes}}
         ]
     }
     
@@ -488,7 +489,7 @@ async def list_combined_bookings(
     offline_criteria = {
         "vendor_id": vendor_id,
         "is_offline": True,
-        "service_type_id": service_type_id
+        "vertical_id": vertical_id
     }
 
     # --- Common Filters (Date) ---
@@ -559,7 +560,7 @@ async def list_combined_bookings(
                 status=st_str,
                 service_name=doc.get("service_name", "Unknown"),
                 services=s_list,
-                service_type_name=doc.get("service_type_name", "Unknown"),
+                vertical_name=doc.get("vertical_name", "Unknown"),
                 delivery_mode=doc.get("delivery_mode", "In-Center"),
                 final_amount=float(doc.get("final_amount", 0)),
                 vendor_notes=doc.get("vendor_notes"),
@@ -736,7 +737,7 @@ async def get_booking_details(
                 status=st_str,
                 service_name=doc.get("service_name", "Unknown"),
                 services=s_list,
-                service_type_name=doc.get("service_type_name", "Unknown"),
+                vertical_name=doc.get("vertical_name", "Unknown"),
                 delivery_mode=doc.get("delivery_mode", "In-Center"),
                 dog_sizes=doc.get("dog_sizes", []),
                 final_amount=float(doc.get("final_amount", 0)),

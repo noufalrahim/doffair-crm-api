@@ -5,7 +5,7 @@ from typing import Optional
 
 class DoctorAvailability(Model):
     vendor_id: str
-    service_type_id: str
+    vertical_id: str
     doctor_id: Optional[str] = None
 
     day_of_week: int      # 0 = Monday, 6 = Sunday
@@ -18,7 +18,7 @@ class DoctorAvailability(Model):
         "collection": "availability",
         "indexes": [
             {"fields": ["vendor_id"]},
-            {"fields": ["service_type_id"]},
+            {"fields": ["vertical_id"]},
             {"fields": ["doctor_id"]},
         ],
     }

@@ -45,7 +45,7 @@ class VendorBookingResponse(BaseModel):
     status: str
     service_name: str
     services: List[ServiceSummary] = []
-    service_type_name: str
+    vertical_name: str
     delivery_mode: ServiceDeliveryMode
     final_amount: float
     vendor_notes: Optional[str] = None

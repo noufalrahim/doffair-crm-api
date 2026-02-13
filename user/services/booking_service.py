@@ -10,7 +10,7 @@ from user.models.user import User
 from vendor.models.vendor import Vendor
 from vendor.models.vendor_service import VendorService
 from vendor.models.service_pricing import ServicePricing
-from admin.models.service_type import ServiceType
+from admin.models.vertical import Vertical
 from vendor.models.vendor_location import VendorLocation
 from core.enums import BookingStatus, PaymentStatus
 
@@ -56,16 +56,16 @@ async def create_booking(
     if not vendor.is_active:
         raise HTTPException(status_code=400, detail="Vendor is not active")
     
-    # 4. Get service type
-    service_type = await engine.find_one(ServiceType, ServiceType.id == ObjectId(service.service_type_id))
-    if not service_type:
-        raise HTTPException(status_code=404, detail="Service type not found")
+    # 4. Get vertical
+    vertical = await engine.find_one(Vertical, Vertical.id == ObjectId(service.vertical_id))
+    if not vertical:
+        raise HTTPException(status_code=404, detail="Vertical not found")
     
-    # Check if service type is BOOKING mode
-    if service_type.mode != "booking":
+    # Check if vertical is BOOKING mode
+    if vertical.mode != "booking":
         raise HTTPException(
             status_code=400,
-            detail=f"This service type is in {service_type.mode} mode. Only 'booking' mode services can be booked.",
+            detail=f"This vertical is in {vertical.mode} mode. Only 'booking' mode services can be booked.",
         )
     
     # 5. Get pricing
@@ -116,7 +116,7 @@ async def create_booking(
         user_id=user_id,
         vendor_id=service.vendor_id,
         service_id=service_id,
-        service_type_id=service.service_type_id,
+        vertical_id=service.vertical_id,
         location_id=service.location_id,
         user_name=user.name,
         user_phone=user.phone,
@@ -125,7 +125,7 @@ async def create_booking(
         vendor_phone=vendor.primary_contact_phone,
         vendor_email=vendor.primary_contact_email,
         service_name=service.name,
-        service_type_name=service_type.display_name,
+        vertical_name=vertical.display_name,
         booking_date=booking_date,
         delivery_mode=delivery_mode,
         service_address=service_address,
@@ -319,7 +319,7 @@ async def get_user_bookings(
             "vendor_name": booking_doc.get("vendor_name"),
             "vendor_phone": booking_doc.get("vendor_phone"),
             "service_name": booking_doc.get("service_name"),
-            "service_type_name": booking_doc.get("service_type_name"),
+            "vertical_name": booking_doc.get("vertical_name"),
             "booking_date": booking_doc.get("booking_date"),
             "delivery_mode": booking_doc.get("delivery_mode"),
             "service_address": booking_doc.get("service_address"),
@@ -354,7 +354,7 @@ async def get_vendor_bookings(
     limit: int = 50,
     skip: int = 0,
     is_offline: Optional[bool] = None,
-    service_type_id: str = None,
+    vertical_id: str = None,
 ) -> tuple[list[tuple[dict, dict]], int]:
     """
     Get all bookings for a vendor
@@ -367,8 +367,8 @@ async def get_vendor_bookings(
     if is_offline is not None:
         query["is_offline"] = is_offline
     
-    if service_type_id:
-        query["service_type_id"] = service_type_id
+    if vertical_id:
+        query["vertical_id"] = vertical_id
     
     # Get total count
     total = await engine.get_collection(Booking).count_documents(query)
@@ -405,7 +405,7 @@ async def get_vendor_bookings(
             "vendor_name": booking_doc.get("vendor_name"),
             "vendor_phone": booking_doc.get("vendor_phone"),
             "service_name": booking_doc.get("service_name"),
-            "service_type_name": booking_doc.get("service_type_name"),
+            "vertical_name": booking_doc.get("vertical_name"),
             "booking_date": booking_doc.get("booking_date"),
             "delivery_mode": booking_doc.get("delivery_mode"),
             "service_address": booking_doc.get("service_address"),

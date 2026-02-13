@@ -8,7 +8,7 @@ class HolidaySlot(Model):
 
 class Holiday(Model):
     vendor_id: str
-    service_type_id: Optional[str] = None
+    vertical_id: Optional[str] = None
     doctor_id: Optional[str] = None
     
     date: datetime

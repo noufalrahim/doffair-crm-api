@@ -6,7 +6,7 @@ from datetime import datetime
 class VendorAmenity(Model):
     vendor_id: str
     location_id: str
-    service_type_id: str
+    vertical_id: str
 
     amenity_codes: List[str]
 
@@ -17,6 +17,6 @@ class VendorAmenity(Model):
         "collection": "vendor_amenities",
         "indexes": [
             {"fields": ["vendor_id"]},
-            {"fields": ["vendor_id", "location_id", "service_type_id"], "unique": True},
+            {"fields": ["vendor_id", "location_id", "vertical_id"], "unique": True},
         ],
     }

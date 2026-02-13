@@ -6,7 +6,7 @@ import requests
 import time
 from datetime import datetime, timedelta
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://localhost:8101"
 
 # Test data
 TEST_USER = {
@@ -68,7 +68,7 @@ def main():
                 "booking_id": "bk_001",
                 "user_id": TEST_USER["user_id"],
                 "vendor_id": TEST_VENDOR["vendor_id"],
-                "service_type": "Pet Grooming",
+                "vertical": "Pet Grooming",
                 "scheduled_at": (datetime.now() + timedelta(days=7)).isoformat(),
                 "pet_name": "Buddy",
                 "user_name": TEST_USER["user_name"],
@@ -94,7 +94,7 @@ def main():
                 "booking_id": "bk_002",
                 "user_id": TEST_USER["user_id"],
                 "vendor_id": TEST_VENDOR["vendor_id"],
-                "service_type": "Pet Grooming",
+                "vertical": "Pet Grooming",
                 "scheduled_at": (datetime.now() + timedelta(days=5)).isoformat(),
                 "cancellation_reason": "User requested cancellation",
                 "user_name": TEST_USER["user_name"],
@@ -118,7 +118,7 @@ def main():
                 "booking_id": "bk_003",
                 "user_id": TEST_USER["user_id"],
                 "vendor_id": TEST_VENDOR["vendor_id"],
-                "service_type": "Pet Grooming",
+                "vertical": "Pet Grooming",
                 "scheduled_at": (datetime.now() + timedelta(days=10)).isoformat(),
                 "user_name": TEST_USER["user_name"],
                 "user_email": TEST_USER["user_email"],
@@ -141,7 +141,7 @@ def main():
                 "booking_id": "bk_004",
                 "user_id": TEST_USER["user_id"],
                 "vendor_id": TEST_VENDOR["vendor_id"],
-                "service_type": "Pet Grooming",
+                "vertical": "Pet Grooming",
                 "scheduled_at": (datetime.now() + timedelta(days=3)).isoformat(),
                 "user_name": TEST_USER["user_name"],
                 "user_email": TEST_USER["user_email"],
@@ -163,7 +163,7 @@ def main():
                 "booking_id": "bk_005",
                 "user_id": TEST_USER["user_id"],
                 "vendor_id": TEST_VENDOR["vendor_id"],
-                "service_type": "Pet Grooming",
+                "vertical": "Pet Grooming",
                 "scheduled_at": datetime.now().isoformat(),
                 "user_name": TEST_USER["user_name"],
                 "user_email": TEST_USER["user_email"],

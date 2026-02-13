@@ -5,7 +5,7 @@ from bson import ObjectId
 from vendor.models.vendor import Vendor
 from vendor.models.vendor_location import VendorLocation
 from vendor.models.vendor_service import VendorService
-from vendor.models.vendor_service_type import VendorServiceType
+from vendor.models.vendor_vertical import VendorVertical
 
 from core.enums import VendorStatus
 from core.media import build_image_list
@@ -23,9 +23,9 @@ async def get_vendor_review_snapshot(
     # -----------------------------
     # Fetch related entities
     # -----------------------------
-    service_types = await engine.find(
-        VendorServiceType,
-        VendorServiceType.vendor_id == vendor_id,
+    verticals = await engine.find(
+        VendorVertical,
+        VendorVertical.vendor_id == vendor_id,
     )
 
     locations = await engine.find(
@@ -53,12 +53,12 @@ async def get_vendor_review_snapshot(
         "created_at": vendor.created_at,
     }
 
-    service_type_block = [
+    vertical_block = [
         {
-            "service_type_id": st.service_type_id,
+            "vertical_id": st.vertical_id,
             "is_active": st.is_active,
         }
-        for st in service_types
+        for st in verticals
     ]
 
     location_block = [
@@ -77,7 +77,7 @@ async def get_vendor_review_snapshot(
             "name": s.name,
             "service_kind": s.service_kind,
             "location_id": s.location_id,
-            "service_type_id": s.service_type_id,
+            "vertical_id": s.vertical_id,
             "images": build_image_list(s.image_blob_paths),
             "label": s.label,
         }
@@ -89,14 +89,14 @@ async def get_vendor_review_snapshot(
     # -----------------------------
     ready_for_approval = (
         vendor.status == VendorStatus.UNDER_REVIEW
-        and len(service_types) > 0
+        and len(verticals) > 0
         and len(locations) > 0
         and len(services) > 0
     )
 
     return {
         "vendor": vendor_block,
-        "service_types": service_type_block,
+        "verticals": vertical_block,
         "locations": location_block,
         "services": services_block,
         "status": vendor.status,

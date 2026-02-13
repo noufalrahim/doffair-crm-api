@@ -5,7 +5,7 @@ from core.enums import ServiceDeliveryMode, DiscountType, DogSize
 
 class BaseServiceCreateRequest(BaseModel):
     location_id: str
-    service_type_id: str
+    vertical_id: str
 
     name: str = Field(..., min_length=3)
     description: Optional[str] = None
@@ -21,7 +21,7 @@ class BaseServiceCreateRequest(BaseModel):
 
 class ComboServiceCreateRequest(BaseModel):
     location_id: str
-    service_type_id: str
+    vertical_id: str
 
     name: str = Field(..., min_length=3)
     description: Optional[str] = None
@@ -45,7 +45,7 @@ class VendorServiceResponse(BaseModel):
     name: str
     service_kind: str
     location_id: str
-    service_type_id: str
+    vertical_id: str
     images: List[ImageSet] = []
     is_active: bool = True
     

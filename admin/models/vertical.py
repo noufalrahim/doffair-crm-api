@@ -5,7 +5,7 @@ from odmantic import Model, Field
 from core.enums import ServiceMode
 
 
-class ServiceType(Model):
+class Vertical(Model):
     code: List[str] = Field(unique=True)        # ['groomer', 'groom', 'grooming']
     display_name: str                           # Pet Grooming
     description: Optional[str] = None           # ← FIXED
@@ -19,7 +19,7 @@ class ServiceType(Model):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = {
-        "collection": "service_types",
+        "collection": "verticals",
          "indexes": [
             {"fields": ["code"], "unique": True},
         ],

@@ -124,7 +124,7 @@ class BookingResponse(BaseModel):
     vendor_name: Optional[str] = None
     vendor_phone: Optional[str] = None
     service_name: str
-    service_type_name: str
+    vertical_name: str
     booking_date: datetime
     delivery_mode: ServiceDeliveryMode
     service_address: Optional[str] = None
