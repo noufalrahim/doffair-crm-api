@@ -3,10 +3,12 @@ from datetime import datetime
 from typing import Optional
 
 
-class DoctorAvailability(Model):
+class Availability(Model):
     vendor_id: str
     vertical_id: str
-    doctor_id: Optional[str] = None
+    location_id: Optional[str] = None
+    care_professional_id: Optional[str] = None
+    doctor_id: Optional[str] = None # Keeping for legacy support if needed, but care_professional_id is primary
 
     day_of_week: int      # 0 = Monday, 6 = Sunday
     start_time: str       # "10:00"
@@ -19,6 +21,8 @@ class DoctorAvailability(Model):
         "indexes": [
             {"fields": ["vendor_id"]},
             {"fields": ["vertical_id"]},
+            {"fields": ["location_id"]},
+            {"fields": ["care_professional_id"]},
             {"fields": ["doctor_id"]},
         ],
     }

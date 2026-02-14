@@ -4,6 +4,7 @@ from odmantic import AIOEngine
 from fastapi import HTTPException, status
 
 from vendor.models.vendor import Vendor
+from user.models.user import User
 from vendor.schemas.onboarding import VendorSignupRequest, VendorBasicInfoRequest
 from core.enums import VendorStatus
 from admin.utils.password import hash_password  # reuse existing util
@@ -34,11 +35,34 @@ async def signup_vendor(engine: AIOEngine, payload: VendorSignupRequest) -> Vend
             detail=f"Vendor with email {payload.email} already exists"
         )
 
-    # Create new vendor
+    # Also check users collection for duplicate email/phone
+    existing_user_email = await engine.find_one(User, User.email == payload.email)
+    if existing_user_email:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"User with email {payload.email} already exists"
+        )
+
+    existing_user_phone = await engine.find_one(User, User.phone == payload.phone)
+    if existing_user_phone:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"User with phone {payload.phone} already exists"
+        )
+
+    # Create user record with credentials
+    user = User(
+        phone=payload.phone,
+        email=payload.email,
+        password_hash=hash_password(payload.password),
+    )
+    await engine.save(user)
+
+    # Create vendor record linked to user
     vendor = Vendor(
         primary_contact_phone=payload.phone,
         primary_contact_email=payload.email,
-        password_hash=hash_password(payload.password),
+        user_id=str(user.id),
         status=VendorStatus.PHONE_VERIFIED,
     )
 

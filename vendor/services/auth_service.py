@@ -1,7 +1,9 @@
 from odmantic import AIOEngine
 from fastapi import HTTPException, status
+from bson import ObjectId
 
 from vendor.models.vendor import Vendor
+from user.models.user import User
 from vendor.schemas.auth import VendorLoginRequest
 from admin.utils.password import verify_password
 from core.security import create_access_token
@@ -23,7 +25,25 @@ async def authenticate_vendor(
             detail="Invalid credentials",
         )
 
-    if not verify_password(payload.password, vendor.password_hash):
+    # Fetch linked user record to verify password
+    if not vendor.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+        )
+
+    user = await engine.find_one(
+        User,
+        User.id == ObjectId(vendor.user_id),
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+        )
+
+    if not verify_password(payload.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",

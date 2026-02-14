@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 from odmantic import Model, Field
 
 
@@ -6,7 +7,7 @@ class User(Model):
     """
     User model for customers who use the app
     """
-    name: str
+    name: Optional[str] = None
     phone: str = Field(unique=True)
     email: str = Field(unique=True)
     password_hash: str

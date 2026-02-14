@@ -10,6 +10,13 @@ class VendorRole(str, Enum):
     MANAGER = "vendor_manager"
     STAFF = "vendor_staff"
 
+class CareProfessionalRole(str, Enum):
+    STAFF = "staff"
+    ADMIN = "admin"
+    OWNER = "owner"
+    DOCTOR = "doctor"
+    MANAGER = "manager"
+
 class ServiceMode(str, Enum):
     BOOKING = "booking"
     LEAD = "lead"

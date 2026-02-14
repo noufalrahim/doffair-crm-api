@@ -56,6 +56,8 @@ async def list_availability(
     engine: AIOEngine = Depends(get_engine),
     vertical_id: str = Query(None),
     doctor_id: str = Query(None),
+    care_professional_id: str = Query(None),
+    location_id: str = Query(None),
     date: datetime = Query(None, description="Check availability for a specific date"),
 ):
     """
@@ -64,7 +66,13 @@ async def list_availability(
     """
     vendor_id = token["vendor_id"]
     availabilities = await get_vendor_availability(
-        engine, vendor_id, vertical_id=vertical_id, doctor_id=doctor_id, specific_date=date
+        engine, 
+        vendor_id, 
+        vertical_id=vertical_id, 
+        doctor_id=doctor_id, 
+        care_professional_id=care_professional_id,
+        location_id=location_id,
+        specific_date=date
     )
 
     # Group by day

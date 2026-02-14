@@ -21,6 +21,7 @@ from user.routers import auth as user_auth_router
 from user.routers import leads as leads_router
 from user.routers import pet_images as pet_images_router
 from user.routers import bookings as bookings_router
+from user.routers import users as users_router
 from notifications.routers import notifications as notifications_router
 from notifications.routers import events as events_router
 from vendor.routers import offline_bookings_v2 as vendor_offline_bookings_router
@@ -33,6 +34,8 @@ from vendor.routers import bookings as vendor_bookings_router
 from vendor.routers import customers as vendor_customers_router
 from vendor.routers import walkins as vendor_walkins_router
 from vendor.routers import uploads as vendor_uploads_router
+from vendor.routers import care_professionals as vendor_care_professionals_router
+from vendor.routers import care_professional_availability as vendor_cp_availability_router
 
 
 from core.config import settings
@@ -73,6 +76,8 @@ app.include_router(vendor_uploads_router.router)
 app.include_router(doctors.router)
 app.include_router(doctor_availability.router)
 app.include_router(pricing.router)
+app.include_router(vendor_care_professionals_router.router)
+app.include_router(vendor_cp_availability_router.router)
 
 # Vendor offline booking system (WORKING)
 app.include_router(vendor_offline_bookings_router.router)
@@ -92,6 +97,7 @@ app.include_router(user_auth_router.router)
 app.include_router(leads_router.router)
 app.include_router(pet_images_router.router)
 app.include_router(bookings_router.router)
+app.include_router(users_router.router)
 
 # Notification routers
 app.include_router(notifications_router.router)

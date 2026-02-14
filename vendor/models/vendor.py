@@ -11,7 +11,7 @@ class Vendor(Model):
     primary_contact_email: str = Field(unique=True)
     primary_contact_phone: str = Field(unique=True)
 
-    password_hash: str
+    user_id: Optional[str] = None  # link to users collection
 
     gst_number: Optional[str] = None
     business_registration_number: Optional[str] = None
