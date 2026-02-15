@@ -36,6 +36,26 @@ class VendorService(Model):
             return mapping[v]
         return v
 
+    @field_validator("description", mode="before")
+    @classmethod
+    def validate_description(cls, v: Any) -> Any:
+        if v is None:
+            return None
+        # Handle cases where description might be an enum value
+        if isinstance(v, ServiceDeliveryMode):
+            return v.value
+        return str(v)
+
+    @field_validator("duration_minutes", mode="before")
+    @classmethod
+    def validate_duration(cls, v: Any) -> Any:
+        if v is None or v == "":
+            return None
+        try:
+            return int(v)
+        except (ValueError, TypeError):
+            return 0 # Default to 0 if invalid
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
