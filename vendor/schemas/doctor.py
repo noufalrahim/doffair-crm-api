@@ -12,7 +12,6 @@ class DoctorCreateRequest(BaseModel):
 class DoctorAvailabilityRequest(BaseModel):
     vertical_id: str
     location_id: Optional[str] = None
-    doctor_id: Optional[str] = None
     care_professional_id: Optional[str] = None
     day_of_week: int
     start_time: str

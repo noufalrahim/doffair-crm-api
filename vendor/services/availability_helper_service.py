@@ -104,15 +104,10 @@ async def get_daily_availability(
             if ObjectId.is_valid(target_id):
                 filters.append(
                     (Availability.care_professional_id == target_id) | 
-                    (Availability.care_professional_id == ObjectId(target_id)) |
-                    (Availability.doctor_id == target_id) |
-                    (Availability.doctor_id == ObjectId(target_id))
+                    (Availability.care_professional_id == ObjectId(target_id))
                 )
             else:
-                filters.append(
-                    (Availability.care_professional_id == target_id) | 
-                    (Availability.doctor_id == target_id)
-                )
+                filters.append(Availability.care_professional_id == target_id)
 
         if location_id:
             if ObjectId.is_valid(location_id):

@@ -9,7 +9,6 @@ class HolidaySlot(Model):
 class Holiday(Model):
     vendor_id: str
     vertical_id: Optional[str] = None
-    doctor_id: Optional[str] = None
     
     date: datetime
     name: str

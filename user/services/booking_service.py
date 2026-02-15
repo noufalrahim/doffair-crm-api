@@ -355,6 +355,9 @@ async def get_vendor_bookings(
     skip: int = 0,
     is_offline: Optional[bool] = None,
     vertical_id: str = None,
+    search: Optional[str] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
 ) -> tuple[list[tuple[dict, dict]], int]:
     """
     Get all bookings for a vendor
@@ -368,7 +371,24 @@ async def get_vendor_bookings(
         query["is_offline"] = is_offline
     
     if vertical_id:
-        query["vertical_id"] = vertical_id
+        query["vertical_id"] = {"$in": [vertical_id, None]}
+
+    if search:
+        import re
+        search_regex = {"$regex": re.escape(search), "$options": "i"}
+        query["$or"] = [
+            {"user_name": search_regex},
+            {"user_phone": search_regex},
+            {"user_email": search_regex},
+            {"service_name": search_regex},
+            {"pet_name": search_regex},
+        ]
+    
+    if start_date or end_date:
+        date_filter = {}
+        if start_date: date_filter["$gte"] = start_date
+        if end_date: date_filter["$lte"] = end_date
+        query["booking_date"] = date_filter
     
     # Get total count
     total = await engine.get_collection(Booking).count_documents(query)

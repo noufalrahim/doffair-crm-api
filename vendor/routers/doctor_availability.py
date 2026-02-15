@@ -41,7 +41,7 @@ async def add_availability(
             {
                 "vendor_id": a.vendor_id,
                 "vertical_id": a.vertical_id,
-                "doctor_id": a.doctor_id,
+                "care_professional_id": a.care_professional_id,
                 "day_of_week": a.day_of_week,
                 "start_time": a.start_time,
                 "end_time": a.end_time,
@@ -55,7 +55,6 @@ async def list_availability(
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
     vertical_id: str = Query(None),
-    doctor_id: str = Query(None),
     care_professional_id: str = Query(None),
     location_id: str = Query(None),
     date: datetime = Query(None, description="Check availability for a specific date"),
@@ -69,7 +68,6 @@ async def list_availability(
         engine, 
         vendor_id, 
         vertical_id=vertical_id, 
-        doctor_id=doctor_id, 
         care_professional_id=care_professional_id,
         location_id=location_id,
         specific_date=date
@@ -100,7 +98,7 @@ async def list_availability(
 # Holiday Management
 # ============================================
 
-@router.post("/holidays", response_model=HolidayResponse)
+@router.post("/holidays")
 async def create_holiday(
     payload: HolidayCreateRequest,
     token: dict = Depends(require_vendor()),
@@ -115,7 +113,6 @@ async def create_holiday(
         data=HolidayResponse(
             id=str(holiday.id),
             vertical_id=holiday.vertical_id,
-            doctor_id=holiday.doctor_id,
             date=holiday.date,
             name=holiday.name,
             is_all_day=holiday.is_all_day,
@@ -141,7 +138,6 @@ async def list_holidays(
             HolidayResponse(
                 id=str(h.id),
                 vertical_id=h.vertical_id,
-                doctor_id=h.doctor_id,
                 date=h.date,
                 name=h.name,
                 is_all_day=h.is_all_day,

@@ -11,7 +11,6 @@ async def add_holiday(
     holiday = Holiday(
         vendor_id=vendor_id,
         vertical_id=payload.get("vertical_id"),
-        doctor_id=payload.get("doctor_id"),
         date=payload.get("date"),
         name=payload.get("name"),
         is_all_day=payload.get("is_all_day", True),

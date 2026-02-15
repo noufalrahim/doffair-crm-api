@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from odmantic import AIOEngine
 from bson import ObjectId
 
@@ -260,8 +260,8 @@ from admin.models.vertical import Vertical
 @router.get("")
 async def list_vendor_bookings(
     status: Optional[str] = None,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
+    start_date: Optional[datetime] = Query(None, alias="startDate"),
+    end_date: Optional[datetime] = Query(None, alias="endDate"),
     search: Optional[str] = None,
     vertical_id: Optional[str] = None,
     skip: int = 0,
@@ -305,6 +305,8 @@ async def list_vendor_bookings(
 
     vendor_id = token.get("vendor_id")
     
+    import re
+
     # 1. Fetch Legacy Online Bookings (Secondary DB)
     secondary_coll = secondary_engine.get_collection(Booking) 
     
@@ -322,6 +324,48 @@ async def list_vendor_bookings(
         ]
     }
     
+    if search:
+        search_regex = {"$regex": re.escape(search), "$options": "i"}
+        # Search in users and pets if IDs are present, or search cached names if any
+        # For legacy, we need to find userIds matching search
+        user_coll = secondary_engine.database.get_collection("users")
+        matching_users = await user_coll.find({
+            "$or": [
+                {"phoneNumber": search_regex},
+                {"phone": search_regex},
+                {"username": search_regex},
+                {"firstName": search_regex},
+                {"email": search_regex}
+            ]
+        }).to_list(length=200)
+        
+        search_user_ids = [u["_id"] for u in matching_users]
+        
+        pet_coll = secondary_engine.database.get_collection("pets")
+        matching_pets = await pet_coll.find({
+            "petName": search_regex
+        }).to_list(length=200)
+        
+        search_pet_ids = [p["_id"] for p in matching_pets]
+        
+        search_or = [
+            {"user_name": search_regex},
+            {"user_phone": search_regex},
+            {"user_email": search_regex},
+            {"service_name": search_regex},
+            {"pet_name": search_regex},
+            {"instructions": search_regex},
+            # Common field in some legacy docs
+            {"name": search_regex},
+            {"phone": search_regex}
+        ]
+        if search_user_ids:
+            search_or.append({"userId": {"$in": search_user_ids}})
+        if search_pet_ids:
+            search_or.append({"petId": {"$in": search_pet_ids}})
+            
+        secondary_criteria["$and"].append({"$or": search_or})
+
     if status:
         st_lower = status.lower()
         if st_lower == "confirmed":
@@ -339,7 +383,7 @@ async def list_vendor_bookings(
         date_filter = {}
         if start_date: date_filter["$gte"] = start_date
         if end_date: date_filter["$lte"] = end_date
-        secondary_criteria["createdAt"] = date_filter
+        secondary_criteria["startTime"] = date_filter
 
     # (Search filter omitted for brevity in merge, or can be added if needed. 
     # For now, let's focus on merging the base lists correctly as search is complex across lists)
@@ -361,17 +405,17 @@ async def list_vendor_bookings(
     if status:
         st_lower = status.lower()
         if st_lower == "confirmed":
-            primary_status_filter = "CONFIRMED"
+            primary_status_filter = "confirmed"
         elif st_lower == "pending":
-            # For modern, pending usually means PENDING_APPROVAL or PENDING_PAYMENT
-            # But vendor usually wants PENDING_APPROVAL
-            primary_status_filter = "PENDING_APPROVAL"
+            # For modern, pending usually means pending_approval or pending_payment
+            # But vendor usually wants pending_approval
+            primary_status_filter = "pending_approval"
         elif st_lower == "cancelled":
-            primary_status_filter = "CANCELLED"
+            primary_status_filter = "cancelled"
         elif st_lower == "completed":
-            primary_status_filter = "COMPLETED"
+            primary_status_filter = "completed"
         else:
-            primary_status_filter = status.upper()
+            primary_status_filter = st_lower
 
     from user.services.booking_service import get_vendor_bookings
     # Note: get_vendor_bookings uses limit/skip. For merging, we fetch enough or all.
@@ -380,7 +424,10 @@ async def list_vendor_bookings(
     modern_docs_tuples, _TotalModern = await get_vendor_bookings(
         primary_engine, vendor_id, status_filter=primary_status_filter, 
         limit=1000, # Reasonable large limit for merging
-        skip=0, is_offline=False, vertical_id=vertical_id
+        skip=0, is_offline=False, vertical_id=vertical_id,
+        search=search,
+        start_date=start_date,
+        end_date=end_date
     )
     
     modern_bookings = []
@@ -434,8 +481,10 @@ async def list_vendor_bookings(
 
 @router.get("/combined")
 async def list_combined_bookings(
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
+    status: Optional[str] = None,
+    start_date: Optional[datetime] = Query(None, alias="startDate"),
+    end_date: Optional[datetime] = Query(None, alias="endDate"),
+    search: Optional[str] = None,
     vertical_id: Optional[str] = None,
     skip: int = 0,
     limit: Optional[int] = None,
@@ -485,12 +534,75 @@ async def list_combined_bookings(
         ]
     }
     
-    # --- 3. Build Criteria for Offline Bookings (Primary DB) ---
-    offline_criteria = {
+    # --- 3. Build Criteria for Primary DB Bookings (Online Modern + Offline) ---
+    primary_criteria = {
         "vendor_id": vendor_id,
-        "is_offline": True,
-        "vertical_id": vertical_id
+        "vertical_id": {"$in": [vertical_id, None]}
     }
+
+    import re
+
+    # --- Common Filters (Status) ---
+    if status:
+        st_lower = status.lower()
+        if st_lower == "confirmed":
+            online_criteria["status"] = "confirmed"
+            primary_criteria["status"] = "confirmed"
+        elif st_lower == "pending":
+            online_criteria["status"] = {"$in": ["pending", "ongoing", "rescheduleRequest"]}
+            primary_criteria["status"] = {"$in": ["pending", "ongoing", "pending_payment", "pending_approval"]}
+        elif st_lower == "cancelled":
+            online_criteria["status"] = {"$in": ["cancelled", "cancelByProvider", "rejected"]}
+            primary_criteria["status"] = {"$in": ["cancelled", "rejected"]}
+        elif st_lower == "completed":
+            online_criteria["status"] = "completed"
+            primary_criteria["status"] = "completed"
+        else:
+            online_criteria["status"] = status
+            primary_criteria["status"] = status
+
+    # --- Common Filters (Search) ---
+    if search:
+        search_regex = {"$regex": re.escape(search), "$options": "i"}
+        
+        # Online search (same as above)
+        user_coll = secondary_engine.database.get_collection("users")
+        matching_users = await user_coll.find({
+            "$or": [
+                {"phoneNumber": search_regex},
+                {"phone": search_regex},
+                {"username": search_regex},
+                {"firstName": search_regex},
+                {"email": search_regex}
+            ]
+        }).to_list(length=200)
+        search_user_ids = [u["_id"] for u in matching_users]
+        
+        pet_coll = secondary_engine.database.get_collection("pets")
+        matching_pets = await pet_coll.find({"petName": search_regex}).to_list(length=200)
+        search_pet_ids = [p["_id"] for p in matching_pets]
+        
+        online_search_or = [
+            {"user_name": search_regex},
+            {"user_phone": search_regex},
+            {"user_email": search_regex},
+            {"service_name": search_regex},
+            {"pet_name": search_regex},
+            {"instructions": search_regex}
+        ]
+        if search_user_ids: online_search_or.append({"userId": {"$in": search_user_ids}})
+        if search_pet_ids: online_search_or.append({"petId": {"$in": search_pet_ids}})
+        online_criteria["$or"] = online_search_or
+
+        # Primary DB search
+        primary_criteria["$or"] = [
+            {"user_name": search_regex},
+            {"user_phone": search_regex},
+            {"user_email": search_regex},
+            {"service_name": search_regex},
+            {"pet_name": search_regex},
+            {"vendor_notes": search_regex}
+        ]
 
     # --- Common Filters (Date) ---
     if start_date or end_date:
@@ -498,8 +610,8 @@ async def list_combined_bookings(
         if start_date: date_filter["$gte"] = start_date
         if end_date: date_filter["$lte"] = end_date
         
-        online_criteria["createdAt"] = date_filter
-        offline_criteria["created_at"] = date_filter
+        online_criteria["startTime"] = date_filter
+        primary_criteria["booking_date"] = date_filter
 
     # --- 4. Execute Queries ---
     # Fetch Online
@@ -517,65 +629,21 @@ async def list_combined_bookings(
          except Exception:
              pass
 
-    # Fetch Offline
-    offline_coll = primary_engine.get_collection(Booking)
-    # Fetch ALL matching (Removed limit(200))
-    offline_cursor = offline_coll.find(offline_criteria).sort("created_at", -1)
+    # Fetch Primary DB results
+    primary_coll = primary_engine.get_collection(Booking)
+    primary_cursor = primary_coll.find(primary_criteria).sort("booking_date", -1)
     
-    offline_docs = []
-    async for doc in offline_cursor:
+    primary_docs = []
+    async for doc in primary_cursor:
         try:
-            # Map Offline Doc manually to VendorBookingResponse
-            b_id = str(doc["_id"])
-            # Validate model to access fields comfortably or use dict
-            # Doc is dict
-            b_date = doc.get("booking_date")
-            status_val = doc.get("status")
-            # Handle status enum storing
-            if hasattr(status_val, 'value'): status_val = status_val.value
-            
-            # User Summary from embedded customer data
-            u_summary = UserSummary(
-                name=doc.get("user_name", "Unknown"),
-                phone=doc.get("user_phone", "Unknown"),
-                email=doc.get("user_email", "Unknown"),
-                image=None 
-            )
-            
-            # Status handling for offline
-            st_raw = doc.get("status")
-            st_str = st_raw.value if hasattr(st_raw, 'value') else str(st_raw) if st_raw is not None else "confirmed"
-
-            # Service Summary
-            s_list = [ServiceSummary(
-                id=doc.get("service_id"),
-                name=doc.get("service_name", "Unknown"),
-                final_price=float(doc.get("final_amount", 0)),
-                status=st_str
-            )]
-            
-            resp = VendorBookingResponse(
-                id=b_id,
-                booking_date=b_date,
-                status=st_str,
-                service_name=doc.get("service_name", "Unknown"),
-                services=s_list,
-                vertical_name=doc.get("vertical_name", "Unknown"),
-                delivery_mode=doc.get("delivery_mode", "In-Center"),
-                final_amount=float(doc.get("final_amount", 0)),
-                vendor_notes=doc.get("vendor_notes"),
-                created_at=doc.get("created_at"),
-                is_offline=True,
-                user=u_summary,
-                pet=None # Offline usually doesn't have pet model linked? Or maybe in notes?
-            )
-            offline_docs.append(resp)
+             mapped = await map_booking_doc(doc, primary_engine)
+             primary_docs.append(mapped)
         except Exception as e:
-            print(f"Error mapping offline booking {doc.get('_id')}: {e}")
+            print(f"Error mapping primary booking {doc.get('_id')}: {e}")
             pass
 
     # --- 5. Merge and Sort ---
-    all_bookings = online_docs + offline_docs
+    all_bookings = online_docs + primary_docs
     # Sort by created_at desc
     all_bookings.sort(key=lambda x: x.created_at or datetime.min, reverse=True)
     
