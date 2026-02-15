@@ -13,6 +13,8 @@ from vendor.models.vendor_service import VendorService
 from vendor.models.vendor_vertical import VendorVertical
 from admin.models.vertical import Vertical
 from bson import ObjectId
+from vendor.services.availability_helper_service import get_daily_availability
+from datetime import datetime
 
 router = APIRouter(
     prefix="/vendor/helpers",
@@ -186,4 +188,39 @@ async def get_all_verticals(
     return success_response(
         message="Verticals retrieved successfully",
         data={"verticals": verticals_list}
+    ).model_dump()
+@router.get("/daily-availability", response_model=dict)
+async def get_vendor_daily_availability(
+    date: str, # YYYY-MM-DD
+    location_id: str,
+    vertical_id: str,
+    care_professional_id: str = None,
+    current_vendor: dict = Depends(get_current_vendor),
+    engine: AIOEngine = Depends(get_engine)
+):
+    """
+    Get daily availability slots for a specific date
+    """
+    vendor_id = current_vendor["vendor_id"]
+    
+    try:
+        target_date = datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        return success_response(
+            message="Invalid date format. Use YYYY-MM-DD",
+            data={}
+        ).model_dump()
+
+    availability = await get_daily_availability(
+        engine,
+        vendor_id,
+        target_date,
+        location_id,
+        vertical_id,
+        care_professional_id
+    )
+    
+    return success_response(
+        message="Daily availability retrieved successfully",
+        data=availability.model_dump()
     ).model_dump()
