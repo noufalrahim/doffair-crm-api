@@ -60,6 +60,8 @@ async def get_vendor_locations(
             VendorLocationResponse(
                 id=str(loc.id),
                 name=loc.name,
+                address_line_1=loc.address_line_1,
+                address_line_2=loc.address_line_2,
                 city=loc.city,
                 state=loc.state,
                 pincode=loc.pincode,

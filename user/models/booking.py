@@ -66,8 +66,11 @@ class Booking(Model):
     pet_age: Optional[int] = None  # in months
     pet_weight: Optional[float] = None  # in kg
     pet_gender: Optional[str] = None  # male, female
+    pet_height: Optional[float] = None
+    pet_vaccinated: Optional[bool] = None
     pet_medical_conditions: Optional[str] = None
     pet_special_notes: Optional[str] = None
+    pet_about: Optional[str] = None
     pet_images: list[str] = []  # Image URLs/blob paths for pet photos
     
     # Offline Booking Support

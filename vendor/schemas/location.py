@@ -18,6 +18,8 @@ class VendorLocationCreateRequest(BaseModel):
 class VendorLocationResponse(BaseModel):
     id: str
     name: str
+    address_line_1: str
+    address_line_2: Optional[str] = None
     city: str
     state: str
     pincode: str

@@ -81,6 +81,9 @@ async def create_walkin_booking(
             pet_age=walkin_data.pet_age,
             pet_weight=walkin_data.pet_weight,
             pet_gender=walkin_data.pet_gender,
+            pet_height=walkin_data.pet_height,
+            pet_vaccinated=walkin_data.pet_vaccinated,
+            pet_about=walkin_data.pet_about,
             
             # Booking details
             service_id=bk_service_id,

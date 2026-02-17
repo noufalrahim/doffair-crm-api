@@ -248,7 +248,12 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
                 age=booking.pet_age,
                 weight=booking.pet_weight,
                 gender=booking.pet_gender,
-                images=booking.pet_images
+                height=booking.pet_height,
+                vaccinated=booking.pet_vaccinated,
+                about_me=booking.pet_about,
+                medical_conditions=booking.pet_medical_conditions,
+                special_notes=booking.pet_special_notes,
+                images=booking.pet_images or []
             )
         )
 
@@ -794,6 +799,9 @@ async def get_booking_details(
                 weight=doc.get("pet_weight"),
                 gender=doc.get("pet_gender"),
                 images=doc.get("pet_images", []),
+                height=doc.get("pet_height"),
+                vaccinated=doc.get("pet_vaccinated"),
+                about_me=doc.get("pet_about"),
                 medical_conditions=doc.get("pet_medical_conditions"),
                 special_notes=doc.get("pet_special_notes")
             )

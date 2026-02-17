@@ -30,6 +30,8 @@ class PetSummary(BaseModel):
     vaccinated: Optional[bool] = None
     vaccination_validated: Optional[bool] = None
     vaccination_date: Optional[datetime] = None
+    medical_conditions: Optional[str] = None
+    special_notes: Optional[str] = None
     
 class ServiceSummary(BaseModel):
     id: Optional[str] = None
