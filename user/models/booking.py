@@ -110,7 +110,7 @@ class Booking(Model):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     model_config = {
-        "collection": "bookings",
+        "collection": "walkin_bookings",
         "indexes": [
             {"fields": ["user_id"]},
             {"fields": ["vendor_id"]},

@@ -22,6 +22,7 @@ class WalkinBookingCreate(BaseModel):
     # Booking details (Mandatory)
     service_id: Optional[str] = None
     service_name: Optional[str] = None
+    vertical_id: Optional[str] = None
     services: List[str] = [] # List of service names or descriptions (Legacy/Fallback)
     booking_date: datetime
     status: BookingStatus = BookingStatus.CONFIRMED

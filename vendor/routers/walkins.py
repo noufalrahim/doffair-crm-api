@@ -40,7 +40,8 @@ async def create_walkin_booking(
         bk_service_name = ", ".join(walkin_data.services)
         bk_vertical_name = "Walk-in"
         bk_service_id = None
-        
+        bk_vertical_id = None
+
         if walkin_data.service_id:
             bk_service_id = walkin_data.service_id
             # Fetch Service
@@ -52,12 +53,24 @@ async def create_walkin_booking(
                     st = await engine.find_one(Vertical, Vertical.id == ObjectId(vs.vertical_id))
                     if st:
                         bk_vertical_name = st.name
+                        bk_vertical_id = str(st.id)
             except Exception as e:
                 logger.error(f"Error fetching service details for walkin: {e}")
-        
+
         # Use provided name if explicitly sent and lookup failed or not requested (though ID logic takes precedence)
         if not bk_service_id and walkin_data.service_name:
              bk_service_name = walkin_data.service_name
+
+        if not bk_vertical_id and walkin_data.vertical_id:
+            try:
+                provided_vertical = await engine.find_one(Vertical, Vertical.id == ObjectId(walkin_data.vertical_id))
+                if provided_vertical:
+                    bk_vertical_name = provided_vertical.name
+                    bk_vertical_id = str(provided_vertical.id)
+                else:
+                    bk_vertical_id = walkin_data.vertical_id
+            except Exception:
+                bk_vertical_id = walkin_data.vertical_id
 
         # Create booking object
         booking = Booking(
@@ -88,6 +101,7 @@ async def create_walkin_booking(
             # Booking details
             service_id=bk_service_id,
             service_name=bk_service_name,
+            vertical_id=bk_vertical_id or walkin_data.vertical_id,
             vertical_name=bk_vertical_name,
             delivery_mode=ServiceDeliveryMode.CENTER,
             booking_date=walkin_data.booking_date,

@@ -312,6 +312,7 @@ async def get_user_bookings(
             "id": str(booking_doc["_id"]),
             "user_id": booking_doc.get("user_id"),
             "vendor_id": booking_doc.get("vendor_id"),
+            "vertical_id": str(booking_doc.get("vertical_id")) if booking_doc.get("vertical_id") else None,
             "service_id": booking_doc.get("service_id"),
             "user_name": booking_doc.get("user_name"),
             "user_phone": booking_doc.get("user_phone"),
@@ -371,7 +372,7 @@ async def get_vendor_bookings(
         query["is_offline"] = is_offline
     
     if vertical_id:
-        query["vertical_id"] = {"$in": [vertical_id, None]}
+        query["vertical_id"] = vertical_id
 
     if search:
         import re
@@ -418,6 +419,7 @@ async def get_vendor_bookings(
             "id": str(booking_doc["_id"]),
             "user_id": booking_doc.get("user_id"),
             "vendor_id": booking_doc.get("vendor_id"),
+            "vertical_id": str(booking_doc.get("vertical_id")) if booking_doc.get("vertical_id") else None,
             "service_id": booking_doc.get("service_id"),
             "user_name": booking_doc.get("user_name"),
             "user_phone": booking_doc.get("user_phone"),
