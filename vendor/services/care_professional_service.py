@@ -133,6 +133,12 @@ async def get_care_professional(
     vendor_id: str,
     care_professional_id: str,
 ) -> CareProfessional:
+    if not ObjectId.is_valid(care_professional_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid care professional ID",
+        )
+
     cp = await engine.find_one(
         CareProfessional,
         CareProfessional.id == ObjectId(care_professional_id),

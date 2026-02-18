@@ -33,6 +33,7 @@ async def create_offline_booking_simple(
     customer_notes: Optional[str],
     # Service info
     service_id: str,
+    care_professional_id: Optional[str],
     vertical_id: str,
     location_id: str,
     service_name: str,
@@ -63,6 +64,7 @@ async def create_offline_booking_simple(
             user_id=f"offline_{customer_phone}",
             vendor_id=vendor_id,
             service_id=service_id,
+            care_professional_id=care_professional_id,
             vertical_id=vertical_id,
             location_id=location_id,
             

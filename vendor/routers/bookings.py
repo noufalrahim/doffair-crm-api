@@ -138,6 +138,15 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
             booking_date=booking_doc.get("startTime"),
             status=status if isinstance(status, str) else str(status),
             service_name=service_name,
+            care_professional_id=(
+                str(booking_doc.get("careProfessionalId"))
+                if booking_doc.get("careProfessionalId") is not None
+                else (
+                    str(booking_doc.get("care_professional_id"))
+                    if booking_doc.get("care_professional_id") is not None
+                    else None
+                )
+            ),
             services=services_list,
             vertical_name=booking_doc.get("serviceType", "Unknown"),
             delivery_mode=booking_doc.get("delivery_mode", "In-Center"),
@@ -229,6 +238,7 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
             booking_date=booking.booking_date,
             status=raw_status if isinstance(raw_status, str) else str(raw_status),
             service_name=booking.service_name,
+            care_professional_id=booking.care_professional_id,
             services=modern_services_list,
             vertical_name=booking.vertical_name,
             delivery_mode=booking.delivery_mode,
@@ -286,46 +296,38 @@ async def list_vendor_bookings(
     - limit: Limit results (default 50)
     """
     if not vertical_id:
-        return success_response(data=[])
+        return success_response(data={"data": [], "meta": {"total": 0, "skip": skip, "limit": limit}})
 
-    # Fetch Service Type Codes from Primary DB
-    service_type_codes = []
-    if vertical_id:
-        try:
-             # Validate ObjectId format
-             if not ObjectId.is_valid(vertical_id):
-                 return success_response(data=[]) # Invalid ID -> No matches
+    if not ObjectId.is_valid(vertical_id):
+        return success_response(data={"data": [], "meta": {"total": 0, "skip": skip, "limit": limit}})
 
-             from admin.models.vertical import Vertical
-             st = await primary_engine.find_one(Vertical, Vertical.id == ObjectId(vertical_id))
-             if st:
-                 service_type_codes = st.code # This is a List[str]
-             else:
-                 return success_response(data=[]) # ID not found -> No matches
-        except Exception:
-             return success_response(data=[])
+    vertical_doc = await primary_engine.database.get_collection("verticals").find_one(
+        {"_id": ObjectId(vertical_id)}
+    )
+    if not vertical_doc:
+        return success_response(data={"data": [], "meta": {"total": 0, "skip": skip, "limit": limit}})
 
+    # Support both legacy "code" and requested "codes" key names
+    raw_codes = vertical_doc.get("codes", vertical_doc.get("code", []))
+    service_type_codes = [str(code).strip() for code in (raw_codes or []) if str(code).strip()]
     if not service_type_codes:
-         return success_response(data=[])
+        return success_response(data={"data": [], "meta": {"total": 0, "skip": skip, "limit": limit}})
 
-    vendor_id = token.get("vendor_id")
-    
+    vendor_id = str(token.get("vendor_id") or "")
+    if not vendor_id:
+        return success_response(data={"data": [], "meta": {"total": 0, "skip": skip, "limit": limit}})
+
     import re
 
-    # 1. Fetch Legacy Online Bookings (Secondary DB)
-    secondary_coll = secondary_engine.get_collection(Booking) 
-    
-    # Base criteria for legacy: Vendor Ownership AND Service Provider Type match
+    secondary_coll = secondary_engine.database.get_collection("bookings")
+    provider_id_or = [{"serviceProviderId": vendor_id}, {"vendor_id": vendor_id}]
+    if ObjectId.is_valid(vendor_id):
+        provider_id_or.insert(0, {"serviceProviderId": ObjectId(vendor_id)})
+
     secondary_criteria = {
         "$and": [
-            {
-                "$or": [
-                    {"serviceProviderId": ObjectId(vendor_id)}, 
-                    {"serviceProviderId": vendor_id},           
-                    {"vendor_id": vendor_id}                    
-                ]
-            },
-            {"serviceProviderType": {"$in": service_type_codes}}
+            {"$or": provider_id_or},
+            {"serviceProviderType": {"$in": service_type_codes}},
         ]
     }
     
@@ -390,89 +392,18 @@ async def list_vendor_bookings(
         if end_date: date_filter["$lte"] = end_date
         secondary_criteria["startTime"] = date_filter
 
-    # (Search filter omitted for brevity in merge, or can be added if needed. 
-    # For now, let's focus on merging the base lists correctly as search is complex across lists)
-    
     legacy_cursor = secondary_coll.find(secondary_criteria).sort("createdAt", -1)
-    legacy_bookings = []
+    online_bookings = []
     async for doc in legacy_cursor:
         try:
-             mapped = await map_booking_doc(doc, secondary_engine)
-             mapped.is_offline = False
-             legacy_bookings.append(mapped)
+            mapped = await map_booking_doc(doc, secondary_engine)
+            mapped.is_offline = False
+            online_bookings.append(mapped)
         except Exception:
             continue
 
-    # 2. Fetch Modern Online Bookings (Primary DB)
-    # We map status from vendor groups to internal enums if needed, or pass directly
-    # BookingStatus enum has PENDING_PAYMENT, PENDING_APPROVAL, CONFIRMED, REJECTED, COMPLETED, CANCELLED
-    primary_status_filter = None
-    if status:
-        st_lower = status.lower()
-        if st_lower == "confirmed":
-            primary_status_filter = "confirmed"
-        elif st_lower == "pending":
-            # For modern, pending usually means pending_approval or pending_payment
-            # But vendor usually wants pending_approval
-            primary_status_filter = "pending_approval"
-        elif st_lower == "cancelled":
-            primary_status_filter = "cancelled"
-        elif st_lower == "completed":
-            primary_status_filter = "completed"
-        else:
-            primary_status_filter = st_lower
-
-    from user.services.booking_service import get_vendor_bookings
-    # Note: get_vendor_bookings uses limit/skip. For merging, we fetch enough or all.
-    # To keep it simple and correct, fetch a reasonable amount or ALL if needed.
-    # Given the user wants fix skip/limit, we MUST merge FIRST then paginate.
-    modern_docs_tuples, _TotalModern = await get_vendor_bookings(
-        primary_engine, vendor_id, status_filter=primary_status_filter, 
-        limit=1000, # Reasonable large limit for merging
-        skip=0, is_offline=False, vertical_id=vertical_id,
-        search=search,
-        start_date=start_date,
-        end_date=end_date
-    )
-    
-    modern_bookings = []
-    for booking_dict, _payment_dict in modern_docs_tuples:
-        # Convert dict to VendorBookingResponse
-        # Use PetSummary and UserSummary
-        modern_bookings.append(VendorBookingResponse(
-            id=booking_dict["id"],
-            booking_date=booking_dict["booking_date"],
-            status=booking_dict["status"],
-            service_name=booking_dict["service_name"],
-            vertical_name=booking_dict["vertical_name"],
-            delivery_mode=booking_dict["delivery_mode"],
-            final_amount=booking_dict["final_amount"],
-            vendor_notes=booking_dict["vendor_notes"],
-            created_at=booking_dict["created_at"],
-            is_offline=False,
-            user=UserSummary(
-                name=booking_dict.get("user_name", "Unknown"),
-                phone=booking_dict.get("user_phone", "Unknown"),
-                email=booking_dict.get("user_email", "Unknown"),
-                image=None # Could fetch if needed
-            ),
-            pet=PetSummary(
-                name=booking_dict.get("pet_name"),
-                type=booking_dict.get("pet_type"),
-                breed=booking_dict.get("pet_breed"),
-                age=booking_dict.get("pet_age"),
-                weight=booking_dict.get("pet_weight"),
-                gender=booking_dict.get("pet_gender"),
-                images=booking_dict.get("pet_images", [])
-            ) if booking_dict.get("pet_name") else None
-        ))
-
-    # 3. Merge and Sort
-    all_bookings = legacy_bookings + modern_bookings
-    all_bookings.sort(key=lambda x: x.created_at or datetime.min, reverse=True)
-    
-    total = len(all_bookings)
-    paginated = all_bookings[skip : skip + limit]
+    total = len(online_bookings)
+    paginated = online_bookings[skip : skip + limit]
     
     return success_response(data={
         "data": [b.model_dump() for b in paginated],
@@ -620,7 +551,7 @@ async def list_combined_bookings(
 
     # --- 4. Execute Queries ---
     # Fetch Online
-    online_coll = secondary_engine.get_collection(Booking)
+    online_coll = secondary_engine.database.get_collection("bookings")
     
     # Fetch ALL matching (Removed limit(200))
     online_cursor = online_coll.find(online_criteria).sort("createdAt", -1)

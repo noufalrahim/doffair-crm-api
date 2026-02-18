@@ -25,6 +25,7 @@ class CreateOfflineBookingSimple(BaseModel):
     
     # Service info
     service_id: str
+    care_professional_id: Optional[str] = None
     vertical_id: str
     location_id: str
     service_name: str
@@ -78,6 +79,7 @@ class OfflineBookingResponse(BaseModel):
     # Service
     service_name: str
     vertical_name: str
+    care_professional_id: Optional[str] = None
     
     # Booking
     booking_date: datetime

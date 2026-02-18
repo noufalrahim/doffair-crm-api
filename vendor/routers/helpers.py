@@ -1,7 +1,7 @@
 """
 Helper endpoints for frontend - get dropdown data
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from odmantic import AIOEngine
 
 from core.database import get_engine
@@ -11,6 +11,7 @@ from core.media import build_image_list
 from vendor.models.vendor_location import VendorLocation
 from vendor.models.vendor_service import VendorService
 from vendor.models.vendor_vertical import VendorVertical
+from vendor.models.care_professional import CareProfessional
 from admin.models.vertical import Vertical
 from bson import ObjectId
 from vendor.services.availability_helper_service import get_daily_availability
@@ -194,7 +195,7 @@ async def get_vendor_daily_availability(
     date: str, # YYYY-MM-DD
     location_id: str,
     vertical_id: str,
-    care_professional_id: str = None,
+    care_professional_id: str | None = Query(None),
     current_vendor: dict = Depends(get_current_vendor),
     engine: AIOEngine = Depends(get_engine)
 ):
@@ -202,6 +203,24 @@ async def get_vendor_daily_availability(
     Get daily availability slots for a specific date
     """
     vendor_id = current_vendor["vendor_id"]
+
+    # If care_professional_id is provided, enforce ownership under this vendor.
+    if care_professional_id:
+        if not ObjectId.is_valid(care_professional_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid care_professional_id",
+            )
+        cp = await engine.find_one(
+            CareProfessional,
+            (CareProfessional.id == ObjectId(care_professional_id))
+            & (CareProfessional.vendor_id == vendor_id),
+        )
+        if not cp:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Care professional not found for this vendor",
+            )
     
     try:
         target_date = datetime.strptime(date, "%Y-%m-%d")

@@ -46,6 +46,7 @@ class VendorBookingResponse(BaseModel):
     booking_date: datetime
     status: str
     service_name: str
+    care_professional_id: Optional[str] = None
     services: List[ServiceSummary] = []
     vertical_name: str
     delivery_mode: ServiceDeliveryMode

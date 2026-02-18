@@ -75,6 +75,7 @@ class Booking(Model):
     
     # Offline Booking Support
     is_offline: bool = False
+    care_professional_id: Optional[str] = None
     customer_age: int = 0
     customer_gender: Optional[str] = None
     customer_address_full: Optional[str] = None
@@ -126,6 +127,7 @@ class Booking(Model):
             # For offline bookings
             {"fields": ["is_offline"]},
             {"fields": ["vendor_id", "is_offline"]},
+            {"fields": ["care_professional_id"]},
             {"fields": ["vendor_id", "user_phone"]},  # Customer phone lookup
         ],
     }

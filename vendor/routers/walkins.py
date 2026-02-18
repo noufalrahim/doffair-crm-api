@@ -100,6 +100,7 @@ async def create_walkin_booking(
             
             # Booking details
             service_id=bk_service_id,
+            care_professional_id=walkin_data.care_professional_id,
             service_name=bk_service_name,
             vertical_id=bk_vertical_id or walkin_data.vertical_id,
             vertical_name=bk_vertical_name,
