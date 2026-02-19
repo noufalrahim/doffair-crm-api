@@ -1,0 +1,28 @@
+  private String id;
+  private String businessCategory;
+  private String profileImage;
+  private String introduction;
+  private String name;
+  private String email;
+  private String phone;
+  private String alternativePhone;
+  private Double workExperience ; 
+  private String policyAgree;
+  private String coverPhoto;
+  private List<String> gallery; 
+  private Boolean isHomeService;
+  private Boolean isCenterService;
+  private String grantId ; 
+  private Object location;
+  private List<Object> availability; 
+  private Double homeServiceRadius;
+  private Double overallRating ; 
+  private List<Review> reviews; 
+  private List<GroomerServices> groomerServices;
+  private AddressResponse addressId;
+  private double latitude;
+  private double longitude;
+  private double distance;
+  private Integer staffCount;
+  private List<Map<String, Object>> campaignSummary;
+

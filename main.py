@@ -36,6 +36,7 @@ from vendor.routers import walkins as vendor_walkins_router
 from vendor.routers import uploads as vendor_uploads_router
 from vendor.routers import care_professionals as vendor_care_professionals_router
 from vendor.routers import care_professional_availability as vendor_cp_availability_router
+from vendor.routers import work_info as vendor_work_info_router
 
 
 from core.config import settings
@@ -78,6 +79,7 @@ app.include_router(doctor_availability.router)
 app.include_router(pricing.router)
 app.include_router(vendor_cp_availability_router.router)
 app.include_router(vendor_care_professionals_router.router)
+app.include_router(vendor_work_info_router.router)
 
 # Vendor offline booking system (WORKING)
 app.include_router(vendor_offline_bookings_router.router)

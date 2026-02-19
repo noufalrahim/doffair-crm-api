@@ -18,10 +18,19 @@ class Vendor(Model):
 
     logo_blob_path: Optional[str] = None
 
+    # Basic info fields
+    about: Optional[str] = None
+    alternative_phone: Optional[str] = None
+    work_experience: Optional[float] = None
+
+    # Work-related info
+    home_service: bool = False
+    centre_service: bool = False
+    home_service_radius: Optional[float] = None  # radius in km
+    overall_rating: Optional[float] = None
+
     status: VendorStatus = VendorStatus.PHONE_VERIFIED
     is_active: bool = True
-
-    status: VendorStatus
 
     # 🔥 Approval metadata
     reviewed_by: Optional[str] = None   # admin user id

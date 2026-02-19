@@ -50,6 +50,13 @@ async def get_vendor_profile(
                 "gst_number": vendor.gst_number,
                 "business_registration_number": vendor.business_registration_number,
                 "logo_blob_path": vendor.logo_blob_path,
+                "about": vendor.about,
+                "alternative_phone": vendor.alternative_phone,
+                "work_experience": vendor.work_experience,
+                "home_service": vendor.home_service,
+                "centre_service": vendor.centre_service,
+                "home_service_radius": vendor.home_service_radius,
+                "overall_rating": vendor.overall_rating,
                 "created_at": vendor.created_at.isoformat() if vendor.created_at else None,
                 "updated_at": vendor.updated_at.isoformat() if vendor.updated_at else None
             }

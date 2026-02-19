@@ -14,6 +14,7 @@ from vendor.services.location_service import (
     create_location,
     list_locations,
     update_location,
+    set_default_location,
 )
 
 
@@ -42,6 +43,7 @@ async def add_vendor_location(
         data={
             "location_id": str(location.id),
             "vendor_status": vendor.status,
+            "is_default": location.is_default,
         },
     )
 
@@ -67,11 +69,11 @@ async def get_vendor_locations(
                 pincode=loc.pincode,
                 latitude=loc.latitude,
                 longitude=loc.longitude,
+                is_default=loc.is_default,
             )
             for loc in locations
         ]
     )
-
 
 
 @router.patch("/locations/{location_id}")
@@ -87,5 +89,22 @@ async def update_vendor_location(
 
     return success_response(
         message="Location updated",
-        data={"location_id": str(location.id)},
+        data={"location_id": str(location.id), "is_default": location.is_default},
+    )
+
+
+@router.post("/locations/{location_id}/set-default")
+async def set_vendor_default_location(
+    location_id: str,
+    token: dict = Depends(require_vendor()),
+    engine: AIOEngine = Depends(get_engine),
+):
+    """Set a specific location as the default for this vendor."""
+    vendor_id = token["vendor_id"]
+
+    location = await set_default_location(engine, vendor_id, location_id)
+
+    return success_response(
+        message="Default location updated",
+        data={"location_id": str(location.id), "is_default": location.is_default},
     )

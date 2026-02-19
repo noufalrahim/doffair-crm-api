@@ -29,6 +29,13 @@ async def create_location(
             detail="Vendor not found",
         )
 
+    # Check if this is the vendor's first location
+    existing_count = await engine.count(
+        VendorLocation,
+        VendorLocation.vendor_id == vendor_id,
+    )
+    is_first_location = existing_count == 0
+
     location = VendorLocation(
         vendor_id=vendor_id,
         name=payload.name,
@@ -40,6 +47,7 @@ async def create_location(
         country=payload.country,
         latitude=payload.latitude,
         longitude=payload.longitude,
+        is_default=is_first_location,  # First location is default
     )
 
     await engine.save(location)
@@ -77,10 +85,56 @@ async def update_location(
     if not location or location.vendor_id != vendor_id:
         raise HTTPException(status_code=404, detail="Location not found")
 
-    for field, value in payload.dict(exclude_unset=True).items():
+    update_data = payload.dict(exclude_unset=True)
+
+    # If setting is_default to True, unset all others first
+    if update_data.get("is_default") is True:
+        await _unset_other_defaults(engine, vendor_id, location_id)
+
+    for field, value in update_data.items():
         setattr(location, field, value)
 
     location.updated_at = datetime.utcnow()
     await engine.save(location)
     return location
 
+
+async def set_default_location(
+    engine: AIOEngine,
+    vendor_id: str,
+    location_id: str,
+):
+    """Set a specific location as the default, unsetting all others."""
+    location = await engine.find_one(
+        VendorLocation,
+        VendorLocation.id == ObjectId(location_id),
+    )
+
+    if not location or location.vendor_id != vendor_id:
+        raise HTTPException(status_code=404, detail="Location not found")
+
+    # Unset all other defaults
+    await _unset_other_defaults(engine, vendor_id, location_id)
+
+    # Set this one as default
+    location.is_default = True
+    location.updated_at = datetime.utcnow()
+    await engine.save(location)
+    return location
+
+
+async def _unset_other_defaults(
+    engine: AIOEngine,
+    vendor_id: str,
+    exclude_location_id: str,
+):
+    """Set is_default=False for all vendor locations except the excluded one."""
+    all_locations = await engine.find(
+        VendorLocation,
+        VendorLocation.vendor_id == vendor_id,
+    )
+    for loc in all_locations:
+        if str(loc.id) != exclude_location_id and loc.is_default:
+            loc.is_default = False
+            loc.updated_at = datetime.utcnow()
+            await engine.save(loc)

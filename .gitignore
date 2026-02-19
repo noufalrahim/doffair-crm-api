@@ -20,6 +20,8 @@ venv/
 .DS_Store
 Thumbs.db
 
+samples
+
 # Logs
 *.log
 

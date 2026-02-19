@@ -18,6 +18,7 @@ class VendorLocation(Model):
     longitude: float
 
     is_active: bool = True
+    is_default: bool = False
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

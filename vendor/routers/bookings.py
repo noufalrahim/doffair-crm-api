@@ -612,22 +612,21 @@ async def get_booking_details(
 ):
     """
     Vendor views details of a specific booking by ID.
-    Uses the secondary database.
-    Supports both modern (snake_case) and legacy (camelCase) schemas.
+    Checks both:
+    1) Secondary DB: bookings (online)
+    2) Primary DB: walkin_bookings (offline/walk-in)
     """
     vendor_id = token.get("vendor_id")
     
-    # Fetch raw document to handle potential schema differences
-    collection = secondary_engine.get_collection(Booking)
+    # Check secondary online bookings first
+    collection = secondary_engine.database.get_collection("bookings")
     # Check if booking_id is valid ObjectId
     query = {"_id": ObjectId(booking_id)} if ObjectId.is_valid(booking_id) else {"_id": booking_id}
     booking_doc = await collection.find_one(query)
     
     if not booking_doc:
-        # -------------------------------------------------------------
-        # Fallback: Check Primary DB for Offline Booking
-        # -------------------------------------------------------------
-        collection_primary = primary_engine.get_collection(Booking)
+        # Fallback: Check primary walk-in bookings
+        collection_primary = primary_engine.database.get_collection("walkin_bookings")
         
         # Try finding by ObjectId or String ID
         if ObjectId.is_valid(booking_id):
@@ -798,7 +797,7 @@ async def update_booking_status(
     if not ObjectId.is_valid(booking_id):
         raise HTTPException(status_code=400, detail="Invalid booking ID")
         
-    collection = secondary_engine.get_collection(Booking)
+    collection = secondary_engine.database.get_collection("bookings")
     booking_doc = await collection.find_one({"_id": ObjectId(booking_id)})
     
     if not booking_doc:
