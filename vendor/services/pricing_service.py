@@ -1,7 +1,7 @@
 from odmantic import AIOEngine
 from datetime import datetime
 
-from vendor.models.service_pricing import ServicePricing
+from vendor.models.vendor_service import VendorService
 from vendor.models.vendor import Vendor
 from vendor.utils.pricing import calculate_final_price
 from core.enums import VendorStatus
@@ -23,31 +23,24 @@ async def upsert_pricing(
     # -----------------------------
     # Upsert pricing
     # -----------------------------
-    pricing = await engine.find_one(
-        ServicePricing,
-        (ServicePricing.vendor_id == vendor_id)
-        & (ServicePricing.service_id == payload.service_id)
-        & (ServicePricing.location_id == payload.location_id),
+    service = await engine.find_one(
+        VendorService,
+        (VendorService.vendor_id == vendor_id)
+        & (VendorService.id == ObjectId(payload.service_id))
+        & (VendorService.location_id == payload.location_id),
     )
 
-    is_first_pricing = pricing is None
+    if not service:
+        raise ValueError("Service not found")
 
-    if pricing:
-        pricing.base_price = payload.base_price
-        pricing.discount_type = payload.discount_type
-        pricing.discount_value = payload.discount_value
-        pricing.updated_at = datetime.utcnow()
-    else:
-        pricing = ServicePricing(
-            vendor_id=vendor_id,
-            service_id=payload.service_id,
-            location_id=payload.location_id,
-            base_price=payload.base_price,
-            discount_type=payload.discount_type,
-            discount_value=payload.discount_value,
-        )
+    is_first_pricing = service.base_price is None
 
-    await engine.save(pricing)
+    service.base_price = payload.base_price
+    service.discount_type = payload.discount_type
+    service.discount_value = payload.discount_value
+    service.updated_at = datetime.utcnow()
+
+    await engine.save(service)
 
     # -----------------------------
     # 🔥 STATUS TRANSITION (HERE)
@@ -63,4 +56,4 @@ async def upsert_pricing(
         vendor.updated_at = datetime.utcnow()
         await engine.save(vendor)
 
-    return pricing
+    return service

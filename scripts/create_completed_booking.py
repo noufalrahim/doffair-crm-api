@@ -35,7 +35,6 @@ from user.models.booking import Booking
 from vendor.models.vendor import Vendor
 from vendor.models.vendor_location import VendorLocation
 from vendor.models.vendor_service import VendorService
-from vendor.models.service_pricing import ServicePricing
 from admin.models.vertical import Vertical
 from core.enums import (
     BookingStatus,
@@ -160,7 +159,10 @@ async def create_completed_booking_for_testing(vendor_id: Optional[str] = None):
                 name="Basic Grooming Package",
                 service_kind="BASE",
                 delivery_mode=ServiceDeliveryMode.CENTER,
-                is_active=True
+                is_active=True,
+                base_price=500.0,
+                discount_type=DiscountType.FLAT,
+                discount_value=50.0
             )
             await engine.save(service)
             logger.info(f"✅ Created service: {service.name}")
@@ -169,29 +171,7 @@ async def create_completed_booking_for_testing(vendor_id: Optional[str] = None):
         
         service_id = str(service.id)
         
-        # ============================================
-        # 5. Create Service Pricing
-        # ============================================
-        pricing = await engine.find_one(
-            ServicePricing,
-            (ServicePricing.service_id == service_id) &
-            (ServicePricing.vendor_id == vendor_id)
-        )
-        
-        if not pricing:
-            pricing = ServicePricing(
-                vendor_id=vendor_id,
-                service_id=service_id,
-                location_id=location_id,
-                base_price=500.0,
-                discount_type=DiscountType.FLAT,
-                discount_value=50.0,
-                is_active=True
-            )
-            await engine.save(pricing)
-            logger.info(f"✅ Created pricing: Base ₹{pricing.base_price}, Discount ₹{pricing.discount_value}")
-        else:
-            logger.info(f"✅ Using existing pricing: Base ₹{pricing.base_price}")
+
         
         # ============================================
         # 6. Create User for testing
@@ -239,9 +219,9 @@ async def create_completed_booking_for_testing(vendor_id: Optional[str] = None):
             delivery_mode="CENTER",
             
             # Pricing
-            base_amount=pricing.base_price,
-            discount_amount=pricing.discount_value,
-            final_amount=pricing.base_price - pricing.discount_value,
+            base_amount=service.base_price or 500.0,
+            discount_amount=service.discount_value or 50.0,
+            final_amount=(service.base_price or 500.0) - (service.discount_value or 50.0),
             
             # Status - Create directly as COMPLETED for invoice testing
             status=BookingStatus.COMPLETED,

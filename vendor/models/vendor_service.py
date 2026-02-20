@@ -24,6 +24,10 @@ class VendorService(Model):
     included_service_ids: List[str] = []
     is_active: bool = True
 
+    base_price: Optional[float] = None
+    discount_type: Optional[str] = "NONE"
+    discount_value: Optional[float] = None
+
     @field_validator("delivery_mode", mode="before")
     @classmethod
     def map_delivery_mode(cls, v: Any) -> Any:

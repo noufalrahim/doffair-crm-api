@@ -21,7 +21,6 @@ router = APIRouter(
 
 from vendor.schemas.booking import VendorBookingResponse, UserSummary, PetSummary, ServiceSummary, BookingStatusUpdate
 from vendor.models.vendor_service import VendorService
-from vendor.models.service_pricing import ServicePricing
 
 
 async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBookingResponse:
@@ -687,24 +686,7 @@ async def get_booking_details(
                 if vs_doc:
                      s_name = vs_doc.get("name", s_name)
                      s_duration = vs_doc.get("duration_minutes", 0)
-                
-                # 2. Fetch Pricing (Price)
-                sp_collection = primary_engine.get_collection(ServicePricing)
-                # ServicePricing has service_id as string usually in model definition: service_id: str
-                # But let's check if it stores ObjectId or str. Model says str.
-                # Just in case, try both or use the one matching the booking's service_id format
-                sp_query = {"service_id": service_id, "vendor_id": vendor_id}
-                sp_doc = await sp_collection.find_one(sp_query)
-                
-                if sp_doc:
-                     # Calculate final price if discount exists, or just base
-                     base = float(sp_doc.get("base_price", 0))
-                     # We can use utility or just simple logic here. 
-                     # For now, let's just use base_price as requested "price" 
-                     # or if explicitly want final price logic:
-                     # For walk-in, maybe just base price is fine or if there's a specific walk-in price?
-                     # User said "name, duration, price", implying base price or current valid price.
-                     s_price = base
+                     s_price = float(vs_doc.get("base_price", 0))
                      
             except Exception as e:
                 print(f"Error fetching service details for walkin: {e}")

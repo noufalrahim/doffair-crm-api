@@ -20,7 +20,6 @@ from vendor.services.service_service import (
     update_service,
     delete_service,
 )
-from vendor.models.service_pricing import ServicePricing
 from vendor.utils.pricing import calculate_final_price
 
 router = APIRouter(
@@ -95,14 +94,6 @@ async def get_services(
         location_id,
         vertical_id,
     )
-    
-    # Fetch pricing for all services
-    service_ids = [str(s.id) for s in services]
-    pricings = await engine.find(
-        ServicePricing,
-        ServicePricing.service_id.in_(service_ids)
-    )
-    pricing_map = {p.service_id: p for p in pricings}
 
     return success_response(
         data=[
@@ -119,14 +110,14 @@ async def get_services(
                 duration_minutes=s.duration_minutes,
                 delivery_mode=s.delivery_mode,
                 dog_sizes=s.dog_sizes,
-                base_price=pricing_map[str(s.id)].base_price if str(s.id) in pricing_map else None,
-                discount_type=pricing_map[str(s.id)].discount_type if str(s.id) in pricing_map else None,
-                discount_value=pricing_map[str(s.id)].discount_value if str(s.id) in pricing_map else None,
+                base_price=s.base_price,
+                discount_type=s.discount_type,
+                discount_value=s.discount_value,
                 final_price=calculate_final_price(
-                    pricing_map[str(s.id)].base_price,
-                    pricing_map[str(s.id)].discount_type,
-                    pricing_map[str(s.id)].discount_value
-                ) if str(s.id) in pricing_map else None,
+                    s.base_price,
+                    s.discount_type,
+                    s.discount_value
+                ) if s.base_price is not None else None,
             )
             for s in services
         ]
@@ -147,16 +138,6 @@ async def update_vendor_service(
     vendor_id = token["vendor_id"]
 
     service = await update_service(engine, vendor_id, service_id, payload)
-
-    # Fetch updated pricing
-    pricing = await engine.find_one(
-        ServicePricing,
-        (ServicePricing.service_id == service_id) & (ServicePricing.vendor_id == vendor_id)
-    )
-    
-    base_price = pricing.base_price if pricing else None
-    discount_type = pricing.discount_type if pricing else None
-    discount_value = pricing.discount_value if pricing else None
     
     return success_response(
         message="Service updated",
@@ -173,14 +154,14 @@ async def update_vendor_service(
             duration_minutes=service.duration_minutes,
             delivery_mode=service.delivery_mode,
             dog_sizes=service.dog_sizes,
-            base_price=base_price,
-            discount_type=discount_type,
-            discount_value=discount_value,
+            base_price=service.base_price,
+            discount_type=service.discount_type,
+            discount_value=service.discount_value,
             final_price=calculate_final_price(
-                base_price,
-                discount_type,
-                discount_value
-            ) if base_price is not None else None,
+                service.base_price,
+                service.discount_type,
+                service.discount_value
+            ) if service.base_price is not None else None,
         )
     )
 

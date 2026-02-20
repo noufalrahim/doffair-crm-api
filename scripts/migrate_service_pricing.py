@@ -11,7 +11,7 @@ from core.database import get_engine
 
 async def migrate():
     engine = get_engine()
-    db = engine.database
+    db = engine.client["doffair_vendors_new"]
 
     print("Starting migration from service_pricing to vendor_services...")
 

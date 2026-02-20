@@ -25,20 +25,20 @@ async def configure_pricing(
     vendor_id = token["vendor_id"]
 
     print("O my god")
-    pricing = await upsert_pricing(engine, vendor_id, payload)
+    service = await upsert_pricing(engine, vendor_id, payload)
 
     return success_response(
         message="Pricing configured successfully",
         data={
-            "service_id": pricing.service_id,
-            "location_id": pricing.location_id,
-            "base_price": pricing.base_price,
-            "discount_type": pricing.discount_type,
-            "discount_value": pricing.discount_value,
+            "service_id": str(service.id),
+            "location_id": service.location_id,
+            "base_price": service.base_price,
+            "discount_type": service.discount_type,
+            "discount_value": service.discount_value,
             "final_price": calculate_final_price(
-                pricing.base_price,
-                pricing.discount_type,
-                pricing.discount_value,
+                service.base_price,
+                service.discount_type,
+                service.discount_value,
             ),
         },
     )

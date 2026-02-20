@@ -13,10 +13,10 @@ from odmantic import AIOEngine
 from motor.motor_asyncio import AsyncIOMotorClient
 from core.config import settings
 from vendor.models.vendor_service import VendorService
-from vendor.models.service_pricing import ServicePricing
 from vendor.schemas.service import VendorServiceUpdateRequest
 from vendor.services.service_service import update_service
 import logging
+from bson import ObjectId
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -73,8 +73,8 @@ async def test_service_update():
             
             # Check pricing
             pricing = await engine.find_one(
-                ServicePricing,
-                (ServicePricing.service_id == service_id) & (ServicePricing.vendor_id == vendor_id)
+                VendorService,
+                (VendorService.id == ObjectId(service_id)) & (VendorService.vendor_id == vendor_id)
             )
             if pricing:
                 logger.info(f"   Pricing: ₹{pricing.base_price}, Discount: ₹{pricing.discount_value}")

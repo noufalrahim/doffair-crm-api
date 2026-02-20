@@ -9,7 +9,6 @@ from user.models.payment import Payment
 from user.models.user import User
 from vendor.models.vendor import Vendor
 from vendor.models.vendor_service import VendorService
-from vendor.models.service_pricing import ServicePricing
 from admin.models.vertical import Vertical
 from vendor.models.vendor_location import VendorLocation
 from core.enums import BookingStatus, PaymentStatus
@@ -68,13 +67,9 @@ async def create_booking(
             detail=f"This vertical is in {vertical.mode} mode. Only 'booking' mode services can be booked.",
         )
     
-    # 5. Get pricing
-    pricing = await engine.find_one(
-        ServicePricing,
-        (ServicePricing.service_id == service_id) & (ServicePricing.location_id == service.location_id),
-    )
-    if not pricing:
-        raise HTTPException(status_code=404, detail="Pricing not found for this service")
+    # 5. Removed ServicePricing logic 
+    if service.base_price is None:
+        raise HTTPException(status_code=400, detail="Pricing not configured for this service")
     
     # 6. Validate delivery mode
     from core.enums import ServiceDeliveryMode
@@ -101,13 +96,13 @@ async def create_booking(
             )
     
     # 8. Calculate final amount
-    base_amount = pricing.base_price
+    base_amount = service.base_price
     discount_amount = 0.0
     
-    if pricing.discount_type == "FLAT":
-        discount_amount = pricing.discount_value or 0.0
-    elif pricing.discount_type == "PERCENT":
-        discount_amount = (base_amount * (pricing.discount_value or 0.0)) / 100
+    if service.discount_type == "FLAT":
+        discount_amount = service.discount_value or 0.0
+    elif service.discount_type == "PERCENT":
+        discount_amount = (base_amount * (service.discount_value or 0.0)) / 100
     
     final_amount = base_amount - discount_amount
     
