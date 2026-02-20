@@ -25,6 +25,9 @@ class VendorLocationResponse(BaseModel):
     pincode: str
     latitude: float
     longitude: float
+    is_default: bool = False
+    staff_count: int = 0
+    service_count: int = 0
 
 
 class VendorLocationUpdateRequest(BaseModel):

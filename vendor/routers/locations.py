@@ -1,9 +1,14 @@
+from collections import Counter
+
 from fastapi import APIRouter, Depends, HTTPException
 from odmantic import AIOEngine
 
 from core.database import get_engine
 from core.security import require_vendor
 from utils.response import success_response
+
+from vendor.models.care_professional import CareProfessional
+from vendor.models.vendor_service import VendorService
 
 from vendor.schemas.location import (
     VendorLocationCreateRequest,
@@ -57,6 +62,18 @@ async def get_vendor_locations(
 
     locations = await list_locations(engine, vendor_id)
 
+    active_staff = await engine.find(
+        CareProfessional,
+        (CareProfessional.vendor_id == vendor_id) & (CareProfessional.is_active == True),
+    )
+    active_services = await engine.find(
+        VendorService,
+        (VendorService.vendor_id == vendor_id) & (VendorService.is_active == True),
+    )
+
+    staff_counts = Counter(str(s.location_id) for s in active_staff if getattr(s, "location_id", None))
+    service_counts = Counter(str(s.location_id) for s in active_services if getattr(s, "location_id", None))
+
     return success_response(
         data=[
             VendorLocationResponse(
@@ -70,6 +87,8 @@ async def get_vendor_locations(
                 latitude=loc.latitude,
                 longitude=loc.longitude,
                 is_default=loc.is_default,
+                staff_count=staff_counts.get(str(loc.id), 0),
+                service_count=service_counts.get(str(loc.id), 0),
             )
             for loc in locations
         ]

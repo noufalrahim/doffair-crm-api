@@ -5,7 +5,6 @@ from fastapi import HTTPException, status
 
 from vendor.models.vendor import Vendor
 from vendor.models.vendor_service import VendorService
-from vendor.models.service_pricing import ServicePricing
 from core.enums import VendorStatus, DiscountType
 from vendor.utils.pricing import calculate_final_price
 
@@ -22,21 +21,12 @@ async def create_base_service(engine: AIOEngine, vendor_id: str, payload):
         included_service_ids=[],
         delivery_mode=payload.delivery_mode,
         dog_sizes=payload.dog_sizes or [],
-
-    )
-
-    await engine.save(service)
-    
-    # Create pricing for this service
-    pricing = ServicePricing(
-        vendor_id=vendor_id,
-        service_id=str(service.id),
-        location_id=payload.location_id,
         base_price=payload.base_price,
         discount_type=payload.discount_type,
         discount_value=payload.discount_value,
     )
-    await engine.save(pricing)
+
+    await engine.save(service)
     
     return service
 
@@ -79,20 +69,12 @@ async def create_combo_service(engine: AIOEngine, vendor_id: str, payload):
         service_kind="COMBO",
         included_service_ids=payload.included_service_ids,
         dog_sizes=payload.dog_sizes or [],
-    )
-
-    await engine.save(combo)
-    
-    # Create pricing for this combo service
-    pricing = ServicePricing(
-        vendor_id=vendor_id,
-        service_id=str(combo.id),
-        location_id=payload.location_id,
         base_price=payload.base_price,
         discount_type=payload.discount_type,
         discount_value=payload.discount_value,
     )
-    await engine.save(pricing)
+
+    await engine.save(combo)
     
     return combo
 
@@ -133,48 +115,12 @@ async def update_service(
     if not service or service.vendor_id != vendor_id:
         raise HTTPException(status_code=404, detail="Service not found")
 
-    # Extract pricing fields from payload
-    pricing_fields = {}
-    service_fields = {}
-    
-    for field, value in payload.dict(exclude_unset=True).items():
-        if field in ['base_price', 'discount_type', 'discount_value']:
-            pricing_fields[field] = value
-        else:
-            service_fields[field] = value
-    
     # Update service fields
-    for field, value in service_fields.items():
+    for field, value in payload.dict(exclude_unset=True).items():
         setattr(service, field, value)
 
     service.updated_at = datetime.utcnow()
     await engine.save(service)
-    
-    # Update pricing if pricing fields provided
-    if pricing_fields:
-        pricing = await engine.find_one(
-            ServicePricing,
-            (ServicePricing.service_id == service_id) & (ServicePricing.vendor_id == vendor_id)
-        )
-        
-        if pricing:
-            for field, value in pricing_fields.items():
-                setattr(pricing, field, value)
-            pricing.updated_at = datetime.utcnow()
-            await engine.save(pricing)
-        elif 'base_price' in pricing_fields:
-            # Create new pricing if missing and base_price is available
-            pricing = ServicePricing(
-                vendor_id=vendor_id,
-                service_id=service_id,
-                location_id=service.location_id,
-                **pricing_fields
-            )
-            await engine.save(pricing)
-        else:
-            # Pricing missing and no base_price provided to create it
-            # For now, we'll skip but this might need a warning or error in the future
-            pass
     
     return service
 
@@ -193,13 +139,5 @@ async def delete_service(
 
     # Delete the service
     await engine.delete(service)
-
-    # Delete associated pricing
-    pricing = await engine.find_one(
-        ServicePricing,
-        (ServicePricing.service_id == service_id) & (ServicePricing.vendor_id == vendor_id)
-    )
-    if pricing:
-        await engine.delete(pricing)
 
     return True
