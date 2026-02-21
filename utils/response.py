@@ -1,11 +1,12 @@
 from schemas.common import APIResponse
 
 
-def success_response(data=None, message: str | None = None) -> APIResponse:
+def success_response(data=None, message: str | None = None, meta: dict | None = None) -> APIResponse:
     return APIResponse(
         success=True,
         success_message=message,
         data=data,
+        meta=meta,
     )
 
 

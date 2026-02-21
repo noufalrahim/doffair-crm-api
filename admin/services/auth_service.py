@@ -43,7 +43,6 @@ async def register_admin(
     password: str,
     is_super_admin: bool = False,
 ) -> Tuple[str, Admin]:
-    # Check if admin already exists
     existing_admin = await engine.find_one(Admin, Admin.email == email)
     if existing_admin:
         raise HTTPException(

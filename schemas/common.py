@@ -7,3 +7,4 @@ class APIResponse(BaseModel):
     success_message: Optional[str] = None
     error_message: Optional[str] = None
     data: Optional[Any] = None
+    meta: Optional[dict] = None
