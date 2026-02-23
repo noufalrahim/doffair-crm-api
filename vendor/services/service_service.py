@@ -24,6 +24,7 @@ async def create_base_service(engine: AIOEngine, vendor_id: str, payload):
         base_price=payload.base_price,
         discount_type=payload.discount_type,
         discount_value=payload.discount_value,
+        images=payload.images or [],
     )
 
     await engine.save(service)
@@ -72,6 +73,7 @@ async def create_combo_service(engine: AIOEngine, vendor_id: str, payload):
         base_price=payload.base_price,
         discount_type=payload.discount_type,
         discount_value=payload.discount_value,
+        images=payload.images or [],
     )
 
     await engine.save(combo)

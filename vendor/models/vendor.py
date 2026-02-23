@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from odmantic import Model, Field
 from core.enums import VendorStatus
@@ -17,6 +17,9 @@ class Vendor(Model):
     business_registration_number: Optional[str] = None
 
     logo_blob_path: Optional[str] = None
+    profileImage: Optional[str] = None
+    coverPhoto: Optional[str] = None
+    gallery: List[str] = []
 
     # Basic info fields
     about: Optional[str] = None
@@ -41,5 +44,6 @@ class Vendor(Model):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = {
-        "collection": "vendors"
+        "collection": "vendors",
+        "parse_doc_with_default_factories": True
     }

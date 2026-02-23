@@ -3,7 +3,6 @@ from odmantic import AIOEngine
 
 from core.database import get_engine
 from core.security import require_vendor
-from core.media import build_image_list
 from utils.response import success_response
 
 from vendor.schemas.service import (
@@ -104,7 +103,7 @@ async def get_services(
                 location_id=s.location_id,
                 vertical_id=s.vertical_id,
                 label=s.label,
-                images=build_image_list(s.image_blob_paths),
+                images=s.images,
                 is_active=s.is_active,
                 description=s.description,
                 duration_minutes=s.duration_minutes,
@@ -148,7 +147,7 @@ async def update_vendor_service(
             location_id=service.location_id,
             vertical_id=service.vertical_id,
             label=service.label,
-            images=build_image_list(service.image_blob_paths),
+            images=service.images,
             is_active=service.is_active,
             description=service.description,
             duration_minutes=service.duration_minutes,

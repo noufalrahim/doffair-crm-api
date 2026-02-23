@@ -12,7 +12,8 @@ import logging
 
 from vendor.models.prescription import Prescription
 from user.models.booking import Booking
-from core.azure_blob import azure_blob_service
+from core.azure_client import upload_file_to_blob, generate_blob_sas_url, blob_service_client
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -88,20 +89,21 @@ async def upload_prescription(
     
     # Reset file pointer for upload
     await file.seek(0)
-    
     try:
-        # Upload to Azure Blob Storage
         # Path structure: prescriptions/{vendor_id}/{booking_id}/
-        folder_path = f"prescriptions/{vendor_id}/{booking_id}"
+        # In the new client, upload_file_to_blob expects user_id, file, image_type
+        # and it constructs path as {user_id}/{image_type}/{uuid}{ext}
         
-        upload_result = azure_blob_service.upload_file(
-            file_data=file.file,
-            file_name=file.filename,
-            folder_path=folder_path,
-            content_type=file.content_type
+        blob_path = await upload_file_to_blob(
+            user_id=vendor_id,
+            upload_file=file,
+            image_type=f"prescriptions/{booking_id}"
         )
         
-        logger.info(f"📄 File uploaded to Azure: {upload_result['blob_path']}")
+        blob_url = f"{blob_service_client.primary_endpoint}{settings.AZURE_BLOB_CONTAINER}/{blob_path}"
+        cdn_url = f"{settings.AZURE_CDN_BASE_URL}/{blob_path}" if settings.AZURE_CDN_BASE_URL else ""
+        
+        logger.info(f"📄 File uploaded to Azure: {blob_path}")
         
         # Extract customer phone from booking
         customer_phone = booking.user_phone
@@ -111,12 +113,12 @@ async def upload_prescription(
             vendor_id=vendor_id,
             customer_id=booking.user_id,
             booking_id=booking_id,
-            file_name=upload_result['file_name'],
+            file_name=file.filename,
             file_type=file.content_type,
-            file_size=upload_result['file_size'],
-            blob_url=upload_result['blob_url'],
-            blob_path=upload_result['blob_path'],
-            cdn_url=upload_result.get('cdn_url') or "",
+            file_size=file_size,
+            blob_url=blob_url,
+            blob_path=blob_path,
+            cdn_url=cdn_url,
             notes=notes or "",
             prescription_date=prescription_date or datetime.utcnow(),
             uploaded_at=datetime.utcnow(),
@@ -304,7 +306,7 @@ async def get_prescription_download_url(
     prescription = await get_prescription_by_id(engine, vendor_id, prescription_id)
     
     try:
-        signed_url = azure_blob_service.get_file_url(
+        signed_url = generate_blob_sas_url(
             blob_path=prescription.blob_path,
             expiry_hours=expiry_hours
         )

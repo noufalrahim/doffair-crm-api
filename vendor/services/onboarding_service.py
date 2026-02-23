@@ -93,6 +93,8 @@ async def update_basic_info(
     vendor.legal_name = payload.legal_name
     vendor.gst_number = payload.gst_number
     vendor.business_registration_number = payload.business_registration_number
+    vendor.profileImage = payload.profileImage
+    vendor.coverPhoto = payload.coverPhoto
 
     vendor.status = VendorStatus.BASIC_INFO_SUBMITTED
     vendor.updated_at = datetime.utcnow()

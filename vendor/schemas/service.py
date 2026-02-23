@@ -12,6 +12,7 @@ class BaseServiceCreateRequest(BaseModel):
     duration_minutes: Optional[int] = None
     delivery_mode: ServiceDeliveryMode
     dog_sizes: Optional[List[DogSize]] = None
+    images: List[str] = []
     
     # Pricing fields
     base_price: float = Field(..., gt=0, description="Base price for the service")
@@ -27,6 +28,7 @@ class ComboServiceCreateRequest(BaseModel):
     description: Optional[str] = None
     included_service_ids: List[str]
     dog_sizes: Optional[List[DogSize]] = None
+    images: List[str] = []
     
     # Pricing fields
     base_price: float = Field(..., gt=0, description="Base price for the combo service")
@@ -35,18 +37,13 @@ class ComboServiceCreateRequest(BaseModel):
 
 # ---------------------------------------------------------
 
-class ImageSet(BaseModel):
-    original: str
-    medium: str
-    thumbnail: str
-
 class VendorServiceResponse(BaseModel):
     id: str
     name: str
     service_kind: str
     location_id: str
     vertical_id: str
-    images: List[ImageSet] = []
+    images: List[str] = []
     is_active: bool = True
     
     description: Optional[str] = None
@@ -68,6 +65,7 @@ class VendorServiceUpdateRequest(BaseModel):
     label: Optional[str] = None
     is_active: Optional[bool] = None
     dog_sizes: Optional[List[DogSize]] = None
+    images: Optional[List[str]] = None
     
     # Pricing fields (optional for updates)
     base_price: Optional[float] = Field(None, gt=0)

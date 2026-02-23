@@ -1,5 +1,5 @@
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from pydantic import BaseModel, EmailStr, Field, model_validator
+from typing import Optional, Any
 from core.enums import VendorStatus
 
 
@@ -14,6 +14,23 @@ class VendorBasicInfoRequest(BaseModel):
 
     gst_number: Optional[str] = None
     business_registration_number: Optional[str] = None
+    profileImage: Optional[str] = None
+    coverPhoto: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_snake_case(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            # Map variations for profileImage
+            for key in ["profile_image", "profileimage", "profile_photo", "profilephoto"]:
+                if key in data and "profileImage" not in data:
+                    data["profileImage"] = data.pop(key)
+            
+            # Map variations for coverPhoto
+            for key in ["cover_photo", "coverphoto", "cover_image", "coverimage"]:
+                if key in data and "coverPhoto" not in data:
+                    data["coverPhoto"] = data.pop(key)
+        return data
 
 
 class VendorStatusResponse(BaseModel):
@@ -25,6 +42,23 @@ class VendorBasicInfoUpdateRequest(BaseModel):
     legal_name: Optional[str] = None
     gst_number: Optional[str] = None
     business_registration_number: Optional[str] = None
+    profileImage: Optional[str] = None
+    coverPhoto: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_snake_case(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            # Map variations for profileImage
+            for key in ["profile_image", "profileimage", "profile_photo", "profilephoto"]:
+                if key in data and "profileImage" not in data:
+                    data["profileImage"] = data.pop(key)
+            
+            # Map variations for coverPhoto
+            for key in ["cover_photo", "coverphoto", "cover_image", "coverimage"]:
+                if key in data and "coverPhoto" not in data:
+                    data["coverPhoto"] = data.pop(key)
+        return data
 
 
 class VendorOnboardingProgressResponse(BaseModel):
@@ -41,4 +75,3 @@ class VendorOnboardingProgressResponse(BaseModel):
     # Summary
     percentage_completed: float
     pending_steps: list[str]
-
