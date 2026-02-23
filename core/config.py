@@ -83,6 +83,7 @@ class Settings(BaseSettings):
     MAX_CONTACT_REVEALS_PER_DAY: int = 5
 
     AZURE_CDN_BASE_URL: str
+    IMAGE_BASE_URL: str = "http://localhost:7071"
 
 
 
