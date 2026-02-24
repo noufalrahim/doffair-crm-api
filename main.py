@@ -12,6 +12,7 @@ from admin.routers import vendors as admin_vendors_router
 from admin.routers import amenities as admin_amenities_router
 from admin.routers import admins as admin_admins_router
 from vendor.routers import amenities as vendor_amenities_router
+from vendor.routers import analytics as vendor_analytics_router
 from vendor.routers import service_area as vendor_service_area_router
 from vendor.routers import doctors, doctor_availability
 from vendor.routers import pricing
@@ -64,6 +65,7 @@ app.include_router(vendor_vertical_router.router_general)
 app.include_router(vendor_locations_router.router)
 app.include_router(vendor_services_router.router)
 app.include_router(vendor_amenities_router.router)
+app.include_router(vendor_analytics_router.router)
 app.include_router(vendor_service_area_router.router)
 app.include_router(vendor_bookings_router.router)
 app.include_router(vendor_customers_router.router)
