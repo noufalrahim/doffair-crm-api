@@ -52,3 +52,14 @@ class VendorAnalyticsResponse(BaseModel):
     data: VendorAnalyticsData
     success_message: Optional[str] = None
     error_message: Optional[str] = None
+
+class MonthRevenue(BaseModel):
+    month: str
+    online: float
+    walkin: float
+
+class RevenueAnalyticsResponse(BaseModel):
+    success: bool
+    data: List[MonthRevenue]
+    success_message: Optional[str] = None
+    error_message: Optional[str] = None

@@ -37,7 +37,8 @@ def get_slots_in_range(start_t: time, end_t: time, interval_minutes: int = 30) -
         slots.append(AvailabilitySlot(
             start_time=format_time(slot_start),
             end_time=format_time(slot_end),
-            is_open=True
+            is_open=True,
+            is_available=True
         ))
         current_dt += timedelta(minutes=interval_minutes)
     
@@ -117,7 +118,7 @@ async def get_daily_availability(
 
         availabilities = await engine.find(Availability, *filters)
         for a in availabilities:
-            raw_ranges.append((parse_time(a.start_time), parse_time(a.end_time)))
+            raw_ranges.append((parse_time(start_time:=a.start_time), parse_time(end_time:=a.end_time)))
             
         return raw_ranges, False, None
 
@@ -125,6 +126,91 @@ async def get_daily_availability(
     yest_ranges, _, _ = await get_ranges_for_date(target_date - timedelta(days=1))
     today_ranges, is_holiday, holiday_name = await get_ranges_for_date(target_date)
     tom_ranges, _, _ = await get_ranges_for_date(target_date + timedelta(days=1))
+
+    # 3.5. Fetch Bookings for the session window
+    vertical_codes = []
+    if vertical_id and ObjectId.is_valid(vertical_id):
+        from admin.models.vertical import Vertical
+        v_doc = await engine.find_one(Vertical, Vertical.id == ObjectId(vertical_id))
+        if v_doc:
+            vertical_codes = v_doc.code
+    
+    online_coll = engine.database.client.get_database("doffair_secondary").get_collection("bookings")
+    online_vendor_or = [{"serviceProviderId": vendor_id}, {"vendor_id": vendor_id}]
+    if ObjectId.is_valid(vendor_id):
+        online_vendor_or.append({"serviceProviderId": ObjectId(vendor_id)})
+    
+    online_match = {
+        "$and": [
+            {"$or": online_vendor_or},
+            {"status": {"$in": ["confirmed", "pending", "ongoing"]}},
+            {
+                "$or": [
+                    {"startTime": {"$gte": session_window_start_dt, "$lt": session_window_end_dt}},
+                    {"booking_date": {"$gte": session_window_start_dt, "$lt": session_window_end_dt}}
+                ]
+            }
+        ]
+    }
+    if vertical_codes:
+        online_match["$and"].append({"serviceProviderType": {"$in": vertical_codes}})
+    
+    if care_professional_id:
+        online_match["$and"].append({
+            "$or": [
+                {"careProfessionalId": care_professional_id},
+                {"careProfessionalId": ObjectId(care_professional_id)} if ObjectId.is_valid(care_professional_id) else {"careProfessionalId": None}
+            ]
+        })
+
+    online_bookings = await online_coll.find(online_match).to_list(length=100)
+    
+    primary_coll = engine.database.get_collection("walkin_bookings")
+    primary_match = {
+        "vendor_id": vendor_id,
+        "status": {"$in": ["confirmed", "pending", "ongoing"]},
+        "booking_date": {"$gte": session_window_start_dt, "$lt": session_window_end_dt}
+    }
+    if vertical_id:
+        primary_match["$or"] = [{"vertical_id": vertical_id}, {"vertical_id": ObjectId(vertical_id)}]
+    
+    if care_professional_id:
+        primary_match["care_professional_id"] = care_professional_id
+
+    primary_bookings = await primary_coll.find(primary_match).to_list(length=100)
+    
+    booked_ranges = []
+    utc_offset = timedelta(hours=5, minutes=30)
+    
+    for b in online_bookings:
+        start_utc = b.get("startTime") or b.get("booking_date")
+        duration = b.get("duration", 30)
+        if isinstance(start_utc, datetime):
+            try:
+                duration_min = int(duration)
+            except (ValueError, TypeError):
+                duration_min = 30
+            
+            if start_utc.tzinfo is not None:
+                start_utc = start_utc.replace(tzinfo=None)
+            
+            start_ist = start_utc + utc_offset
+            booked_ranges.append((start_ist, start_ist + timedelta(minutes=duration_min)))
+            
+    for b in primary_bookings:
+        start_utc = b.get("booking_date")
+        duration = b.get("duration_minutes", 30)
+        if isinstance(start_utc, datetime):
+            try:
+                duration_min = int(duration)
+            except (ValueError, TypeError):
+                duration_min = 30
+                
+            if start_utc.tzinfo is not None:
+                start_utc = start_utc.replace(tzinfo=None)
+                
+            start_ist = start_utc + utc_offset
+            booked_ranges.append((start_ist, start_ist + timedelta(minutes=duration_min)))
 
     # 4. Create datetime-based active ranges within the session window
     active_ranges_dt = []
@@ -139,7 +225,6 @@ async def get_daily_availability(
         for rs, re in raw_r:
             start_dt = d_mid.replace(hour=rs.hour, minute=rs.minute)
             end_dt = d_mid.replace(hour=re.hour, minute=re.minute)
-            # Handle wrap-around or midnight
             if re < rs or (re == time(0, 0) and rs != time(0, 0)):
                 end_dt += timedelta(days=1)
             
@@ -152,14 +237,12 @@ async def get_daily_availability(
     if not active_ranges_dt:
         return DailyAvailabilityResponse(date=target_date.date(), is_holiday=is_holiday, holiday_name=holiday_name, sections=[])
 
-    # 5. Determine session-specific Start and End purely from DB
     session_start_dt = min(r[0] for r in active_ranges_dt)
     session_end_dt = max(r[1] for r in active_ranges_dt)
 
     if session_start_dt >= session_end_dt:
          return DailyAvailabilityResponse(date=target_date.date(), is_holiday=is_holiday, holiday_name=holiday_name, sections=[])
 
-    # 6. Generate slots
     def generate_slots(b_start_dt: datetime, b_end_dt: datetime) -> List[AvailabilitySlot]:
         slots = []
         act_start = max(b_start_dt, session_start_dt)
@@ -177,7 +260,19 @@ async def get_daily_availability(
                     is_open = True
                     break
             
-            slots.append(AvailabilitySlot(start_time=format_time(s_t), end_time=format_time(e_t), is_open=is_open))
+            is_available = True
+            if is_open:
+                for brs_dt, bre_dt in booked_ranges:
+                    if brs_dt < nxt and bre_dt > curr:
+                        is_available = False
+                        break
+            
+            slots.append(AvailabilitySlot(
+                start_time=format_time(s_t), 
+                end_time=format_time(e_t), 
+                is_open=is_open,
+                is_available=is_available
+            ))
             curr = nxt
         return slots
 

@@ -8,7 +8,7 @@ from core.database import get_engine, get_secondary_engine
 from core.security import require_vendor
 from utils.response import success_response
 from core.enums import BookingStatus
-from vendor.schemas.analytics import VendorAnalyticsResponse
+from vendor.schemas.analytics import VendorAnalyticsResponse, RevenueAnalyticsResponse
 
 router = APIRouter(
     prefix="/vendor/analytics",
@@ -246,3 +246,123 @@ async def get_vendor_analytics(
             "previous_period": {"start": p_start.isoformat(), "end": p_end.isoformat()}
         }
     })
+
+async def aggregate_monthly_revenue(
+    primary_db, 
+    secondary_db, 
+    vendor_id: str, 
+    vendor_oid: Optional[ObjectId],
+    start_date: datetime, 
+    end_date: datetime,
+    vertical_id: Optional[str] = None,
+    vertical_codes: Optional[List[str]] = None
+):
+    walkin_coll = primary_db.get_collection("walkin_bookings")
+    online_coll = secondary_db.get_collection("bookings")
+    
+    # Months list
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    results = {m: {"online": 0.0, "walkin": 0.0} for m in months}
+
+    # Pipeline for walkin/offline bookings
+    offline_match = {
+        "vendor_id": vendor_id,
+        "is_offline": True,
+        "booking_date": {"$gte": start_date, "$lt": end_date}
+    }
+    if vertical_id:
+        offline_match["$or"] = [{"vertical_id": vertical_id}, {"vertical_id": ObjectId(vertical_id)}]
+
+    offline_pipeline = [
+        {"$match": offline_match},
+        {
+            "$group": {
+                "_id": {"$month": "$booking_date"},
+                "total": {"$sum": "$final_amount"}
+            }
+        }
+    ]
+    
+    off_res = await walkin_coll.aggregate(offline_pipeline).to_list(12)
+    for r in off_res:
+        results[months[r["_id"] - 1]]["walkin"] = float(r["total"])
+
+    # Pipeline for online bookings
+    online_vendor_or = [{"serviceProviderId": vendor_id}, {"vendor_id": vendor_id}]
+    if vendor_oid:
+        online_vendor_or.append({"serviceProviderId": vendor_oid})
+
+    online_match_and = [
+        {"$or": online_vendor_or},
+        {
+            "$or": [
+                {"booking_date": {"$gte": start_date, "$lt": end_date}},
+                {"startTime": {"$gte": start_date, "$lt": end_date}}
+            ]
+        }
+    ]
+    if vertical_codes:
+        online_match_and.append({"serviceProviderType": {"$in": vertical_codes}})
+
+    online_pipeline = [
+        {"$match": {"$and": online_match_and}},
+        {
+            "$group": {
+                "_id": {
+                    "$month": {
+                        "$ifNull": ["$booking_date", "$startTime"]
+                    }
+                },
+                "total": {"$sum": {"$ifNull": ["$bookingAmount", "$final_amount", 0]}}
+            }
+        }
+    ]
+
+    on_res = await online_coll.aggregate(online_pipeline).to_list(12)
+    for r in on_res:
+        results[months[r["_id"] - 1]]["online"] = float(r["total"])
+
+    return [{"month": m, "online": results[m]["online"], "walkin": results[m]["walkin"]} for m in months]
+
+@router.get(
+    "/revenue-monthly",
+    response_model=RevenueAnalyticsResponse,
+    summary="Get Monthly Revenue Analytics",
+    description="Get month-wise revenue for the current year, separated by online and walk-in bookings. Can be filtered by verticalId."
+)
+async def get_revenue_monthly_analytics(
+    verticalId: Optional[str] = Query(None, description="Filter by vertical ID", example="69522b6ce6a07c46de0f88d7"),
+    primary_engine: AIOEngine = Depends(get_engine),
+    secondary_engine: AIOEngine = Depends(get_secondary_engine),
+    token: dict = Depends(require_vendor())
+):
+    vendor_id = token.get("vendor_id")
+    if not vendor_id:
+        raise HTTPException(status_code=401, detail="Vendor ID not found in token")
+        
+    vendor_oid = ObjectId(vendor_id) if ObjectId.is_valid(vendor_id) else None
+    
+    vertical_codes = None
+    if verticalId:
+        from admin.models.vertical import Vertical
+        v_def = await primary_engine.find_one(Vertical, Vertical.id == ObjectId(verticalId))
+        if not v_def:
+            raise HTTPException(status_code=404, detail="Vertical not found")
+        vertical_codes = v_def.code
+
+    now = datetime.utcnow()
+    year_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    year_end = (year_start + timedelta(days=366)).replace(month=1, day=1) # Start of next year
+    
+    data = await aggregate_monthly_revenue(
+        primary_engine.database, 
+        secondary_engine.database, 
+        vendor_id, 
+        vendor_oid, 
+        year_start, 
+        year_end,
+        vertical_id=verticalId,
+        vertical_codes=vertical_codes
+    )
+    
+    return success_response(data=data)
