@@ -27,7 +27,16 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
     """Helper to map a raw booking document to VendorBookingResponse"""
     
     # helper variables
-    booking_id = str(booking_doc["_id"])
+    _id_str = str(booking_doc["_id"])
+    
+    # Priority for ID:
+    # 1. 'id' field (specific to bookings.id in secondary DB)
+    # 2. 'booking_id' or 'bookingId'
+    # 3. Fallback: raw _id string
+    if booking_doc.get("is_offline"):
+        booking_id = _id_str
+    else:
+        booking_id = booking_doc.get("id") or booking_doc.get("booking_id") or booking_doc.get("bookingId") or _id_str
     
     # --- Legacy Handling ---
     if "userId" in booking_doc and "user_id" not in booking_doc:
@@ -232,8 +241,11 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
     if raw_status is None:
         raw_status = booking.status.value if hasattr(booking.status, 'value') else str(booking.status)
 
+    # Use prioritized/generated booking_id from the top of the function
+    # Instead of str(booking.id), we use the booking_id we calculated
+    
     return VendorBookingResponse(
-            id=str(booking.id),
+            id=booking_id,
             booking_date=booking.booking_date,
             status=raw_status if isinstance(raw_status, str) else str(raw_status),
             service_name=booking.service_name,
@@ -448,19 +460,31 @@ async def list_combined_bookings(
              st = await primary_engine.find_one(Vertical, Vertical.id == ObjectId(vertical_id))
              if st:
                  vertical_codes = st.code
-    except Exception:
+                 print(f"DEBUG: Resolved vertical_id {vertical_id} to codes {vertical_codes}")
+             else:
+                 print(f"DEBUG: Vertical {vertical_id} NOT FOUND in primary DB")
+    except Exception as e:
+         print(f"DEBUG: Error resolving vertical {vertical_id}: {e}")
          pass
     
     # If filter provided but no codes found, return empty matches immediately
     if not vertical_codes:
+         print(f"DEBUG: Returning empty since no vertical_codes for {vertical_id}")
          return success_response(data={"bookings": [], "meta": {"total": 0, "skip": skip, "limit": limit}})
 
     # --- 2. Build Criteria for Online Bookings (Secondary DB) ---
+    vendor_obj_id = None
+    try:
+        if ObjectId.is_valid(vendor_id):
+            vendor_obj_id = ObjectId(vendor_id)
+    except Exception:
+        pass
+
     online_criteria = {
         "$and": [
             {
                 "$or": [
-                    {"serviceProviderId": ObjectId(vendor_id)}, 
+                    {"serviceProviderId": vendor_obj_id} if vendor_obj_id else {"serviceProviderId": vendor_id}, 
                     {"serviceProviderId": vendor_id},           
                     {"vendor_id": vendor_id}                    
                 ]
@@ -468,6 +492,7 @@ async def list_combined_bookings(
             {"serviceProviderType": {"$in": vertical_codes}}
         ]
     }
+    print(f"DEBUG: Online Criteria: {online_criteria}")
     
     # --- 3. Build Criteria for Primary DB Bookings (Online Modern + Offline) ---
     primary_criteria = {
@@ -556,26 +581,38 @@ async def list_combined_bookings(
     online_cursor = online_coll.find(online_criteria).sort("createdAt", -1)
     
     online_docs = []
+    found_count = 0
     async for doc in online_cursor:
+         found_count += 1
          try:
              mapped = await map_booking_doc(doc, secondary_engine)
              mapped.is_offline = False
              online_docs.append(mapped)
-         except Exception:
+         except Exception as e:
+             print(f"DEBUG: Error mapping secondary doc {doc.get('_id')}: {e}")
              pass
+    print(f"DEBUG: Found {found_count} secondary docs, successfully mapped {len(online_docs)}")
 
-    # Fetch Primary DB results
-    primary_coll = primary_engine.get_collection(Booking)
-    primary_cursor = primary_coll.find(primary_criteria).sort("booking_date", -1)
+    # Fetch Primary DB results (Walk-ins)
+    primary_walkin_coll = primary_engine.database.get_collection("walkin_bookings")
+    primary_cursor = primary_walkin_coll.find(primary_criteria).sort("booking_date", -1)
     
     primary_docs = []
+    primary_found_count = 0
     async for doc in primary_cursor:
+        primary_found_count += 1
         try:
+             # Ensure map_booking_doc knows it's offline if it doesn't have the field
+             # But walkin_bookings usually have is_offline: True or we can set it
+             if "is_offline" not in doc:
+                 doc["is_offline"] = True
+                 
              mapped = await map_booking_doc(doc, primary_engine)
              primary_docs.append(mapped)
         except Exception as e:
-            print(f"Error mapping primary booking {doc.get('_id')}: {e}")
+            print(f"DEBUG: Error mapping primary walkin {doc.get('_id')}: {e}")
             pass
+    print(f"DEBUG: Found {primary_found_count} primary walkin docs, successfully mapped {len(primary_docs)}")
 
     # --- 5. Merge and Sort ---
     all_bookings = online_docs + primary_docs
@@ -612,155 +649,51 @@ async def get_booking_details(
     """
     Vendor views details of a specific booking by ID.
     Checks both:
-    1) Secondary DB: bookings (online)
-    2) Primary DB: walkin_bookings (offline/walk-in)
+    1) Primary DB: walkin_bookings (offline/walk-in)
+    2) Secondary DB: bookings (online)
     """
     vendor_id = token.get("vendor_id")
     
-    # Check secondary online bookings first
-    collection = secondary_engine.database.get_collection("bookings")
-    # Check if booking_id is valid ObjectId
-    query = {"_id": ObjectId(booking_id)} if ObjectId.is_valid(booking_id) else {"_id": booking_id}
-    booking_doc = await collection.find_one(query)
+    # Search by Multiple Possible ID fields
+    search_query_list = [
+        {"id": booking_id},
+        {"booking_id": booking_id},
+        {"bookingId": booking_id}
+    ]
+    
+    if ObjectId.is_valid(booking_id):
+        search_query_list.append({"_id": ObjectId(booking_id)})
+    else:
+        search_query_list.append({"_id": booking_id})
+
+    search_query = {"$or": search_query_list}
+    
+    # 1. Check Primary walk-in bookings first
+    collection_primary = primary_engine.database.get_collection("walkin_bookings")
+    booking_doc = await collection_primary.find_one(search_query)
+    current_engine = primary_engine
     
     if not booking_doc:
-        # Fallback: Check primary walk-in bookings
-        collection_primary = primary_engine.database.get_collection("walkin_bookings")
-        
-        # Try finding by ObjectId or String ID
-        if ObjectId.is_valid(booking_id):
-             booking_doc_primary = await collection_primary.find_one({"_id": ObjectId(booking_id)})
-        else:
-             booking_doc_primary = await collection_primary.find_one({"_id": booking_id})
+        # 2. Finally check secondary online bookings
+        collection_secondary = secondary_engine.database.get_collection("bookings")
+        booking_doc = await collection_secondary.find_one(search_query)
+        current_engine = secondary_engine
 
-        if not booking_doc_primary:
-            raise HTTPException(status_code=404, detail="Booking not found")
+    if not booking_doc:
+        raise HTTPException(status_code=404, detail="Booking not found")
 
-        # Map Offline Booking
-        doc = booking_doc_primary
-        
-        # Verify Vendor Ownership
-        # Check both vendor_id field and serviceProviderId legacy field
-        doc_vendor_id = doc.get("vendor_id") or str(doc.get("serviceProviderId") or "")
-        
-        if doc_vendor_id != vendor_id:
-             raise HTTPException(status_code=403, detail="Access denied")
+    # Verify Vendor Ownership (Security)
+    doc_vendor_id = booking_doc.get("vendor_id") or str(booking_doc.get("serviceProviderId") or "")
+    if doc_vendor_id != vendor_id:
+         raise HTTPException(status_code=403, detail="Access denied")
 
-        b_id = str(doc["_id"])
-        b_date = doc.get("booking_date")
-        
-        # Status Handling
-        status_val = doc.get("status")
-        if hasattr(status_val, 'value'): 
-            status_val = status_val.value
-        st_str = status_val if isinstance(status_val, str) else str(status_val) if status_val is not None else "confirmed"
-
-        # User Summary
-        u_summary = UserSummary(
-            name=doc.get("user_name", "Unknown"),
-            phone=doc.get("user_phone", "Unknown"),
-            email=doc.get("user_email", "Unknown"),
-            image=None 
-        )
-
-        # Service Summary
-        # Fetch Service Details from DB
-        service_id = doc.get("service_id")
-        s_name = doc.get("service_name", "Unknown")
-        s_price = float(doc.get("final_amount", 0))
-        s_duration = 0
-        
-        
-        if not service_id and ObjectId.is_valid(s_name):
-            # Legacy Fix: If service_id is missing but name is an ObjectId, swap them
-            service_id = s_name
-            s_name = "Unknown" 
-
-        if service_id:
-            try:
-                # 1. Fetch Service Info (Name, Duration)
-                # Use find_one with raw dictionary or if using odmantic logic need to be careful with mix
-                # We are using primary_engine.get_collection so it's Motor collection
-                vs_collection = primary_engine.get_collection(VendorService)
-                vs_doc = await vs_collection.find_one({"_id": ObjectId(service_id)})
-                if vs_doc:
-                     s_name = vs_doc.get("name", s_name)
-                     s_duration = vs_doc.get("duration_minutes", 0)
-                     s_price = float(vs_doc.get("base_price", 0))
-                     
-            except Exception as e:
-                print(f"Error fetching service details for walkin: {e}")
-                pass
-
-        s_list = [ServiceSummary(
-            id=service_id,
-            name=s_name,
-            final_price=s_price,
-            duration_minutes=s_duration,
-            status=st_str
-        )]
-
-        # Pet Summary (Direct from Booking)
-        p_summary = None
-        if doc.get("pet_name"):
-            p_summary = PetSummary(
-                name=doc.get("pet_name"),
-                type=doc.get("pet_type"),
-                breed=doc.get("pet_breed"),
-                age=doc.get("pet_age"),
-                weight=doc.get("pet_weight"),
-                gender=doc.get("pet_gender"),
-                images=doc.get("pet_images", []),
-                height=doc.get("pet_height"),
-                vaccinated=doc.get("pet_vaccinated"),
-                about_me=doc.get("pet_about"),
-                medical_conditions=doc.get("pet_medical_conditions"),
-                special_notes=doc.get("pet_special_notes")
-            )
-
-        return success_response(
-            data=VendorBookingResponse(
-                id=b_id,
-                booking_date=b_date,
-                status=st_str,
-                service_name=doc.get("service_name", "Unknown"),
-                services=s_list,
-                vertical_name=doc.get("vertical_name", "Unknown"),
-                delivery_mode=doc.get("delivery_mode", "In-Center"),
-                dog_sizes=doc.get("dog_sizes", []),
-                final_amount=float(doc.get("final_amount", 0)),
-                vendor_notes=doc.get("vendor_notes"),
-                created_at=doc.get("created_at"),
-                is_offline=True,
-                user=u_summary,
-                pet=p_summary
-            )
-        )
-        
-    # Check if it's a legacy document (CamelCase fields)
-    if "userId" in booking_doc and "user_id" not in booking_doc:
-        # Legacy Schema Mapping
-        service_provider_id = str(booking_doc.get("serviceProviderId"))
-        
-        if service_provider_id != vendor_id:
-             print(f"Legacy Booking Access Warning: Token VendorID {vendor_id} != Booking ProviderID {service_provider_id}")
-             # raise HTTPException(status_code=403, detail="Access denied")
-
-        return success_response(data=await map_booking_doc(booking_doc, secondary_engine))
-
-    # Modern Schema Handling
+    # Use map_booking_doc for CONSISTENT mapping across all IDs
     try:
-        booking = Booking.model_validate(booking_doc)
-        
-        # FIX: Ensure vendor owns the booking
-        if booking.vendor_id != vendor_id:
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        return success_response(data=await map_booking_doc(booking_doc, secondary_engine))
-
+        res = await map_booking_doc(booking_doc, current_engine)
+        return success_response(data=res)
     except Exception as e:
-         print(f"Error validating booking model: {e}")
-         raise HTTPException(status_code=500, detail=f"Error processing booking data: {str(e)}")
+        print(f"Error mapping booking {booking_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error mapping booking data: {str(e)}")
 
 
 @router.patch("/{booking_id}/status")
