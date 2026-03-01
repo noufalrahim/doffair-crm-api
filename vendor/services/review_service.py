@@ -59,7 +59,7 @@ async def get_vendor_reviews(
     care_professional_id: Optional[str] = None,
     min_rating: Optional[float] = None,
     max_rating: Optional[float] = None,
-    limit: int = 50,
+    limit: Optional[int] = None,
     skip: int = 0,
 ) -> tuple[List[Review], int]:
     """Get all reviews for a vendor with optional filters."""
@@ -85,8 +85,12 @@ async def get_vendor_reviews(
 
     collection = engine.get_collection(Review)
     total = await collection.count_documents(query)
-    cursor = collection.find(query).sort("created_at", -1).skip(skip).limit(limit)
-    raw_reviews = await cursor.to_list(length=limit)
+    
+    cursor = collection.find(query).sort("created_at", -1).skip(skip)
+    if limit is not None:
+        cursor = cursor.limit(limit)
+    
+    raw_reviews = await cursor.to_list(length=limit if limit is not None else total)
 
     reviews = []
     for doc in raw_reviews:

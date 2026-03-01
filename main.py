@@ -36,6 +36,7 @@ from vendor.routers import care_professional_availability as vendor_cp_availabil
 from vendor.routers import work_info as vendor_work_info_router
 from vendor.routers import media as vendor_media_router
 from vendor.routers import reviews as vendor_reviews_router
+from vendor.routers import bank_info as vendor_bank_info_router
 
 
 from core.config import settings
@@ -79,6 +80,7 @@ app.include_router(vendor_care_professionals_router.router)
 app.include_router(vendor_work_info_router.router)
 app.include_router(vendor_media_router.router)
 app.include_router(vendor_reviews_router.router)
+app.include_router(vendor_bank_info_router.router)
 
 # Vendor offline booking system (WORKING)
 app.include_router(vendor_offline_bookings_router.router)
