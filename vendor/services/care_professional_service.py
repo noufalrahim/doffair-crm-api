@@ -49,6 +49,10 @@ async def create_care_professional(
         vertical_id=payload.vertical_id,
         name=payload.name,
         role=payload.role,
+        specialization=payload.specialization,
+        years_of_experience=payload.years_of_experience,
+        consultation_fee=payload.consultation_fee,
+        license_number=payload.license_number,
     )
     await engine.save(care_professional)
     return care_professional
@@ -77,10 +81,6 @@ async def list_care_professionals(
         filters.append(CareProfessional.vertical_id == vertical_id)
         
     if search:
-        # Search Users first
-        # We need to find users whose name, email or phone matches the search string (case insensitive ideally, but strict here for now or use regex)
-        # Odmantic doesn't support $regex easily directly in find without raw query or compatible operator
-        # Let's use regex for partial match
         search_regex = {"$regex": search, "$options": "i"}
         user_criteria = {
             "$or": [
@@ -89,26 +89,12 @@ async def list_care_professionals(
                 {"phone": search_regex},
             ]
         }
-        # We need raw query support or find all users then filter CPs. 
-        # Since we can't easily do raw query with engine.find(User, ...), let's use the underlying collection or simple find.
-        # Wait, engine.find accepts ODMantic query expressions. 
-        # To do OR across fields in ODMantic: (User.name.match(regex)) | ...
-        
-        # NOTE: ODMantic match() uses regex potentially. Let's try to construct the query.
-        # But wait, User.name is Optional[str].
-        
-        # Alternative: fetch all users linked to this vendor's CPs? No, too many.
-        # Better: Search users globally matching the term.
-        # It might return users not belonging to this vendor, but the CP filter (vendor_id) will filter those out.
         
         users = await engine.find(
             User,
             (User.name.match(search)) | (User.email.match(search)) | (User.phone.match(search))
         )
         user_ids = [str(u.id) for u in users]
-        
-        # Now filter CPs: Matches CP Name OR CP User ID is in found_user_ids
-        # CP.name.match(search) | CP.user_id.in_(user_ids)
         
         if user_ids:
             filters.append(
@@ -159,9 +145,40 @@ async def update_care_professional(
     payload: CareProfessionalUpdateRequest,
 ) -> CareProfessional:
     cp = await get_care_professional(engine, vendor_id, care_professional_id)
+    user = await engine.find_one(User, User.id == ObjectId(cp.user_id))
+    
+    update_data = payload.model_dump(exclude_unset=True)
+    
+    # Handle User updates (email, phone, name)
+    if any(k in update_data for k in ["email", "phone", "name"]) and user:
+        if "email" in update_data:
+            existing_email = await engine.find_one(User, (User.email == update_data["email"]) & (User.id != user.id))
+            if existing_email:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"User with email {update_data['email']} already exists",
+                )
+            user.email = update_data["email"]
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(cp, field, value)
+        if "phone" in update_data:
+            existing_phone = await engine.find_one(User, (User.phone == update_data["phone"]) & (User.id != user.id))
+            if existing_phone:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"User with phone {update_data['phone']} already exists",
+                )
+            user.phone = update_data["phone"]
+
+        if "name" in update_data:
+            user.name = update_data["name"]
+
+        user.updated_at = datetime.utcnow()
+        await engine.save(user)
+
+    # Handle CareProfessional updates
+    for field, value in update_data.items():
+        if hasattr(cp, field):
+            setattr(cp, field, value)
 
     cp.updated_at = datetime.utcnow()
     await engine.save(cp)

@@ -45,6 +45,10 @@ async def add_care_professional(
             "location_id": cp.location_id,
             "vertical_id": cp.vertical_id,
             "is_active": cp.is_active,
+            "specialization": cp.specialization,
+            "years_of_experience": cp.years_of_experience,
+            "consultation_fee": cp.consultation_fee,
+            "license_number": cp.license_number,
         },
     )
 
@@ -52,7 +56,8 @@ async def add_care_professional(
 
 from user.models.user import User
 from vendor.models.vendor_location import VendorLocation
-from vendor.schemas.care_professional import CareProfessionalResponse
+from vendor.schemas.care_professional import CareProfessionalResponse, UserResponse
+from vendor.schemas.location import VendorLocationResponse
 from bson import ObjectId
 
 @router.get("")
@@ -101,6 +106,32 @@ async def get_care_professionals(
         user = user_map.get(cp.user_id)
         location = location_map.get(cp.location_id)
 
+        user_info = None
+        if user:
+            user_info = UserResponse(
+                id=str(user.id),
+                name=user.name,
+                email=user.email,
+                phone=user.phone,
+                is_active=user.is_active,
+                is_verified=user.is_verified
+            )
+        
+        location_info = None
+        if location:
+            location_info = VendorLocationResponse(
+                id=str(location.id),
+                name=location.name,
+                address_line_1=location.address_line_1,
+                address_line_2=location.address_line_2,
+                city=location.city,
+                state=location.state,
+                pincode=location.pincode,
+                latitude=location.latitude,
+                longitude=location.longitude,
+                is_default=location.is_default
+            )
+
         response.append(
             CareProfessionalResponse(
                 id=str(cp.id),
@@ -111,7 +142,14 @@ async def get_care_professionals(
                 vertical_id=cp.vertical_id,
                 is_active=cp.is_active,
                 created_at=cp.created_at.isoformat(),
-                # Enriched
+                specialization=cp.specialization,
+                years_of_experience=cp.years_of_experience,
+                consultation_fee=cp.consultation_fee,
+                license_number=cp.license_number,
+                # Enriched objects
+                user=user_info,
+                location=location_info,
+                # Legacy enriched fields
                 email=user.email if user else None,
                 phone=user.phone if user else None,
                 location_name=location.name if location else None,
@@ -143,18 +181,59 @@ async def get_care_professional_by_id(
     vendor_id = token["vendor_id"]
     cp = await get_care_professional(engine, vendor_id, care_professional_id)
 
+    # Fetch enrichment for single item too
+    user = await engine.find_one(User, User.id == ObjectId(cp.user_id)) if cp.user_id else None
+    location = await engine.find_one(VendorLocation, VendorLocation.id == ObjectId(cp.location_id)) if cp.location_id else None
+
+    user_info = None
+    if user:
+        user_info = UserResponse(
+            id=str(user.id),
+            name=user.name,
+            email=user.email,
+            phone=user.phone,
+            is_active=user.is_active,
+            is_verified=user.is_verified
+        )
+    
+    location_info = None
+    if location:
+        location_info = VendorLocationResponse(
+            id=str(location.id),
+            name=location.name,
+            address_line_1=location.address_line_1,
+            address_line_2=location.address_line_2,
+            city=location.city,
+            state=location.state,
+            pincode=location.pincode,
+            latitude=location.latitude,
+            longitude=location.longitude,
+            is_default=location.is_default
+        )
+
     return success_response(
-        data={
-            "id": str(cp.id),
-            "user_id": cp.user_id,
-            "name": cp.name,
-            "role": cp.role,
-            "location_id": cp.location_id,
-            "vertical_id": cp.vertical_id,
-            "is_active": cp.is_active,
-            "created_at": cp.created_at.isoformat(),
-            "updated_at": cp.updated_at.isoformat(),
-        },
+        data=CareProfessionalResponse(
+            id=str(cp.id),
+            user_id=cp.user_id,
+            name=cp.name,
+            role=cp.role,
+            location_id=cp.location_id,
+            vertical_id=cp.vertical_id,
+            is_active=cp.is_active,
+            specialization=cp.specialization,
+            years_of_experience=cp.years_of_experience,
+            consultation_fee=cp.consultation_fee,
+            license_number=cp.license_number,
+            created_at=cp.created_at.isoformat(),
+            # Enriched objects
+            user=user_info,
+            location=location_info,
+            # Legacy fields
+            email=user.email if user else None,
+            phone=user.phone if user else None,
+            location_name=location.name if location else None,
+            location_address=f"{location.address_line_1}, {location.city}" if location else None,
+        ).model_dump(mode='json')
     )
 
 
@@ -165,19 +244,31 @@ async def update_care_professional_by_id(
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
-    """Update a care professional (name, location_id, is_active)"""
+    """
+    Update a care professional. 
+    Supported fields in payload: name, email, phone, location_id, role, is_active, specialization, years_of_experience, consultation_fee, license_number.
+    """
     vendor_id = token["vendor_id"]
     cp = await update_care_professional(engine, vendor_id, care_professional_id, payload)
+    
+    # Fetch user for latest email/phone in response
+    user = await engine.find_one(User, User.id == ObjectId(cp.user_id)) if cp.user_id else None
 
     return success_response(
         message="Care professional updated",
         data={
             "id": str(cp.id),
             "name": cp.name,
+            "email": user.email if user else None,
+            "phone": user.phone if user else None,
             "role": cp.role,
             "location_id": cp.location_id,
             "vertical_id": cp.vertical_id,
             "is_active": cp.is_active,
+            "specialization": cp.specialization,
+            "years_of_experience": cp.years_of_experience,
+            "consultation_fee": cp.consultation_fee,
+            "license_number": cp.license_number,
         },
     )
 

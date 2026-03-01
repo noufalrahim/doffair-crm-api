@@ -107,3 +107,9 @@ class InvoiceAuditAction(str, Enum):
     CANCELLED = "CANCELLED"      # Invoice cancelled
     PAYMENT_RECEIVED = "PAYMENT_RECEIVED"  # Payment marked as received
     REFUNDED = "REFUNDED"        # Invoice refunded
+
+class ReviewStatus(str, Enum):
+    NEEDS_RESPONSE = "NEEDS_RESPONSE"   # Review submitted, vendor hasn't replied
+    RESPONDED = "RESPONDED"             # Vendor has replied
+    FLAGGED = "FLAGGED"                 # Flagged for review / moderation
+    ARCHIVED = "ARCHIVED"               # Soft-archived

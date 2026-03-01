@@ -15,6 +15,11 @@ class CareProfessional(Model):
     role: CareProfessionalRole = CareProfessionalRole.STAFF
     is_active: bool = True
 
+    specialization: Optional[str] = None
+    years_of_experience: Optional[int] = None
+    consultation_fee: Optional[float] = None
+    license_number: Optional[str] = None
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

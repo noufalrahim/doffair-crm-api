@@ -1,0 +1,7 @@
+Available verticals:
+  69522b6ce6a07c46de0f88d7  →  ?
+  69529faa5a26a27c25c7c658  →  ?
+  69529fca5a26a27c25c7c659  →  ?
+  69529fdb5a26a27c25c7c65a  →  ?
+
+❌ Neither groomer nor vet vertical found. Exiting.
