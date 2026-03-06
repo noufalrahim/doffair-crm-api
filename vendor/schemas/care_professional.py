@@ -26,7 +26,11 @@ class CareProfessionalCreateRequest(BaseModel):
     years_of_experience: Optional[int] = None
     consultation_fee: Optional[float] = None
     license_number: Optional[str] = None
+    profile_image: Optional[str] = Field(None, alias="profileImage")
 
+    model_config = {
+        "populate_by_name": True
+    }
 
 
 class CareProfessionalUpdateRequest(BaseModel):
@@ -40,6 +44,11 @@ class CareProfessionalUpdateRequest(BaseModel):
     years_of_experience: Optional[int] = None
     consultation_fee: Optional[float] = None
     license_number: Optional[str] = None
+    profile_image: Optional[str] = Field(None, alias="profileImage")
+
+    model_config = {
+        "populate_by_name": True
+    }
 
 
 class CareProfessionalResponse(BaseModel):
@@ -54,7 +63,12 @@ class CareProfessionalResponse(BaseModel):
     years_of_experience: Optional[int] = None
     consultation_fee: Optional[float] = None
     license_number: Optional[str] = None
+    profile_image: Optional[str] = Field(None, alias="profileImage")
     created_at: str
+
+    model_config = {
+        "populate_by_name": True
+    }
     
     # Enriched objects
     user: Optional[UserResponse] = None

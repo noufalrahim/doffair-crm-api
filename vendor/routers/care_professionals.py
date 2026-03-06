@@ -49,6 +49,7 @@ async def add_care_professional(
             "years_of_experience": cp.years_of_experience,
             "consultation_fee": cp.consultation_fee,
             "license_number": cp.license_number,
+            "profile_image": cp.profile_image,
         },
     )
 
@@ -146,6 +147,7 @@ async def get_care_professionals(
                 years_of_experience=cp.years_of_experience,
                 consultation_fee=cp.consultation_fee,
                 license_number=cp.license_number,
+                profile_image=cp.profile_image,
                 # Enriched objects
                 user=user_info,
                 location=location_info,
@@ -224,6 +226,7 @@ async def get_care_professional_by_id(
             years_of_experience=cp.years_of_experience,
             consultation_fee=cp.consultation_fee,
             license_number=cp.license_number,
+            profile_image=cp.profile_image,
             created_at=cp.created_at.isoformat(),
             # Enriched objects
             user=user_info,
@@ -269,6 +272,7 @@ async def update_care_professional_by_id(
             "years_of_experience": cp.years_of_experience,
             "consultation_fee": cp.consultation_fee,
             "license_number": cp.license_number,
+            "profile_image": cp.profile_image,
         },
     )
 

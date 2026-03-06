@@ -53,6 +53,7 @@ async def create_care_professional(
         years_of_experience=payload.years_of_experience,
         consultation_fee=payload.consultation_fee,
         license_number=payload.license_number,
+        profile_image=payload.profile_image,
     )
     await engine.save(care_professional)
     return care_professional
