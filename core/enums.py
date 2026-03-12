@@ -113,3 +113,8 @@ class ReviewStatus(str, Enum):
     RESPONDED = "RESPONDED"             # Vendor has replied
     FLAGGED = "FLAGGED"                 # Flagged for review / moderation
     ARCHIVED = "ARCHIVED"               # Soft-archived
+
+class TransactionStatus(str, Enum):
+    PENDING = "pending"
+    PAID = "paid"
+    CANCELLED = "cancelled"

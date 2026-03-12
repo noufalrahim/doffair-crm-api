@@ -16,12 +16,14 @@ from vendor.services.prescription_service_v2 import (
     list_prescriptions_by_booking,
     list_prescriptions_by_customer_phone,
     delete_prescription,
-    get_prescription_download_url
+    get_prescription_download_url,
+    get_unified_prescriptions_by_booking
 )
 from vendor.schemas.prescription_v2 import (
     PrescriptionResponse,
     PrescriptionListResponse,
-    PrescriptionDownloadUrlResponse
+    PrescriptionDownloadUrlResponse,
+    UnifiedPrescriptionResponse
 )
 
 router = APIRouter(
@@ -231,6 +233,83 @@ async def list_prescriptions_endpoint(
     
     return success_response(
         message="Prescriptions retrieved successfully",
+        data=response_data.model_dump()
+    ).model_dump()
+
+
+@router.get("/booking/{booking_id}", response_model=dict)
+async def get_unified_prescriptions_endpoint(
+    booking_id: str,
+    current_vendor: dict = Depends(get_current_vendor),
+    engine: AIOEngine = Depends(get_engine)
+):
+    """
+    Get a unified view of all prescriptions for a booking.
+    
+    Returns both:
+    1. **uploaded_files**: Images or PDF documents uploaded as prescriptions
+    2. **structured_data**: Electronic prescription data with specific medications and dosages
+    """
+    vendor_id = current_vendor["vendor_id"]
+    
+    result = await get_unified_prescriptions_by_booking(
+        engine=engine,
+        vendor_id=vendor_id,
+        booking_id=booking_id
+    )
+    
+    # Format uploaded files
+    formatted_uploads = [
+        PrescriptionResponse(
+            id=str(p.id),
+            vendor_id=p.vendor_id,
+            customer_id=p.customer_id,
+            booking_id=p.booking_id,
+            file_name=p.file_name,
+            file_type=p.file_type,
+            file_size=p.file_size,
+            blob_url=p.blob_url,
+            blob_path=p.blob_path,
+            cdn_url=p.cdn_url,
+            notes=p.notes,
+            prescription_date=p.prescription_date,
+            uploaded_at=p.uploaded_at,
+            is_active=p.is_active
+        ).model_dump()
+        for p in result["uploaded_files"]
+    ]
+    
+    # Format structured data (importing schema here to avoid circular imports if any, or just use dict)
+    from vendor.schemas.prescription_data import PrescriptionDataResponse, PrescriptionMedicationSchema
+    
+    formatted_structured = [
+        PrescriptionDataResponse(
+            id=str(p.id),
+            vendor_id=p.vendor_id,
+            booking_id=p.booking_id,
+            pet_name=p.pet_name,
+            pet_id=p.pet_id,
+            owner_name=p.owner_name,
+            owner_id=p.owner_id,
+            diagnosis=p.diagnosis,
+            medications=[PrescriptionMedicationSchema(**m.model_dump()) for m in p.medications],
+            instructions=p.instructions,
+            follow_up_date=p.follow_up_date,
+            is_active=p.is_active,
+            created_at=p.created_at,
+            updated_at=p.updated_at
+        ).model_dump()
+        for p in result["structured_data"]
+    ]
+    
+    response_data = UnifiedPrescriptionResponse(
+        booking_id=booking_id,
+        uploaded_files=formatted_uploads, # type: ignore
+        structured_data=formatted_structured # type: ignore
+    )
+    
+    return success_response(
+        message="Unified prescriptions retrieved successfully",
         data=response_data.model_dump()
     ).model_dump()
 

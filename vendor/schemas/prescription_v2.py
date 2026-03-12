@@ -60,6 +60,8 @@ class PrescriptionListResponse(BaseModel):
     prescriptions: list[PrescriptionResponse]
 
 
+from vendor.schemas.prescription_data import PrescriptionDataResponse
+
 class PrescriptionDownloadUrlResponse(BaseModel):
     """Response schema for prescription download URL"""
     prescription_id: str
@@ -74,3 +76,9 @@ class PrescriptionDownloadUrlResponse(BaseModel):
                 "expires_in_hours": 24
             }
         }
+
+class UnifiedPrescriptionResponse(BaseModel):
+    """Unified response containing both uploaded documents and structured medication data"""
+    booking_id: str
+    uploaded_files: list[PrescriptionResponse]
+    structured_data: list[PrescriptionDataResponse]

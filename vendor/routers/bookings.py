@@ -9,7 +9,7 @@ from core.security import require_vendor
 from utils.response import success_response
 from user.models.booking import Booking
 from user.models.payment import Payment
-from user.models.payment import Payment
+from core.database import get_engine, get_secondary_engine
 # from user.schemas.booking import BookingResponse
 
 
@@ -44,23 +44,31 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
         user_name = "Unknown"
         user_phone = "Unknown"
         user_email = "Unknown"
-        if booking_doc.get("userId"):
-             user_id = booking_doc.get("userId")
-             user_collection = engine.database.get_collection("users")
-             user_doc = await user_collection.find_one({"_id": user_id})
+        user_info_id = None
+        user_image = None
+        
+        raw_u_id = booking_doc.get("userId")
+        if raw_u_id:
+             u_id = ObjectId(raw_u_id) if isinstance(raw_u_id, str) and ObjectId.is_valid(raw_u_id) else raw_u_id
              
-             # Fetch UserInfo for Profile Image & Name
-             user_info_collection = engine.database.get_collection("userInfo")
-             # Try DBRef style query first as seen in inspection
+             # User info is primarily in Secondary DB as per inspection
+             secondary_engine = get_secondary_engine()
+             user_collection = secondary_engine.database.get_collection("users")
+             user_doc = await user_collection.find_one({"_id": u_id})
+             
+             # Fallback to primary if not found
+             if not user_doc:
+                 user_doc = await engine.database.get_collection("users").find_one({"_id": u_id})
+
+             # Fetch UserInfo (Exclusive to Secondary DB)
+             user_info_collection = secondary_engine.database.get_collection("userInfo")
              from bson import DBRef
-             user_info = await user_info_collection.find_one({"userId": DBRef("users", user_id)})
+             user_info = await user_info_collection.find_one({"userId": DBRef("users", u_id)})
              
-             # Fallback if not found with DBRef, try direct ObjectId
              if not user_info:
-                 user_info = await user_info_collection.find_one({"userId": user_id})
+                 user_info = await user_info_collection.find_one({"userId": u_id})
 
              if user_doc:
-                 # Prefer name from UserInfo if available, else User doc
                  if user_info and user_info.get("name"):
                      user_name = user_info.get("name")
                  else:
@@ -69,9 +77,8 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
                  user_phone = user_doc.get("phoneNumber", user_doc.get("phone", "Unknown"))
                  user_email = user_doc.get("email", "Unknown")
                  
-             user_image = None
              if user_info:
-                 # Check common image field names
+                 user_info_id = str(user_info.get("_id"))
                  user_image = user_info.get("image") or user_info.get("profileImage") or user_info.get("avatar") or user_info.get("photo")
 
         # Pet
@@ -161,20 +168,12 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
             final_amount=float(booking_doc.get("bookingAmount", 0)),
             vendor_notes=booking_doc.get("instructions"),
             created_at=booking_doc.get("createdAt"),
-            user=UserSummary(name=user_name, phone=user_phone, email=user_email, image=user_image),
+            user=UserSummary(id=user_info_id, name=user_name, phone=user_phone, email=user_email, image=user_image),
             pet=pet_summary
         )
 
     # --- Modern Handling ---
     booking = Booking.model_validate(booking_doc)
-    
-    # Map Modern Services (assuming same structure loosely or fields on booking?)
-    # Booking model usually has detailed fields. Checking...
-    # Booking model has `service_name`, but maybe not a list of services if it's single service booking?
-    # Inspecting user/models/booking.py earlier showed: service_name, vertical_name.
-    # It didn't explicitly show a `services` list field in the model definition I saw.
-    # However, raw doc might have it if it's there.
-    # Let's try to fetch `services` from raw doc even for modern if available, or just use single service details.
     
     modern_services_list = []
     raw_modern_services = booking_doc.get("services", [])
@@ -196,54 +195,68 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
                 ))
     else:
         # Fallback if no list, create one from single service details
-        # Status fallback for modern services list
         svc_status = booking_doc.get("status")
         if svc_status is None:
             svc_status = booking.status.value if hasattr(booking.status, 'value') else str(booking.status)
 
         modern_services_list.append(ServiceSummary(
-            id=None, # Single service ID might be available on booking root?
+            id=None,
             name=booking.service_name,
             final_price=booking.base_amount,
             discount=booking.discount_amount,
-            duration_minutes=0, # Duration might not be on root
+            duration_minutes=0,
             status=svc_status if isinstance(svc_status, str) else str(svc_status)
         ))
 
-    # Get payment details if exists (optional, keeping consistent with single view if needed, but list view is summary usually)
-    # For performance, maybe skip payment query in list view? 
-    # But VendorBookingResponse doesn't have payment status.
-    
-    # For Modern, we might also want to fetch UserInfo if not cached or if image needed
-    # Modern booking has user_name, user_phone, user_email cached.
-    # But image is likely NOT cached in Booking model.
-    # So we should fetch UserInfo here too.
+    # For Modern/Walk-in, fetch UserInfo for ID and image
     user_image_modern = None
+    user_info_id_modern = None
+    
+    # Resolve user_id – could be walk-in or real user_id
+    u_id_to_lookup = None
+    u_phone_to_lookup = None
+    
     if booking.user_id:
-        try:
-            # Need ObjectId
-            u_id = ObjectId(booking.user_id)
-            user_info_collection = engine.database.get_collection("userInfo")
-            # Try DBRef
-            from bson import DBRef
-            user_info = await user_info_collection.find_one({"userId": DBRef("users", u_id)})
-             
+        if str(booking.user_id).startswith("walkin_"):
+            u_phone_to_lookup = str(booking.user_id).replace("walkin_", "")
+        else:
+            u_id_to_lookup = ObjectId(booking.user_id) if isinstance(booking.user_id, str) and ObjectId.is_valid(booking.user_id) else booking.user_id
+
+    try:
+        secondary_engine = get_secondary_engine()
+        user_info_collection = secondary_engine.database.get_collection("userInfo")
+        user_collection = secondary_engine.database.get_collection("users")
+        from bson import DBRef
+        
+        user_info = None
+        
+        if u_id_to_lookup:
+            user_info = await user_info_collection.find_one({"userId": DBRef("users", u_id_to_lookup)})
             if not user_info:
-                 user_info = await user_info_collection.find_one({"userId": u_id})
+                 user_info = await user_info_collection.find_one({"userId": u_id_to_lookup})
+        elif u_phone_to_lookup:
+            # Match by phone in secondary DB users collection first
+            u_doc = await user_collection.find_one({
+                "$or": [{"phoneNumber": u_phone_to_lookup}, {"phone": u_phone_to_lookup}, {"username": u_phone_to_lookup}]
+            })
+            if u_doc:
+                u_id_to_lookup = u_doc["_id"]
+                user_info = await user_info_collection.find_one({"userId": DBRef("users", u_id_to_lookup)})
+                if not user_info:
+                    user_info = await user_info_collection.find_one({"userId": u_id_to_lookup})
                  
-            if user_info:
-                user_image_modern = user_info.get("image") or user_info.get("profileImage") or user_info.get("avatar") or user_info.get("photo")
-        except Exception:
-            pass # Ignore errors in optional fetch
+        if user_info:
+            user_info_id_modern = str(user_info.get("_id"))
+            user_image_modern = user_info.get("image") or user_info.get("profileImage") or user_info.get("avatar") or user_info.get("photo")
+    except Exception as e:
+        print(f"DEBUG: Error in map_booking_doc userInfo lookup: {e}")
+        pass
 
     # Status handling for Modern
     raw_status = booking_doc.get("status")
     if raw_status is None:
         raw_status = booking.status.value if hasattr(booking.status, 'value') else str(booking.status)
 
-    # Use prioritized/generated booking_id from the top of the function
-    # Instead of str(booking.id), we use the booking_id we calculated
-    
     return VendorBookingResponse(
             id=booking_id,
             booking_date=booking.booking_date,
@@ -257,6 +270,7 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
             vendor_notes=booking.vendor_notes,
             created_at=booking.created_at,
             user=UserSummary(
+                id=user_info_id_modern,
                 name=booking.user_name,
                 phone=booking.user_phone,
                 email=booking.user_email,
@@ -280,7 +294,7 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
 
 
 
-from core.database import get_engine, get_secondary_engine
+from core.database import get_engine
 from admin.models.vertical import Vertical
 
 @router.get("")

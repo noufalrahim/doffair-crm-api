@@ -7,6 +7,7 @@ class BookingStatusUpdate(BaseModel):
     status: str
 
 class UserSummary(BaseModel):
+    id: Optional[str] = None
     name: str = "Unknown"
     phone: str = "Unknown"
     email: str = "Unknown"

@@ -37,6 +37,9 @@ from vendor.routers import work_info as vendor_work_info_router
 from vendor.routers import media as vendor_media_router
 from vendor.routers import reviews as vendor_reviews_router
 from vendor.routers import bank_info as vendor_bank_info_router
+from vendor.routers import medications as vendor_medications_router
+from vendor.routers import prescriptions_data as vendor_prescriptions_data_router
+from vendor.routers import transactions as vendor_transactions_router
 
 
 from core.config import settings
@@ -100,6 +103,11 @@ app.include_router(user_auth_router.router)
 app.include_router(leads_router.router)
 app.include_router(bookings_router.router)
 app.include_router(users_router.router)
+
+# Vendor structured prescription system
+app.include_router(vendor_medications_router.router)
+app.include_router(vendor_prescriptions_data_router.router)
+app.include_router(vendor_transactions_router.router)
 
 # Notification routers
 app.include_router(notifications_router.router)
