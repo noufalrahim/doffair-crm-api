@@ -28,6 +28,6 @@ steps:
 
 - task: AzureWebApp@1
   inputs:
-    azureSubscription: 'azure-connection'
+    azureSubscription: 'new_subscription_plumule'
     appName: $(webAppName)
     package: $(Build.ArtifactStagingDirectory)/backend.zip
