@@ -9,25 +9,16 @@ variables:
 
 steps:
 
+# Use Python version for build environment
 - task: UsePythonVersion@0
   inputs:
     versionSpec: '3.11'
+  displayName: 'Set Python version'
 
-- script: |
-    python -m pip install --upgrade pip
-    pip install -r requirements.txt
-  displayName: Install dependencies
-
-- task: ArchiveFiles@2
-  inputs:
-    rootFolderOrFile: '.'
-    includeRootFolder: false
-    archiveType: zip
-    archiveFile: $(Build.ArtifactStagingDirectory)/backend.zip
-    replaceExistingArchive: true
-
+# Deploy source code to Azure Web App
 - task: AzureWebApp@1
+  displayName: 'Deploy FastAPI to Azure Web App'
   inputs:
     azureSubscription: 'new_subscription_plumule'
     appName: $(webAppName)
-    package: $(Build.ArtifactStagingDirectory)/backend.zip
+    package: $(System.DefaultWorkingDirectory)
