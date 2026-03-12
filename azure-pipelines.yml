@@ -1,0 +1,33 @@
+trigger:
+- development
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  webAppName: 'dev-marketplace-be'
+
+steps:
+
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.11'
+
+- script: |
+    python -m pip install --upgrade pip
+    pip install -r requirements.txt
+  displayName: Install dependencies
+
+- task: ArchiveFiles@2
+  inputs:
+    rootFolderOrFile: '.'
+    includeRootFolder: false
+    archiveType: zip
+    archiveFile: $(Build.ArtifactStagingDirectory)/backend.zip
+    replaceExistingArchive: true
+
+- task: AzureWebApp@1
+  inputs:
+    azureSubscription: 'azure-connection'
+    appName: $(webAppName)
+    package: $(Build.ArtifactStagingDirectory)/backend.zip
