@@ -1,0 +1,24 @@
+trigger:
+- development
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  webAppName: 'dev-marketplace-be'
+
+steps:
+
+# Use Python version for build environment
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.11'
+  displayName: 'Set Python version'
+
+# Deploy source code to Azure Web App
+- task: AzureWebApp@1
+  displayName: 'Deploy FastAPI to Azure Web App'
+  inputs:
+    azureSubscription: 'new_subscription_plumule'
+    appName: $(webAppName)
+    package: $(System.DefaultWorkingDirectory)
