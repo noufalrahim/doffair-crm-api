@@ -20,6 +20,7 @@ from vendor.services.location_service import (
     list_locations,
     update_location,
     set_default_location,
+    delete_location,
 )
 
 
@@ -127,3 +128,16 @@ async def set_vendor_default_location(
         message="Default location updated",
         data={"location_id": str(location.id), "is_default": location.is_default},
     )
+
+
+@router.delete("/locations/{location_id}")
+async def delete_vendor_location(
+    location_id: str,
+    token: dict = Depends(require_vendor()),
+    engine: AIOEngine = Depends(get_engine),
+):
+    vendor_id = token["vendor_id"]
+
+    await delete_location(engine, vendor_id, location_id)
+
+    return success_response(message="Location deleted successfully")

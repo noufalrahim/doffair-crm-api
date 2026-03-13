@@ -8,6 +8,9 @@ from vendor.models.vendor_location import VendorLocation
 from core.enums import VendorStatus
 from vendor.utils.guards import ensure_vendor_editable
 
+from vendor.models.care_professional import CareProfessional
+from vendor.models.vendor_service import VendorService
+
 
 async def create_location(
     engine: AIOEngine,
@@ -138,3 +141,63 @@ async def _unset_other_defaults(
             loc.is_default = False
             loc.updated_at = datetime.utcnow()
             await engine.save(loc)
+
+
+async def delete_location(
+    engine: AIOEngine,
+    vendor_id: str,
+    location_id: str,
+):
+    """
+    Deletes a location if it has no active staff or services.
+    If the deleted location was the default, reassigns default to another location.
+    """
+    location = await engine.find_one(
+        VendorLocation,
+        VendorLocation.id == ObjectId(location_id),
+        VendorLocation.vendor_id == vendor_id,
+    )
+
+    if not location:
+        raise HTTPException(status_code=404, detail="Location not found")
+
+    # Check for active staff
+    active_staff = await engine.count(
+        CareProfessional,
+        (CareProfessional.location_id == location_id) & (CareProfessional.is_active == True),
+    )
+    if active_staff > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete location with active staff. Please move or deactivate staff first.",
+        )
+
+    # Check for active services
+    active_services = await engine.count(
+        VendorService,
+        (VendorService.location_id == location_id) & (VendorService.is_active == True),
+    )
+    if active_services > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete location with active services. Please move or deactivate services first.",
+        )
+
+    was_default = location.is_default
+
+    await engine.delete(location)
+
+    # If it was default, try to set another location as default
+    if was_default:
+        remaining_locations = await engine.find(
+            VendorLocation,
+            VendorLocation.vendor_id == vendor_id,
+            sort=VendorLocation.created_at.asc(),
+        )
+        if remaining_locations:
+            new_default = remaining_locations[0]
+            new_default.is_default = True
+            new_default.updated_at = datetime.utcnow()
+            await engine.save(new_default)
+
+    return True
