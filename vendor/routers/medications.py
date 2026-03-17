@@ -41,8 +41,20 @@ async def create_medication_endpoint(
     
     response_data = MedicationResponse(
         id=str(medication.id),
+        vertical_id=medication.vertical_id,
         vendor_id=medication.vendor_id,
         name=medication.name,
+        description=medication.description,
+        category=medication.category,
+        quantity_to_give=medication.quantity_to_give,
+        stock_quantity=medication.stock_quantity,
+        unit=medication.unit,
+        base_price=medication.base_price,
+        batch_id=medication.batch_id,
+        manufacturer=medication.manufacturer,
+        mfd_date=medication.mfd_date,
+        expiry_date=medication.expiry_date,
+        images=medication.images,
         dosage=medication.dosage,
         frequency=medication.frequency,
         duration=medication.duration,
@@ -61,6 +73,7 @@ async def create_medication_endpoint(
 async def list_medications_endpoint(
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     search: Optional[str] = Query(None, description="Search by medication name (case-insensitive)"),
+    vertical_id: Optional[str] = Query(None, description="Filter by vertical ID"),
     current_vendor: dict = Depends(get_current_vendor),
     engine: AIOEngine = Depends(get_engine)
 ):
@@ -71,13 +84,25 @@ async def list_medications_endpoint(
     Optional **search** filter can be used to search medications by name.
     """
     vendor_id = current_vendor["vendor_id"]
-    medications = await list_medications(engine, vendor_id, is_active, search)
+    medications = await list_medications(engine, vendor_id, vertical_id, is_active, search)
     
     medication_responses = [
         MedicationResponse(
             id=str(m.id),
+            vertical_id=m.vertical_id,
             vendor_id=m.vendor_id,
             name=m.name,
+            description=m.description,
+            category=m.category,
+            quantity_to_give=m.quantity_to_give,
+            stock_quantity=m.stock_quantity,
+            unit=m.unit,
+            base_price=m.base_price,
+            batch_id=m.batch_id,
+            manufacturer=m.manufacturer,
+            mfd_date=m.mfd_date,
+            expiry_date=m.expiry_date,
+            images=m.images,
             dosage=m.dosage,
             frequency=m.frequency,
             duration=m.duration,
@@ -113,8 +138,20 @@ async def get_medication_endpoint(
     
     response_data = MedicationResponse(
         id=str(medication.id),
+        vertical_id=medication.vertical_id,
         vendor_id=medication.vendor_id,
         name=medication.name,
+        description=medication.description,
+        category=medication.category,
+        quantity_to_give=medication.quantity_to_give,
+        stock_quantity=medication.stock_quantity,
+        unit=medication.unit,
+        base_price=medication.base_price,
+        batch_id=medication.batch_id,
+        manufacturer=medication.manufacturer,
+        mfd_date=medication.mfd_date,
+        expiry_date=medication.expiry_date,
+        images=medication.images,
         dosage=medication.dosage,
         frequency=medication.frequency,
         duration=medication.duration,
@@ -144,8 +181,20 @@ async def update_medication_endpoint(
     
     response_data = MedicationResponse(
         id=str(medication.id),
+        vertical_id=medication.vertical_id,
         vendor_id=medication.vendor_id,
         name=medication.name,
+        description=medication.description,
+        category=medication.category,
+        quantity_to_give=medication.quantity_to_give,
+        stock_quantity=medication.stock_quantity,
+        unit=medication.unit,
+        base_price=medication.base_price,
+        batch_id=medication.batch_id,
+        manufacturer=medication.manufacturer,
+        mfd_date=medication.mfd_date,
+        expiry_date=medication.expiry_date,
+        images=medication.images,
         dosage=medication.dosage,
         frequency=medication.frequency,
         duration=medication.duration,

@@ -7,27 +7,40 @@ from typing import List, Optional
 from vendor.models.medication import Medication
 from vendor.schemas.medication import MedicationCreate, MedicationUpdate
 
-async def create_medication(engine: AIOEngine, vendor_id: str, data: MedicationCreate) -> Medication:
+async def create_medication(engine: AIOEngine, vendor_id: Optional[str], data: MedicationCreate) -> Medication:
     medication = Medication(
         vendor_id=vendor_id,
-        **data.model_dump()
+        **data.model_dump(exclude={"vendor_id"})
     )
+    if data.vendor_id:
+        medication.vendor_id = data.vendor_id
+        
     await engine.save(medication)
     return medication
 
-async def get_medication_by_id(engine: AIOEngine, vendor_id: str, medication_id: str) -> Medication:
-    medication = await engine.find_one(Medication, Medication.id == ObjectId(medication_id), Medication.vendor_id == vendor_id)
+async def get_medication_by_id(engine: AIOEngine, vendor_id: Optional[str], medication_id: str) -> Medication:
+    query = [Medication.id == ObjectId(medication_id)]
+    if vendor_id:
+        query.append(Medication.vendor_id == vendor_id)
+        
+    medication = await engine.find_one(Medication, *query)
     if not medication:
         raise HTTPException(status_code=404, detail="Medication not found")
     return medication
 
 async def list_medications(
     engine: AIOEngine, 
-    vendor_id: str, 
+    vendor_id: Optional[str] = None, 
+    vertical_id: Optional[str] = None,
     is_active: Optional[bool] = None,
     search: Optional[str] = None
 ) -> List[Medication]:
-    query = [Medication.vendor_id == vendor_id]
+    query = []
+    if vendor_id:
+        query.append(Medication.vendor_id == vendor_id)
+    if vertical_id:
+        query.append(Medication.vertical_id == vertical_id)
+        
     if is_active is not None:
         query.append(Medication.is_active == is_active)
     
