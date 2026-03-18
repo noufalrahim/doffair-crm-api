@@ -166,9 +166,6 @@ async def get_vendor_onboarding_progress(engine: AIOEngine, vendor_id: str):
     # Step 2: Basic Info (Exisiting check)
     basic_info_added = bool(vendor.legal_name)
 
-    # Step 3: Basic Overview (New)
-    basic_overview_added = bool(vendor.about and vendor.work_experience)
-
     # Step 4: Work Info (New)
     work_info_added = bool(vendor.home_service or vendor.centre_service)
 
@@ -212,7 +209,6 @@ async def get_vendor_onboarding_progress(engine: AIOEngine, vendor_id: str):
         ("mobile_verified", mobile_verified),
         ("email_verified", email_verified),
         ("basic_info", basic_info_added),
-        ("basic_overview", basic_overview_added),
         ("work_info", work_info_added),
         ("verticals", verticals_added),
         ("location_details", location_added),
@@ -237,7 +233,6 @@ async def get_vendor_onboarding_progress(engine: AIOEngine, vendor_id: str):
         "mobile_verified": mobile_verified,
         "email_verified": email_verified,
         "basic_info_added": basic_info_added,
-        "basic_overview_added": basic_overview_added,
         "work_info_added": work_info_added,
         "verticals_added": verticals_added,
         "location_added": location_added,
