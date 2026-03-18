@@ -37,13 +37,7 @@ class Settings(BaseSettings):
     # -------------------------
     # CORS
     # -------------------------
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:4200",
-        "http://localhost:8100",
-        "http://localhost:9000",
-        "http://20.244.38.208:8100"
-    ]
+    ALLOWED_ORIGINS: List[str] = ["*"]
 
     # -------------------------
     # Redis & Queue

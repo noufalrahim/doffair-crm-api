@@ -10,6 +10,13 @@ from core.enums import VendorStatus
 from admin.utils.password import hash_password  # reuse existing util
 from vendor.utils.guards import ensure_vendor_editable
 
+# New models for progress tracking
+from vendor.models.vendor_vertical import VendorVertical
+from vendor.models.vendor_location import VendorLocation
+from vendor.models.document import Document
+from vendor.models.bank_info import BankInfo
+from vendor.models.vendor_service import VendorService
+
 
 async def signup_vendor(engine: AIOEngine, payload: VendorSignupRequest) -> Vendor:
     # Check for existing vendor by phone OR email
@@ -156,40 +163,62 @@ async def get_vendor_onboarding_progress(engine: AIOEngine, vendor_id: str):
     mobile_verified = True
     email_verified = True  
     
-    # Step 2: Basic Info
-    # Check if essential fields are present (legal_name is the core field)
+    # Step 2: Basic Info (Exisiting check)
     basic_info_added = bool(vendor.legal_name)
 
-    # Step 3: Verticals
-    # Check if at least one vertical is configured
-    from vendor.models.vendor_vertical import VendorVertical
+    # Step 3: Basic Overview (New)
+    basic_overview_added = bool(vendor.about and vendor.work_experience)
+
+    # Step 4: Work Info (New)
+    work_info_added = bool(vendor.home_service or vendor.centre_service)
+
+    # Step 5: Verticals (Refined)
     vertical_count = await engine.count(
         VendorVertical, 
         VendorVertical.vendor_id == vendor_id
     )
     verticals_added = vertical_count > 0
 
-    # Step 4: Location
-    # Check if at least one location is added
-    from vendor.models.vendor_location import VendorLocation
+    # Step 6: Location Details (Refined)
     location_count = await engine.count(
         VendorLocation, 
         VendorLocation.vendor_id == vendor_id
     )
     location_added = location_count > 0
 
-    # Step 5: Bank Account
-    # TODO: Implement bank account check when model is available
-    bank_account_added = False
+    # Step 7: Documents (New)
+    document_count = await engine.count(
+        Document,
+        Document.vendor_id == vendor_id
+    )
+    documents_added = document_count > 0
+
+    # Step 8: Bank Account (New)
+    bank_info_count = await engine.count(
+        BankInfo,
+        BankInfo.vendor_id == vendor_id
+    )
+    bank_account_added = bank_info_count > 0
+
+    # Step 9: Services (New)
+    service_count = await engine.count(
+        VendorService,
+        VendorService.vendor_id == vendor_id
+    )
+    services_added = service_count > 0
 
     # 3. Calculate Percentage
     steps = [
         ("mobile_verified", mobile_verified),
         ("email_verified", email_verified),
         ("basic_info", basic_info_added),
+        ("basic_overview", basic_overview_added),
+        ("work_info", work_info_added),
         ("verticals", verticals_added),
         ("location_details", location_added),
-        ("bank_account", bank_account_added)
+        ("documents", documents_added),
+        ("bank_account", bank_account_added),
+        ("services", services_added)
     ]
 
     total_steps = len(steps)
@@ -208,9 +237,13 @@ async def get_vendor_onboarding_progress(engine: AIOEngine, vendor_id: str):
         "mobile_verified": mobile_verified,
         "email_verified": email_verified,
         "basic_info_added": basic_info_added,
+        "basic_overview_added": basic_overview_added,
+        "work_info_added": work_info_added,
         "verticals_added": verticals_added,
         "location_added": location_added,
+        "documents_added": documents_added,
         "bank_account_added": bank_account_added,
+        "services_added": services_added,
         "percentage_completed": percentage,
         "pending_steps": pending
     }
