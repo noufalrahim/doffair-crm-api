@@ -150,8 +150,8 @@ async def update_care_professional(
     
     update_data = payload.model_dump(exclude_unset=True)
     
-    # Handle User updates (email, phone, name)
-    if any(k in update_data for k in ["email", "phone", "name"]) and user:
+    # Handle User updates (email, phone, name, password)
+    if any(k in update_data for k in ["email", "phone", "name", "password"]) and user:
         if "email" in update_data:
             existing_email = await engine.find_one(User, (User.email == update_data["email"]) & (User.id != user.id))
             if existing_email:
@@ -172,6 +172,9 @@ async def update_care_professional(
 
         if "name" in update_data:
             user.name = update_data["name"]
+
+        if "password" in update_data and update_data["password"]:
+            user.password_hash = hash_password(update_data["password"])
 
         user.updated_at = datetime.utcnow()
         await engine.save(user)

@@ -44,6 +44,7 @@ class CareProfessionalUpdateRequest(BaseModel):
     years_of_experience: Optional[int] = None
     consultation_fee: Optional[float] = None
     license_number: Optional[str] = None
+    password: Optional[str] = Field(None, min_length=8)
     profile_image: Optional[str] = Field(None, alias="profileImage")
 
     model_config = {
@@ -79,3 +80,6 @@ class CareProfessionalResponse(BaseModel):
     phone: Optional[str] = None
     location_name: Optional[str] = None
     location_address: Optional[str] = None
+
+class CareProfessionalPermissionsUpdate(BaseModel):
+    permissions: list[str]

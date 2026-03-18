@@ -291,3 +291,69 @@ async def delete_care_professional_by_id(
         message="Care professional deleted",
         data={"id": str(cp.id)},
     )
+
+
+from vendor.models.care_professional_permission import CareProfessionalPermission
+from vendor.schemas.care_professional import CareProfessionalPermissionsUpdate
+from fastapi import HTTPException
+
+@router.get("/{care_professional_id}/permissions")
+async def get_care_professional_permissions(
+    care_professional_id: str,
+    token: dict = Depends(require_vendor()),
+    engine: AIOEngine = Depends(get_engine),
+):
+    vendor_id = token["vendor_id"]
+    
+    # check if CP belongs to vendor
+    cp = await get_care_professional(engine, vendor_id, care_professional_id)
+    if not cp:
+        raise HTTPException(status_code=404, detail="Care professional not found")
+
+    perm_doc = await engine.find_one(
+        CareProfessionalPermission,
+        CareProfessionalPermission.care_professional_id == care_professional_id
+    )
+
+    permissions = perm_doc.permissions if perm_doc else []
+    
+    return success_response(
+        message="Permissions retrieved successfully",
+        data={"permissions": permissions}
+    )
+
+
+@router.patch("/{care_professional_id}/permissions")
+async def update_care_professional_permissions(
+    care_professional_id: str,
+    payload: CareProfessionalPermissionsUpdate,
+    token: dict = Depends(require_vendor()),
+    engine: AIOEngine = Depends(get_engine),
+):
+    vendor_id = token["vendor_id"]
+    
+    # check if CP belongs to vendor
+    cp = await get_care_professional(engine, vendor_id, care_professional_id)
+    if not cp:
+        raise HTTPException(status_code=404, detail="Care professional not found")
+
+    perm_doc = await engine.find_one(
+        CareProfessionalPermission,
+        CareProfessionalPermission.care_professional_id == care_professional_id
+    )
+
+    if perm_doc:
+        perm_doc.permissions = payload.permissions
+        await engine.save(perm_doc)
+    else:
+        perm_doc = CareProfessionalPermission(
+            care_professional_id=care_professional_id,
+            vendor_id=vendor_id,
+            permissions=payload.permissions
+        )
+        await engine.save(perm_doc)
+
+    return success_response(
+        message="Permissions updated successfully",
+        data={"permissions": perm_doc.permissions}
+    )

@@ -10,34 +10,18 @@ from core.security import create_access_token
 from core.enums import Role, VendorRole
 
 
+from vendor.models.care_professional import CareProfessional
+
 async def authenticate_vendor(
     engine: AIOEngine,
     payload: VendorLoginRequest,
-) -> Vendor:
-    vendor = await engine.find_one(
-        Vendor,
-        Vendor.primary_contact_email == payload.email,
-    )
-
-    if not vendor or not vendor.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-        )
-
-    # Fetch linked user record to verify password
-    if not vendor.user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-        )
-
+) -> dict:
     user = await engine.find_one(
         User,
-        User.id == ObjectId(vendor.user_id),
+        User.email == payload.email,
     )
 
-    if not user:
+    if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
@@ -49,21 +33,64 @@ async def authenticate_vendor(
             detail="Invalid credentials",
         )
 
-    return vendor
+    # Check if user is a Vendor Admin
+    vendor = await engine.find_one(
+        Vendor,
+        (Vendor.user_id == str(user.id)) | (Vendor.primary_contact_email == user.email),
+    )
 
+    if vendor and vendor.is_active:
+        return {"type": "vendor", "vendor": vendor}
+
+    # Check if user is a care professional
+    care_prof = await engine.find_one(
+        CareProfessional,
+        CareProfessional.user_id == str(user.id),
+    )
+
+    if care_prof and care_prof.is_active:
+        vendor = await engine.find_one(
+            Vendor,
+            Vendor.id == ObjectId(care_prof.vendor_id),
+        )
+        if vendor and vendor.is_active:
+            return {"type": "care_professional", "care_professional": care_prof, "vendor": vendor}
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Unauthorized access",
+    )
 
 
 async def login_vendor(
     engine: AIOEngine,
     payload: VendorLoginRequest,
 ):
-    vendor = await authenticate_vendor(engine, payload)
+    auth_result = await authenticate_vendor(engine, payload)
+    
+    vendor = auth_result["vendor"]
 
-    token = create_access_token(
-        subject=str(vendor.id),              # required
-        role=Role.VENDOR,                    # required
-        vendor_id=str(vendor.id),             # vendor context
-        vendor_role=VendorRole.ADMIN,  # enum, not string
-    )
+    if auth_result["type"] == "vendor":
+        token = create_access_token(
+            subject=str(vendor.id),
+            role=Role.VENDOR,
+            vendor_id=str(vendor.id),
+            vendor_role=VendorRole.ADMIN,
+        )
+    else:
+        # Care professional
+        care_prof = auth_result["care_professional"]
+        try:
+            v_role = VendorRole(care_prof.role.value)
+        except ValueError:
+            v_role = VendorRole.STAFF
+            
+        token = create_access_token(
+            subject=str(vendor.id),
+            role=Role.VENDOR,
+            vendor_id=str(vendor.id),
+            vendor_role=v_role,
+            care_professional_id=str(care_prof.id)
+        )
 
     return vendor, token

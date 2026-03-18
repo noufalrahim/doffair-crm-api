@@ -21,6 +21,7 @@ def create_access_token(
     role: Role,
     vendor_id: Optional[str] = None,
     vendor_role: Optional[VendorRole] = None,
+    care_professional_id: Optional[str] = None,
     expires_delta: Optional[timedelta] = None,
 ) -> str:
     """
@@ -42,6 +43,9 @@ def create_access_token(
 
         payload["vendor_id"] = vendor_id
         payload["vendor_role"] = vendor_role.value
+        
+        if care_professional_id:
+            payload["care_professional_id"] = care_professional_id
 
     expire = now + (expires_delta or timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES))
     payload["exp"] = int(expire.timestamp())
