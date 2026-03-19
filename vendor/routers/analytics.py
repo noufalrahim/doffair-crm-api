@@ -11,8 +11,8 @@ from core.enums import BookingStatus
 from vendor.schemas.analytics import VendorAnalyticsResponse, RevenueAnalyticsResponse
 
 router = APIRouter(
-    prefix="/vendor/analytics",
-    tags=["Vendor Analytics"],
+    prefix="/vendor/statistics",
+    tags=["Vendor Statistics"],
 )
 
 # Vertical IDs identified from research
