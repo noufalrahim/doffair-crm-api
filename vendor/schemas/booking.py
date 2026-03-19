@@ -5,6 +5,8 @@ from core.enums import ServiceDeliveryMode
 
 class BookingStatusUpdate(BaseModel):
     status: str
+    postpone_date: Optional[str] = None
+    postpone_time: Optional[str] = None
 
 class UserSummary(BaseModel):
     id: Optional[str] = None

@@ -12,6 +12,8 @@ from vendor.models.vendor_service import VendorService
 from admin.models.vertical import Vertical
 from vendor.models.vendor_location import VendorLocation
 from core.enums import BookingStatus, PaymentStatus
+from notifications.events.publisher import event_publisher
+from notifications.events.types import EventType, EventSource
 
 
 async def create_booking(
@@ -497,6 +499,23 @@ async def approve_booking(
     if notes:
         booking.vendor_notes = notes
     
+    # Trigger Notification
+    event_publisher.publish(
+        event_type=EventType.BOOKING_CONFIRMED,
+        source=EventSource.BOOKING_SERVICE,
+        data={
+            "booking_id": str(booking.id),
+            "user_id": booking.user_id,
+            "user_name": booking.user_name,
+            "user_phone": booking.user_phone,
+            "user_email": booking.user_email,
+            "vendor_name": booking.vendor_name,
+            "scheduled_at": booking.booking_date.strftime("%Y-%m-%d %H:%M"),
+            "location_name": booking.service_address or "Doffair Center",
+            "template_id": "BookingConfirm1"
+        }
+    )
+    
     return booking
 
 
@@ -570,5 +589,22 @@ async def reject_booking(
     # Manually update booking object
     booking.status = BookingStatus.REJECTED
     booking.rejection_reason = rejection_reason
+    
+    # Trigger Notification
+    event_publisher.publish(
+        event_type=EventType.BOOKING_CANCELLED,
+        source=EventSource.BOOKING_SERVICE,
+        data={
+            "booking_id": str(booking.id),
+            "user_id": booking.user_id,
+            "user_name": booking.user_name,
+            "user_phone": booking.user_phone,
+            "user_email": booking.user_email,
+            "vendor_name": booking.vendor_name,
+            "scheduled_at": booking.booking_date.strftime("%Y-%m-%d %H:%M"),
+            "rejection_reason": rejection_reason,
+            "template_id": "BookingCancel"
+        }
+    )
     
     return booking, payment_data

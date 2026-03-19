@@ -7,16 +7,30 @@ from bson import ObjectId
 from fastapi import HTTPException, status
 import logging
 
-from vendor.models.invoice import Invoice
+import random
+import string
+from datetime import datetime
+from typing import Optional, List, Tuple
+from odmantic import AIOEngine
+from bson import ObjectId
+from fastapi import HTTPException, status
+import logging
+
+from vendor.models.invoice import Invoice, InvoiceItem
 from user.models.booking import Booking
 from vendor.schemas.invoice import (
     InvoiceCreateRequest, 
     InvoiceUpdateRequest,
-    InvoiceStatisticsResponse
+    InvoiceStatisticsResponse,
+    InvoiceItemSchema
 )
 from core.enums import InvoiceStatus
+from notifications.events.publisher import event_publisher
+from notifications.events.types import EventType, EventSource
+from user.models.user import User
 
 logger = logging.getLogger(__name__)
+
 
 
 async def generate_unique_invoice_number(engine: AIOEngine, vendor_id: str) -> str:
@@ -44,7 +58,7 @@ async def generate_unique_invoice_number(engine: AIOEngine, vendor_id: str) -> s
 
 
 async def create_invoice(engine: AIOEngine, vendor_id: str, payload: InvoiceCreateRequest) -> Invoice:
-    """Create a new simplified invoice"""
+    """Create a new itemized invoice"""
     invoice_number = await generate_unique_invoice_number(engine, vendor_id)
     
     # Fetch vertical_id from booking if not provided
@@ -57,6 +71,28 @@ async def create_invoice(engine: AIOEngine, vendor_id: str, payload: InvoiceCrea
         except Exception:
             pass
             
+    # Process items and calculate totals
+    invoice_items = []
+    calculated_grand_total = 0.0
+    
+    for item in payload.items:
+        subtotal = item.quantity * item.unit_price
+        invoice_items.append(InvoiceItem(
+            name=item.name,
+            quantity=item.quantity,
+            unit_price=item.unit_price,
+            subtotal=subtotal
+        ))
+        calculated_grand_total += subtotal
+        
+    # Apply taxes and discounts
+    calculated_grand_total += payload.tax_amount
+    calculated_grand_total -= payload.discount_amount
+    calculated_grand_total = max(0.0, calculated_grand_total)
+    
+    # Use payload grand_total if provided (manual override), otherwise use calculated
+    grand_total = payload.grand_total if payload.grand_total is not None else calculated_grand_total
+            
     invoice = Invoice(
         vendor_id=vendor_id,
         customer_id=payload.customer_id,
@@ -64,14 +100,18 @@ async def create_invoice(engine: AIOEngine, vendor_id: str, payload: InvoiceCrea
         vertical_id=vertical_id,
         invoice_number=invoice_number,
         due_date=payload.due_date,
-        grand_total=payload.grand_total,
+        items=invoice_items,
+        notes=payload.notes,
+        tax_amount=payload.tax_amount,
+        discount_amount=payload.discount_amount,
+        grand_total=grand_total,
         paid_amount=0.0,
-        balance_due=payload.grand_total,
+        balance_due=grand_total,
         status=InvoiceStatus.DRAFT
     )
     
     await engine.save(invoice)
-    logger.info(f"✅ Invoice created: {invoice_number}")
+    logger.info(f"✅ Itemized Invoice created: {invoice_number}")
     return invoice
 
 
@@ -148,6 +188,30 @@ async def update_invoice(
     invoice.updated_at = datetime.utcnow()
     await engine.save(invoice)
     
+    if invoice.status == InvoiceStatus.SENT:
+        # Trigger Notification
+        # We need to fetch the customer/user to get their phone/email if not in payload
+        user = await engine.find_one(User, User.id == ObjectId(invoice.customer_id))
+        
+        event_publisher.publish(
+            event_type=EventType.INVOICE_SENT,
+            source=EventSource.VENDOR_SERVICE,
+            data={
+                "invoice_id": str(invoice.id),
+                "invoice_number": invoice.invoice_number,
+                "vendor_id": invoice.vendor_id,
+                "customer_id": invoice.customer_id,
+                "user_id": invoice.customer_id,
+                "user_name": user.username if user else "Customer",
+                "user_phone": user.phoneNumber if user else "",
+                "user_email": user.email if user else "",
+                "grand_total": invoice.grand_total,
+                "due_date": invoice.due_date.strftime("%Y-%m-%d") if invoice.due_date else "N/A",
+                "vendor_name": "Doffair Vendor", # Ideally fetch vendor name
+                "template_id": "InvoiceSent"
+            }
+        )
+
     logger.info(f"✏️ Invoice updated: {invoice.invoice_number}")
     return invoice
 
@@ -184,4 +248,5 @@ async def get_invoice_statistics(
     }
     
     return InvoiceStatisticsResponse(**stats)
+
 

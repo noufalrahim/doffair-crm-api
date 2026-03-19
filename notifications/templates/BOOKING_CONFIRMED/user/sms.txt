@@ -1,0 +1,8 @@
+Hey {{ user_name }},
+
+You're all set! Your booking is confirmed.
+
+Date & Time: {{ scheduled_at }}
+Location: {{ location_name }}
+
+-Doffair

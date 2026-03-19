@@ -1,12 +1,15 @@
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 
+import uuid
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from odmantic import AIOEngine
 
 from core.config import settings
 from core.enums import Role, VendorRole
+from core.database import get_engine
 
 security_scheme = HTTPBearer()
 
@@ -22,6 +25,7 @@ def create_access_token(
     vendor_id: Optional[str] = None,
     vendor_role: Optional[VendorRole] = None,
     care_professional_id: Optional[str] = None,
+    jti: Optional[str] = None,
     expires_delta: Optional[timedelta] = None,
 ) -> str:
     """
@@ -34,6 +38,7 @@ def create_access_token(
         "sub": subject,
         "role": role.value,
         "iat": int(now.timestamp()),
+        "jti": jti or str(uuid.uuid4()),
     }
 
     # Vendor-specific claims
@@ -134,11 +139,35 @@ def require_vendor(
     return _guard
 
 
-def get_current_vendor(token: Dict[str, Any] = Depends(get_current_token)) -> Dict[str, Any]:
-    """Get current vendor from token - simple vendor auth"""
+async def get_current_vendor(
+    token: Dict[str, Any] = Depends(get_current_token),
+    engine: AIOEngine = Depends(get_engine)
+) -> Dict[str, Any]:
+    """Get current vendor from token - and verify session is active"""
     if token.get("role") != Role.VENDOR.value:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Vendor access required",
         )
+    
+    jti = token.get("jti")
+    if not jti:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token: missing session identifier",
+        )
+    
+    # Check if session is active in database
+    from vendor.models.session import VendorSession
+    session = await engine.find_one(
+        VendorSession,
+        (VendorSession.jti == jti) & (VendorSession.is_active == True)
+    )
+    
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session has been terminated or is invalid",
+        )
+        
     return token

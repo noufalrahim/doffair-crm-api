@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, File, UploadFile
+from fastapi.responses import StreamingResponse
+import pandas as pd
+import io
 from odmantic import AIOEngine
 from typing import Optional
 
@@ -10,7 +13,8 @@ from vendor.services.medication_service import (
     get_medication_by_id,
     list_medications,
     update_medication,
-    delete_medication
+    delete_medication,
+    bulk_create_medications
 )
 from schemas.common import APIResponse
 from vendor.schemas.medication import (
@@ -24,6 +28,57 @@ router = APIRouter(
     prefix="/vendor/medications",
     tags=["Vendor - Medications"]
 )
+
+@router.get("/public-template")
+async def get_medication_import_template():
+    """
+    Download a sample XLSX template for medication bulk import.
+    """
+    columns = [
+        "name", "description", "category", "quantity_to_give", 
+        "stock_quantity", "unit", "base_price", "batch_id", 
+        "manufacturer", "mfd_date", "expiry_date", "dosage", 
+        "frequency", "duration", "notes"
+    ]
+    
+    # Create an empty DataFrame with these columns
+    df = pd.DataFrame(columns=columns)
+    
+    # Add a sample row
+    sample_row = {
+        "name": "Paracetamol 500mg",
+        "description": "Pain reliever and fever reducer",
+        "category": "Analgesics",
+        "quantity_to_give": "1 tablet",
+        "stock_quantity": 100,
+        "unit": "TABLET",
+        "base_price": 5.0,
+        "batch_id": "BATCH001",
+        "manufacturer": "HealthCorp",
+        "mfd_date": "2024-01-01",
+        "expiry_date": "2026-01-01",
+        "dosage": "500mg",
+        "frequency": "Three times a day",
+        "duration": "5 days",
+        "notes": "Take after meals"
+    }
+    df = pd.concat([df, pd.DataFrame([sample_row])], ignore_index=True)
+    
+    # Write to BytesIO
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Medications')
+    output.seek(0)
+    
+    headers = {
+        'Content-Disposition': 'attachment; filename="medication_import_template.xlsx"'
+    }
+    
+    return StreamingResponse(
+        output, 
+        headers=headers, 
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
 
 @router.post("", response_model=APIResponse)
 async def create_medication_endpoint(
@@ -224,4 +279,40 @@ async def delete_medication_endpoint(
     return success_response(
         message="Medication deleted successfully",
         data={"medication_id": medication_id, "deleted": True}
+    ).model_dump()
+
+@router.post("/bulk-import", response_model=APIResponse)
+async def bulk_import_medications_endpoint(
+    file: UploadFile = File(...),
+    vertical_id: str = Query(...),
+    current_vendor: dict = Depends(get_current_vendor),
+    engine: AIOEngine = Depends(get_engine)
+):
+    """
+    Bulk import medications from CSV or XLSX file.
+    """
+    vendor_id = current_vendor["vendor_id"]
+    
+    contents = await file.read()
+    if file.filename.endswith('.csv'):
+        df = pd.read_csv(io.BytesIO(contents))
+    elif file.filename.endswith(('.xlsx', '.xls')):
+        df = pd.read_excel(io.BytesIO(contents))
+    else:
+        return error_response(message="Unsupported file format. Please upload CSV or XLSX.")
+    
+    # Replace NaN with None for Odmantic/MongoDB
+    df = df.where(pd.notnull(df), None)
+    
+    medications_data = df.to_dict(orient='records')
+    
+    # Add vertical_id to each record if not present
+    for item in medications_data:
+        item['vertical_id'] = vertical_id
+    
+    medications = await bulk_create_medications(engine, vendor_id, medications_data)
+    
+    return success_response(
+        message=f"Successfully imported {len(medications)} medications",
+        data={"imported_count": len(medications)}
     ).model_dump()

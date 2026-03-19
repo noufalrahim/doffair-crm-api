@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     # SMS
     SMS_PROVIDER: str = "2FACTOR"
     TWOFACTOR_API_KEY: str = ""
+    TWOFACTOR_API_URL: str = "https://2factor.in/API/R1/"
+    TWOFACTOR_SENDER_ID: str = "DOFAIR"
     TWOFACTOR_OTP_TEMPLATE: str = ""
     
     # WhatsApp

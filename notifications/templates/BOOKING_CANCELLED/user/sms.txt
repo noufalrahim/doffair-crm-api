@@ -1,1 +1,6 @@
-Booking {{ booking_id }} cancelled. {% if cancellation_reason %}Reason: {{ cancellation_reason }}. {% endif %}Refund will be processed if applicable. - Doffair
+Hi {{ user_name }},
+
+Your Booking ID {{ booking_id }}, scheduled on {{ scheduled_at }}, has been cancelled.
+The refund has been initiated and should reflect in your account within 5-7 working days.
+
+-Doffair

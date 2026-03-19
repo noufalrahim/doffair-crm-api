@@ -10,6 +10,8 @@ from utils.response import success_response
 from user.models.booking import Booking
 from user.models.payment import Payment
 from core.database import get_engine, get_secondary_engine
+from notifications.events.publisher import event_publisher
+from notifications.events.types import EventType, EventSource
 # from user.schemas.booking import BookingResponse
 
 
@@ -766,9 +768,46 @@ async def update_booking_status(
     # Optional: Add validation for allowed status transitions if needed
     # For now, we trust the input as per request "if id and status is passed"
     
-    await collection.update_one(
+    update_result = await collection.update_one(
         {"_id": ObjectId(booking_id)},
         {"$set": {"status": new_status}}
     )
+    
+    if update_result.modified_count > 0:
+        # Trigger Notification based on status
+        event_type = None
+        template_id = None
+        
+        if new_status == "confirmed":
+            event_type = EventType.BOOKING_CONFIRMED
+            template_id = "BookingConfirm1"
+        elif new_status in ["cancelled", "rejected", "cancelByProvider"]:
+            event_type = EventType.BOOKING_CANCELLED
+            template_id = "BookingCancel"
+        elif new_status == "rescheduleRequest":
+            event_type = EventType.BOOKING_RESCHEDULED
+            template_id = "BookingReschedule"
+            
+        if event_type:
+            # Map doc to response to get formatted data
+            mapped = await map_booking_doc(booking_doc, secondary_engine)
+            
+            event_publisher.publish(
+                event_type=event_type,
+                source=EventSource.BOOKING_SERVICE,
+                data={
+                    "booking_id": str(mapped.id),
+                    "user_id": mapped.user.id,
+                    "user_name": mapped.user.name,
+                    "user_phone": mapped.user.phone,
+                    "user_email": mapped.user.email,
+                    "vendor_name": "Doffair Vendor", # Ideally fetch real vendor name
+                    "scheduled_at": mapped.booking_date.strftime("%Y-%m-%d %H:%M") if mapped.booking_date else "N/A",
+                    "location_name": "Doffair Center", # Generic or fetch from vendor doc
+                    "postpone_date": status_update.postpone_date or "N/A",
+                    "postpone_time": status_update.postpone_time or "N/A",
+                    "template_id": template_id
+                }
+            )
     
     return success_response(message="Booking status updated successfully")

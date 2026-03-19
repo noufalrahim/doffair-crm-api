@@ -57,3 +57,21 @@ async def delete_store_item(engine: AIOEngine, vendor_id: str, item_id: str) -> 
     store_item = await get_store_item_by_id(engine, vendor_id, item_id)
     await engine.delete(store_item)
     return True
+
+async def bulk_create_store_items(engine: AIOEngine, vendor_id: str, items_data: List[dict]) -> List[StoreItem]:
+    """
+    Bulk create store items.
+    """
+    items = []
+    for data in items_data:
+        it = StoreItem(
+            vendor_id=vendor_id,
+            **data
+        )
+        items.append(it)
+    
+    if items:
+        for it in items:
+            await engine.save(it)
+            
+    return items

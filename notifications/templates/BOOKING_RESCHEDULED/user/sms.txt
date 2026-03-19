@@ -1,1 +1,5 @@
-Booking {{ booking_id }} rescheduled! New date: {{ scheduled_at }}. Service: {{ vertical }}. Vendor: {{ vendor_name }}.
+Hi {{ user_name }},
+Your booking {{ booking_id }} moved to {{ postpone_date }} at {{ postpone_time }} by {{ vendor_name }}.
+You can accept or reject from the app.
+
+-Doffair

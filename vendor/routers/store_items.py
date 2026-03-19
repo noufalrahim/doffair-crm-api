@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, File, UploadFile
+from fastapi.responses import StreamingResponse
+import pandas as pd
+import io
 from odmantic import AIOEngine
 from typing import Optional
 
@@ -10,7 +13,8 @@ from vendor.services.store_item_service import (
     get_store_item_by_id,
     list_store_items,
     update_store_item,
-    delete_store_item
+    delete_store_item,
+    bulk_create_store_items
 )
 from schemas.common import APIResponse
 from vendor.schemas.store_item import (
@@ -24,6 +28,52 @@ router = APIRouter(
     prefix="/vendor/store-items",
     tags=["Vendor - Store Items"]
 )
+
+@router.get("/public-template")
+async def get_store_item_import_template():
+    """
+    Download a sample XLSX template for store item bulk import.
+    """
+    columns = [
+        "name", "description", "category", "stock_quantity", 
+        "unit", "base_price", "sku", "manufacturer", 
+        "mfd_date", "expiry_date", "tags"
+    ]
+    
+    # Create an empty DataFrame
+    df = pd.DataFrame(columns=columns)
+    
+    # Add sample row
+    sample_row = {
+        "name": "Dog Leash 6ft",
+        "description": "Durable nylon leash for medium dogs",
+        "category": "Accessories",
+        "stock_quantity": 50,
+        "unit": "PIECE",
+        "base_price": 299.0,
+        "sku": "ACC-LEA-001",
+        "manufacturer": "PetPro",
+        "mfd_date": "2024-02-01",
+        "expiry_date": "2029-02-01",
+        "tags": "dog,leash,nylon"
+    }
+    df = pd.concat([df, pd.DataFrame([sample_row])], ignore_index=True)
+    
+    # Write to BytesIO
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Store Items')
+    output.seek(0)
+    
+    headers = {
+        'Content-Disposition': 'attachment; filename="store_item_import_template.xlsx"'
+    }
+    
+    return StreamingResponse(
+        output, 
+        headers=headers, 
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
 
 @router.post("", response_model=APIResponse)
 async def create_store_item_endpoint(
@@ -204,4 +254,39 @@ async def delete_store_item_endpoint(
     return success_response(
         message="Store item deleted successfully",
         data={"item_id": item_id, "deleted": True}
+    ).model_dump()
+
+@router.post("/bulk-import", response_model=APIResponse)
+async def bulk_import_store_items_endpoint(
+    file: UploadFile = File(...),
+    vertical_id: str = Query(...),
+    current_vendor: dict = Depends(get_current_vendor),
+    engine: AIOEngine = Depends(get_engine)
+):
+    """
+    Bulk import store items from CSV or XLSX file.
+    """
+    vendor_id = current_vendor["vendor_id"]
+    
+    contents = await file.read()
+    if file.filename.endswith('.csv'):
+        df = pd.read_csv(io.BytesIO(contents))
+    elif file.filename.endswith(('.xlsx', '.xls')):
+        df = pd.read_excel(io.BytesIO(contents))
+    else:
+        return error_response(message="Unsupported file format. Please upload CSV or XLSX.")
+    
+    # Replace NaN with None
+    df = df.where(pd.notnull(df), None)
+    
+    items_data = df.to_dict(orient='records')
+    
+    for item in items_data:
+        item['vertical_id'] = vertical_id
+        
+    items = await bulk_create_store_items(engine, vendor_id, items_data)
+    
+    return success_response(
+        message=f"Successfully imported {len(items)} store items",
+        data={"imported_count": len(items)}
     ).model_dump()

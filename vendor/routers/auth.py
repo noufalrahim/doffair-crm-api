@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from odmantic import AIOEngine
 
 from core.database import get_engine
@@ -16,9 +16,13 @@ router = APIRouter(
 @router.post("/login")
 async def vendor_login(
     payload: VendorLoginRequest,
+    request: Request,
     engine: AIOEngine = Depends(get_engine),
 ):
-    vendor, token = await login_vendor(engine, payload)
+    user_agent = request.headers.get("user-agent", "Unknown")
+    ip_address = request.client.host if request.client else "Unknown"
+    
+    vendor, token = await login_vendor(engine, payload, user_agent, ip_address)
 
     return success_response(
         message="Login successful",

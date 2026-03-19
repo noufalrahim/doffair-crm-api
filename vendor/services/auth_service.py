@@ -11,6 +11,9 @@ from core.enums import Role, VendorRole
 
 
 from vendor.models.care_professional import CareProfessional
+from vendor.models.session import VendorSession
+import user_agents
+import uuid
 
 async def authenticate_vendor(
     engine: AIOEngine,
@@ -65,17 +68,22 @@ async def authenticate_vendor(
 async def login_vendor(
     engine: AIOEngine,
     payload: VendorLoginRequest,
+    user_agent: str,
+    ip_address: str = None
 ):
     auth_result = await authenticate_vendor(engine, payload)
     
     vendor = auth_result["vendor"]
 
+    jti = str(uuid.uuid4())
+    
     if auth_result["type"] == "vendor":
         token = create_access_token(
             subject=str(vendor.id),
             role=Role.VENDOR,
             vendor_id=str(vendor.id),
             vendor_role=VendorRole.ADMIN,
+            jti=jti
         )
     else:
         # Care professional
@@ -90,7 +98,25 @@ async def login_vendor(
             role=Role.VENDOR,
             vendor_id=str(vendor.id),
             vendor_role=v_role,
-            care_professional_id=str(care_prof.id)
+            care_professional_id=str(care_prof.id),
+            jti=jti
         )
+
+    # Parse user agent
+    ua = user_agents.parse(user_agent)
+    device_type = "Mobile" if ua.is_mobile else "Tablet" if ua.is_tablet else "PC" if ua.is_pc else "Bot" if ua.is_bot else "Other"
+    
+    # Create session record
+    session = VendorSession(
+        vendor_id=str(vendor.id),
+        jti=jti,
+        device_name=f"{ua.os.family} {ua.os.version_string}",
+        device_type=device_type,
+        os=ua.os.family,
+        browser=ua.browser.family,
+        ip_address=ip_address,
+        user_agent=user_agent
+    )
+    await engine.save(session)
 
     return vendor, token

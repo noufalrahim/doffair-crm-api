@@ -10,7 +10,8 @@ from vendor.schemas.invoice import (
     InvoiceCreateRequest,
     InvoiceUpdateRequest,
     InvoiceResponse,
-    InvoiceListResponse
+    InvoiceListResponse,
+    InvoiceItemSchema
 )
 from vendor.services.invoice_service import (
     create_invoice,
@@ -28,6 +29,29 @@ router = APIRouter(
 )
 
 
+def map_invoice_to_response(invoice) -> InvoiceResponse:
+    """Helper to map Invoice model to InvoiceResponse schema"""
+    return InvoiceResponse(
+        id=str(invoice.id),
+        invoice_number=invoice.invoice_number,
+        invoice_date=invoice.invoice_date,
+        due_date=invoice.due_date,
+        customer_id=invoice.customer_id,
+        booking_id=invoice.booking_id,
+        vertical_id=getattr(invoice, 'vertical_id', None),
+        items=[InvoiceItemSchema(**item.model_dump()) for item in invoice.items] if hasattr(invoice, 'items') else [],
+        notes=getattr(invoice, 'notes', None),
+        tax_amount=getattr(invoice, 'tax_amount', 0.0),
+        discount_amount=getattr(invoice, 'discount_amount', 0.0),
+        grand_total=invoice.grand_total,
+        paid_amount=invoice.paid_amount,
+        balance_due=invoice.balance_due,
+        status=invoice.status,
+        created_at=invoice.created_at,
+        updated_at=invoice.updated_at
+    )
+
+
 @router.post("")
 async def create_new_invoice(
     payload: InvoiceCreateRequest,
@@ -42,20 +66,7 @@ async def create_new_invoice(
         invoice = await create_invoice(engine, vendor_id, payload)
         return success_response(
             message="Invoice created successfully",
-            data=InvoiceResponse(
-                id=str(invoice.id),
-                invoice_number=invoice.invoice_number,
-                invoice_date=invoice.invoice_date,
-                due_date=invoice.due_date,
-                customer_id=invoice.customer_id,
-                booking_id=invoice.booking_id,
-                grand_total=invoice.grand_total,
-                paid_amount=invoice.paid_amount,
-                balance_due=invoice.balance_due,
-                status=invoice.status,
-                created_at=invoice.created_at,
-                updated_at=invoice.updated_at
-            ).model_dump()
+            data=map_invoice_to_response(invoice).model_dump()
         ).model_dump()
     except Exception as e:
         return error_response(message=str(e)).model_dump()
@@ -83,20 +94,7 @@ async def get_all_invoices(
             data={
                 "total": total,
                 "invoices": [
-                    InvoiceResponse(
-                        id=str(inv.id),
-                        invoice_number=inv.invoice_number,
-                        invoice_date=inv.invoice_date,
-                        due_date=inv.due_date,
-                        customer_id=inv.customer_id,
-                        booking_id=inv.booking_id,
-                        grand_total=inv.grand_total,
-                        paid_amount=inv.paid_amount,
-                        balance_due=inv.balance_due,
-                        status=inv.status,
-                        created_at=inv.created_at,
-                        updated_at=inv.updated_at
-                    ).model_dump()
+                    map_invoice_to_response(inv).model_dump()
                     for inv in invoices
                 ]
             }
@@ -118,20 +116,7 @@ async def get_invoice_details(
     try:
         invoice = await get_invoice_by_id(engine, vendor_id, invoice_id)
         return success_response(
-            data=InvoiceResponse(
-                id=str(invoice.id),
-                invoice_number=invoice.invoice_number,
-                invoice_date=invoice.invoice_date,
-                due_date=invoice.due_date,
-                customer_id=invoice.customer_id,
-                booking_id=invoice.booking_id,
-                grand_total=invoice.grand_total,
-                paid_amount=invoice.paid_amount,
-                balance_due=invoice.balance_due,
-                status=invoice.status,
-                created_at=invoice.created_at,
-                updated_at=invoice.updated_at
-            ).model_dump()
+            data=map_invoice_to_response(invoice).model_dump()
         ).model_dump()
     except Exception as e:
         return error_response(message=str(e)).model_dump()
@@ -152,20 +137,7 @@ async def update_invoice_details(
         invoice = await update_invoice(engine, vendor_id, invoice_id, payload)
         return success_response(
             message="Invoice updated successfully",
-            data=InvoiceResponse(
-                id=str(invoice.id),
-                invoice_number=invoice.invoice_number,
-                invoice_date=invoice.invoice_date,
-                due_date=invoice.due_date,
-                customer_id=invoice.customer_id,
-                booking_id=invoice.booking_id,
-                grand_total=invoice.grand_total,
-                paid_amount=invoice.paid_amount,
-                balance_due=invoice.balance_due,
-                status=invoice.status,
-                created_at=invoice.created_at,
-                updated_at=invoice.updated_at
-            ).model_dump()
+            data=map_invoice_to_response(invoice).model_dump()
         ).model_dump()
     except Exception as e:
         return error_response(message=str(e)).model_dump()

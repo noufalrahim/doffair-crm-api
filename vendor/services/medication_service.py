@@ -66,3 +66,24 @@ async def delete_medication(engine: AIOEngine, vendor_id: str, medication_id: st
     # Hard delete
     await engine.delete(medication)
     return True
+
+async def bulk_create_medications(engine: AIOEngine, vendor_id: str, medications_data: List[dict]) -> List[Medication]:
+    """
+    Bulk create medications.
+    """
+    medications = []
+    for data in medications_data:
+        m = Medication(
+            vendor_id=vendor_id,
+            **data
+        )
+        medications.append(m)
+    
+    if medications:
+        # Odmantic doesn't have a direct bulk_save, but we can use engine.save for each or access motor directly
+        # For small-medium batches, engine.save in loop or engine.database.get_collection(...).insert_many(...)
+        # Let's use motor directly for performance if possible, or engine.save for simplicity
+        for m in medications:
+            await engine.save(m)
+            
+    return medications
