@@ -718,63 +718,46 @@ async def update_booking_status(
     status_update: BookingStatusUpdate,
     token: dict = Depends(require_vendor()),
     secondary_engine: AIOEngine = Depends(get_secondary_engine),
+    primary_engine: AIOEngine = Depends(get_engine),
 ):
     """
     Update the status of a specific booking.
-    Only allows updating status for online bookings in Secondary DB.
+    Checks both Primary DB (walk-in) and Secondary DB (online).
     """
     vendor_id = token.get("vendor_id")
     
     if not ObjectId.is_valid(booking_id):
         raise HTTPException(status_code=400, detail="Invalid booking ID")
         
-    collection = secondary_engine.database.get_collection("bookings")
+    # 1. Check Primary walk-in bookings first
+    collection = primary_engine.database.get_collection("walkin_bookings")
     booking_doc = await collection.find_one({"_id": ObjectId(booking_id)})
+    current_engine = primary_engine
+    
+    if not booking_doc:
+        # 2. Check secondary online bookings
+        collection = secondary_engine.database.get_collection("bookings")
+        booking_doc = await collection.find_one({"_id": ObjectId(booking_id)})
+        current_engine = secondary_engine
     
     if not booking_doc:
         raise HTTPException(status_code=404, detail="Booking not found")
 
     # Verify Ownership
-    # Check if it's a legacy or modern doc to find serviceProviderId correctly
-    is_owner = False
-    if "userId" in booking_doc and "user_id" not in booking_doc:
-        # Legacy
-        if str(booking_doc.get("serviceProviderId")) == vendor_id:
-            is_owner = True
-    else:
-        # Modern
-        # Check against mapped model or raw fields
-        # Note: mapped model might convert ID to string, so raw check is safer if mixed types
-        # But let's use the field we know exists: likely 'serviceProviderId' or 'vendor_id'
-        # Modern docs usually align with Booking model
-        potential_vendor_ids = [
-            booking_doc.get("serviceProviderId"),
-            booking_doc.get("vendor_id")
-        ]
-        for vid in potential_vendor_ids:
-            if str(vid) == vendor_id:
-                is_owner = True
-                break
-    
-    if not is_owner:
-        raise HTTPException(status_code=403, detail="Access denied")
+    doc_vendor_id = booking_doc.get("vendor_id") or str(booking_doc.get("serviceProviderId") or "")
+    if doc_vendor_id != vendor_id:
+         raise HTTPException(status_code=403, detail="Access denied")
 
     # Update Status
-    # We update the raw document directly to ensure it works for both schemas if they share the 'status' field location
-    # Both legacy and modern seem to have 'status' at root.
-    
     new_status = status_update.status
-    
-    # Optional: Add validation for allowed status transitions if needed
-    # For now, we trust the input as per request "if id and status is passed"
     
     update_result = await collection.update_one(
         {"_id": ObjectId(booking_id)},
-        {"$set": {"status": new_status}}
+        {"$set": {"status": new_status, "updatedAt": datetime.utcnow()}}
     )
     
     if update_result.modified_count > 0:
-        # Trigger Notification based on status
+        # Trigger Notification based on status (Only for Online/Secondary DB usually, but we check if user info exists)
         event_type = None
         template_id = None
         
@@ -789,25 +772,29 @@ async def update_booking_status(
             template_id = "BookingReschedule"
             
         if event_type:
-            # Map doc to response to get formatted data
-            mapped = await map_booking_doc(booking_doc, secondary_engine)
-            
-            event_publisher.publish(
-                event_type=event_type,
-                source=EventSource.BOOKING_SERVICE,
-                data={
-                    "booking_id": str(mapped.id),
-                    "user_id": mapped.user.id,
-                    "user_name": mapped.user.name,
-                    "user_phone": mapped.user.phone,
-                    "user_email": mapped.user.email,
-                    "vendor_name": "Doffair Vendor", # Ideally fetch real vendor name
-                    "scheduled_at": mapped.booking_date.strftime("%Y-%m-%d %H:%M") if mapped.booking_date else "N/A",
-                    "location_name": "Doffair Center", # Generic or fetch from vendor doc
-                    "postpone_date": status_update.postpone_date or "N/A",
-                    "postpone_time": status_update.postpone_time or "N/A",
-                    "template_id": template_id
-                }
-            )
+            try:
+                # Map doc to response to get formatted data
+                mapped = await map_booking_doc(booking_doc, current_engine)
+                
+                # Only publish if user ID is effectively present (for real users)
+                if mapped.user and mapped.user.id:
+                    event_publisher.publish(
+                        event_type=event_type,
+                        source=EventSource.BOOKING_SERVICE,
+                        data={
+                            "booking_id": str(mapped.id),
+                            "user_id": mapped.user.id,
+                            "status": new_status,
+                            "template_id": template_id,
+                            "vendor_id": vendor_id,
+                            "postpone_date": status_update.postpone_date or "N/A",
+                            "postpone_time": status_update.postpone_time or "N/A"
+                        }
+                    )
+            except Exception as e:
+                print(f"DEBUG: Error publishing notification for status update: {e}")
+                pass
+                
+        return success_response(message=f"Booking status updated to {new_status}")
     
-    return success_response(message="Booking status updated successfully")
+    return success_response(message="Status already up to date")

@@ -60,18 +60,40 @@ async def delete_store_item(engine: AIOEngine, vendor_id: str, item_id: str) -> 
 
 async def bulk_create_store_items(engine: AIOEngine, vendor_id: str, items_data: List[dict]) -> List[StoreItem]:
     """
-    Bulk create store items.
+    Bulk create store items with robustness.
+    Filters invalid fields and skips empty/incomplete rows.
     """
     items = []
-    for data in items_data:
-        it = StoreItem(
-            vendor_id=vendor_id,
-            **data
-        )
-        items.append(it)
     
-    if items:
-        for it in items:
+    # Identify valid model fields
+    valid_fields = set(StoreItem.model_fields.keys())
+    
+    for data in items_data:
+        try:
+            # 1. Skip rows missing critical info
+            if not data.get("name"):
+                print("DEBUG: Skipping store item row with missing name")
+                continue
+                
+            # 2. Filter data to only include valid model fields
+            filtered_data = {
+                k: v for k, v in data.items() 
+                if k in valid_fields and v is not None
+            }
+            
+            # 3. Ensure vendor_id is set
+            filtered_data["vendor_id"] = vendor_id
+            
+            # 4. Instantiate model
+            it = StoreItem(**filtered_data)
+            
+            # 5. Save individually
             await engine.save(it)
+            items.append(it)
+            
+        except Exception as e:
+            # Log error and continue
+            print(f"DEBUG: Error creating store item row: {data.get('name', 'Unknown')}. Error: {e}")
+            continue
             
     return items

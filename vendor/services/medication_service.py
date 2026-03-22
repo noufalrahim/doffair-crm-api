@@ -69,21 +69,40 @@ async def delete_medication(engine: AIOEngine, vendor_id: str, medication_id: st
 
 async def bulk_create_medications(engine: AIOEngine, vendor_id: str, medications_data: List[dict]) -> List[Medication]:
     """
-    Bulk create medications.
+    Bulk create medications with robustness for varied input data.
+    Filters out invalid fields and skips empty/incomplete rows.
     """
     medications = []
-    for data in medications_data:
-        m = Medication(
-            vendor_id=vendor_id,
-            **data
-        )
-        medications.append(m)
     
-    if medications:
-        # Odmantic doesn't have a direct bulk_save, but we can use engine.save for each or access motor directly
-        # For small-medium batches, engine.save in loop or engine.database.get_collection(...).insert_many(...)
-        # Let's use motor directly for performance if possible, or engine.save for simplicity
-        for m in medications:
+    # Identify valid model fields to prevent TypeError from unknown keys
+    valid_fields = set(Medication.model_fields.keys())
+    
+    for data in medications_data:
+        try:
+            # 1. Skip rows missing critical info (e.g., name)
+            if not data.get("name"):
+                print("DEBUG: Skipping medication row with missing name")
+                continue
+                
+            # 2. Filter data to only include valid model fields
+            filtered_data = {
+                k: v for k, v in data.items() 
+                if k in valid_fields and v is not None
+            }
+            
+            # 3. Ensure vendor_id is set
+            filtered_data["vendor_id"] = vendor_id
+            
+            # 4. Instantiate model
+            m = Medication(**filtered_data)
+            
+            # 5. Save individually (Odmantic save)
             await engine.save(m)
+            medications.append(m)
+            
+        except Exception as e:
+            # Log error for this specific row and continue
+            print(f"DEBUG: Error creating medication row: {data.get('name', 'Unknown')}. Error: {e}")
+            continue
             
     return medications

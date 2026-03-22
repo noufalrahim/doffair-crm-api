@@ -35,10 +35,16 @@ async def get_medication_import_template():
     Download a sample XLSX template for medication bulk import.
     """
     columns = [
-        "name", "description", "category", "quantity_to_give", 
-        "stock_quantity", "unit", "base_price", "batch_id", 
-        "manufacturer", "mfd_date", "expiry_date", "dosage", 
-        "frequency", "duration", "notes"
+        "medicine_id", "name", "brand_name", "generic_composition", 
+        "description", "category", "dosage_form", "strength", 
+        "manufacturer", "is_prescription_required", "indications", 
+        "contraindications", "side_effects", "drug_interactions", 
+        "storage_instructions", "schedule_class", "barcode", "qr_code", 
+        "quantity_to_give", "stock_quantity", "unit", "base_price", 
+        "purchase_price", "selling_price", "batch_id", "supplier_name", 
+        "supplier_contact", "mfd_date", "expiry_date", "last_restocked_date", 
+        "pack_size", "units_per_pack", "reorder_level", "reorder_quantity", 
+        "location", "dosage", "frequency", "duration", "notes", "status"
     ]
     
     # Create an empty DataFrame with these columns
@@ -46,21 +52,46 @@ async def get_medication_import_template():
     
     # Add a sample row
     sample_row = {
+        "medicine_id": "SKU-PARA-001",
         "name": "Paracetamol 500mg",
+        "brand_name": "Calpol",
+        "generic_composition": "Paracetamol IP 500mg",
         "description": "Pain reliever and fever reducer",
         "category": "Analgesics",
+        "dosage_form": "Tablet",
+        "strength": "500 mg",
+        "manufacturer": "HealthCorp",
+        "is_prescription_required": False,
+        "indications": "Fever, Headache",
+        "contraindications": "Hypersensitivity",
+        "side_effects": "Nausea",
+        "drug_interactions": "Alcohol",
+        "storage_instructions": "Store below 30°C",
+        "schedule_class": "Schedule H",
+        "barcode": "1234567890",
+        "qr_code": "QR12345",
         "quantity_to_give": "1 tablet",
         "stock_quantity": 100,
         "unit": "TABLET",
         "base_price": 5.0,
+        "purchase_price": 3.0,
+        "selling_price": 5.0,
         "batch_id": "BATCH001",
-        "manufacturer": "HealthCorp",
+        "supplier_name": "ABC Pharma",
+        "supplier_contact": "9876543210",
         "mfd_date": "2024-01-01",
         "expiry_date": "2026-01-01",
+        "last_restocked_date": "2024-03-01",
+        "pack_size": "10 tablets per strip",
+        "units_per_pack": 10,
+        "reorder_level": 20,
+        "reorder_quantity": 50,
+        "location": "Shelf A1",
         "dosage": "500mg",
         "frequency": "Three times a day",
         "duration": "5 days",
-        "notes": "Take after meals"
+        "notes": "Take after meals",
+        "status": "Active"
     }
     df = pd.concat([df, pd.DataFrame([sample_row])], ignore_index=True)
     
@@ -95,28 +126,7 @@ async def create_medication_endpoint(
     medication = await create_medication(engine, vendor_id, data)
     
     response_data = MedicationResponse(
-        id=str(medication.id),
-        vertical_id=medication.vertical_id,
-        vendor_id=medication.vendor_id,
-        name=medication.name,
-        description=medication.description,
-        category=medication.category,
-        quantity_to_give=medication.quantity_to_give,
-        stock_quantity=medication.stock_quantity,
-        unit=medication.unit,
-        base_price=medication.base_price,
-        batch_id=medication.batch_id,
-        manufacturer=medication.manufacturer,
-        mfd_date=medication.mfd_date,
-        expiry_date=medication.expiry_date,
-        images=medication.images,
-        dosage=medication.dosage,
-        frequency=medication.frequency,
-        duration=medication.duration,
-        notes=medication.notes,
-        is_active=medication.is_active,
-        created_at=medication.created_at,
-        updated_at=medication.updated_at
+        **{**medication.model_dump(), "id": str(medication.id)}
     )
     
     return success_response(
@@ -143,28 +153,7 @@ async def list_medications_endpoint(
     
     medication_responses = [
         MedicationResponse(
-            id=str(m.id),
-            vertical_id=m.vertical_id,
-            vendor_id=m.vendor_id,
-            name=m.name,
-            description=m.description,
-            category=m.category,
-            quantity_to_give=m.quantity_to_give,
-            stock_quantity=m.stock_quantity,
-            unit=m.unit,
-            base_price=m.base_price,
-            batch_id=m.batch_id,
-            manufacturer=m.manufacturer,
-            mfd_date=m.mfd_date,
-            expiry_date=m.expiry_date,
-            images=m.images,
-            dosage=m.dosage,
-            frequency=m.frequency,
-            duration=m.duration,
-            notes=m.notes,
-            is_active=m.is_active,
-            created_at=m.created_at,
-            updated_at=m.updated_at
+            **{**m.model_dump(), "id": str(m.id)}
         ).model_dump()
         for m in medications
     ]
@@ -192,28 +181,7 @@ async def get_medication_endpoint(
     medication = await get_medication_by_id(engine, vendor_id, medication_id)
     
     response_data = MedicationResponse(
-        id=str(medication.id),
-        vertical_id=medication.vertical_id,
-        vendor_id=medication.vendor_id,
-        name=medication.name,
-        description=medication.description,
-        category=medication.category,
-        quantity_to_give=medication.quantity_to_give,
-        stock_quantity=medication.stock_quantity,
-        unit=medication.unit,
-        base_price=medication.base_price,
-        batch_id=medication.batch_id,
-        manufacturer=medication.manufacturer,
-        mfd_date=medication.mfd_date,
-        expiry_date=medication.expiry_date,
-        images=medication.images,
-        dosage=medication.dosage,
-        frequency=medication.frequency,
-        duration=medication.duration,
-        notes=medication.notes,
-        is_active=medication.is_active,
-        created_at=medication.created_at,
-        updated_at=medication.updated_at
+        **{**medication.model_dump(), "id": str(medication.id)}
     )
     
     return success_response(
@@ -235,28 +203,7 @@ async def update_medication_endpoint(
     medication = await update_medication(engine, vendor_id, medication_id, data)
     
     response_data = MedicationResponse(
-        id=str(medication.id),
-        vertical_id=medication.vertical_id,
-        vendor_id=medication.vendor_id,
-        name=medication.name,
-        description=medication.description,
-        category=medication.category,
-        quantity_to_give=medication.quantity_to_give,
-        stock_quantity=medication.stock_quantity,
-        unit=medication.unit,
-        base_price=medication.base_price,
-        batch_id=medication.batch_id,
-        manufacturer=medication.manufacturer,
-        mfd_date=medication.mfd_date,
-        expiry_date=medication.expiry_date,
-        images=medication.images,
-        dosage=medication.dosage,
-        frequency=medication.frequency,
-        duration=medication.duration,
-        notes=medication.notes,
-        is_active=medication.is_active,
-        created_at=medication.created_at,
-        updated_at=medication.updated_at
+        **{**medication.model_dump(), "id": str(medication.id)}
     )
     
     return success_response(
@@ -310,9 +257,13 @@ async def bulk_import_medications_endpoint(
     for item in medications_data:
         item['vertical_id'] = vertical_id
     
-    medications = await bulk_create_medications(engine, vendor_id, medications_data)
-    
-    return success_response(
-        message=f"Successfully imported {len(medications)} medications",
-        data={"imported_count": len(medications)}
-    ).model_dump()
+    try:
+        medications = await bulk_create_medications(engine, vendor_id, medications_data)
+        
+        return success_response(
+            message=f"Successfully processed import. {len(medications)} medications imported.",
+            data={"imported_count": len(medications), "received_count": len(medications_data)}
+        ).model_dump()
+    except Exception as e:
+        print(f"ERROR: Bulk import failed: {e}")
+        return error_response(message=f"Bulk import failed: {str(e)}")

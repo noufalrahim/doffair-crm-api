@@ -35,9 +35,15 @@ async def get_store_item_import_template():
     Download a sample XLSX template for store item bulk import.
     """
     columns = [
-        "name", "description", "category", "stock_quantity", 
-        "unit", "base_price", "sku", "manufacturer", 
-        "mfd_date", "expiry_date", "tags"
+        "sku", "name", "brand_name", "generic_composition", 
+        "description", "category", "dosage_form", "strength", 
+        "manufacturer", "is_prescription_required", "indications", 
+        "storage_instructions", "barcode", "qr_code", 
+        "quantity_to_give", "stock_quantity", "unit", "base_price", 
+        "purchase_price", "selling_price", "batch_id", "supplier_name", 
+        "supplier_contact", "mfd_date", "expiry_date", 
+        "location", "pack_size", "reorder_level", "reorder_quantity", 
+        "is_active", "tags"
     ]
     
     # Create an empty DataFrame
@@ -45,16 +51,36 @@ async def get_store_item_import_template():
     
     # Add sample row
     sample_row = {
+        "sku": "ACC-LEA-001",
         "name": "Dog Leash 6ft",
+        "brand_name": "PetPro",
+        "generic_composition": "Nylon",
         "description": "Durable nylon leash for medium dogs",
         "category": "Accessories",
+        "dosage_form": "N/A",
+        "strength": "6ft / Large",
+        "manufacturer": "PetPro",
+        "is_prescription_required": False,
+        "indications": "Daily walking",
+        "storage_instructions": "Store in a dry place",
+        "barcode": "9876543210",
+        "qr_code": "QR98765",
+        "quantity_to_give": "1 piece",
         "stock_quantity": 50,
         "unit": "PIECE",
         "base_price": 299.0,
-        "sku": "ACC-LEA-001",
-        "manufacturer": "PetPro",
+        "purchase_price": 150.0,
+        "selling_price": 299.0,
+        "batch_id": "BATCH-S-001",
+        "supplier_name": "Wholesale Pet Supplies",
+        "supplier_contact": "8887776665",
         "mfd_date": "2024-02-01",
         "expiry_date": "2029-02-01",
+        "location": "Aisle 4, Shelf 2",
+        "pack_size": "1 unit",
+        "reorder_level": 10,
+        "reorder_quantity": 25,
+        "is_active": True,
         "tags": "dog,leash,nylon"
     }
     df = pd.concat([df, pd.DataFrame([sample_row])], ignore_index=True)
@@ -284,9 +310,13 @@ async def bulk_import_store_items_endpoint(
     for item in items_data:
         item['vertical_id'] = vertical_id
         
-    items = await bulk_create_store_items(engine, vendor_id, items_data)
-    
-    return success_response(
-        message=f"Successfully imported {len(items)} store items",
-        data={"imported_count": len(items)}
-    ).model_dump()
+    try:
+        items = await bulk_create_store_items(engine, vendor_id, items_data)
+        
+        return success_response(
+            message=f"Successfully processed import. {len(items)} store items imported.",
+            data={"imported_count": len(items), "received_count": len(items_data)}
+        ).model_dump()
+    except Exception as e:
+        print(f"ERROR: Bulk import failed: {e}")
+        return error_response(message=f"Bulk import failed: {str(e)}")
