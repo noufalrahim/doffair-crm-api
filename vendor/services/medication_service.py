@@ -33,7 +33,9 @@ async def list_medications(
     vendor_id: Optional[str] = None, 
     vertical_id: Optional[str] = None,
     is_active: Optional[bool] = None,
-    search: Optional[str] = None
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None
 ) -> List[Medication]:
     query = []
     if vendor_id:
@@ -47,8 +49,30 @@ async def list_medications(
     if search:
         query.append(Medication.name.match(f"(?i).*{search}.*"))
     
-    medications = await engine.find(Medication, *query)
+    medications = await engine.find(Medication, *query, skip=skip, limit=limit, sort=Medication.created_at.desc())
     return medications
+
+async def count_medications(
+    engine: AIOEngine,
+    vendor_id: Optional[str] = None,
+    vertical_id: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    search: Optional[str] = None
+) -> int:
+    query = []
+    if vendor_id:
+        query.append(Medication.vendor_id == vendor_id)
+    if vertical_id:
+        query.append(Medication.vertical_id == vertical_id)
+        
+    if is_active is not None:
+        query.append(Medication.is_active == is_active)
+    
+    if search:
+        query.append(Medication.name.match(f"(?i).*{search}.*"))
+        
+    count = await engine.count(Medication, *query)
+    return count
 
 async def update_medication(engine: AIOEngine, vendor_id: str, medication_id: str, data: MedicationUpdate) -> Medication:
     medication = await get_medication_by_id(engine, vendor_id, medication_id)

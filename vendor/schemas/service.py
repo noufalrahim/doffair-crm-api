@@ -26,6 +26,7 @@ class ComboServiceCreateRequest(BaseModel):
 
     name: str = Field(..., min_length=3)
     description: Optional[str] = None
+    delivery_mode: ServiceDeliveryMode
     included_service_ids: List[str]
     dog_sizes: Optional[List[DogSize]] = None
     images: List[str] = []
@@ -62,6 +63,7 @@ class VendorServiceUpdateRequest(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     duration_minutes: Optional[int] = None
+    delivery_mode: Optional[ServiceDeliveryMode] = None
     label: Optional[str] = None
     is_active: Optional[bool] = None
     dog_sizes: Optional[List[DogSize]] = None

@@ -14,7 +14,8 @@ from vendor.services.medication_service import (
     list_medications,
     update_medication,
     delete_medication,
-    bulk_create_medications
+    bulk_create_medications,
+    count_medications
 )
 from schemas.common import APIResponse
 from vendor.schemas.medication import (
@@ -139,17 +140,24 @@ async def list_medications_endpoint(
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     search: Optional[str] = Query(None, description="Search by medication name (case-insensitive)"),
     vertical_id: Optional[str] = Query(None, description="Filter by vertical ID"),
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: Optional[int] = Query(None, ge=1, description="Number of items per page"),
     current_vendor: dict = Depends(get_current_vendor),
     engine: AIOEngine = Depends(get_engine)
 ):
     """
-    List all medications for the vendor.
+    List all medications for the vendor with pagination support.
     
     Optional **is_active** filter can be used to show only active/inactive medications.
     Optional **search** filter can be used to search medications by name.
     """
     vendor_id = current_vendor["vendor_id"]
-    medications = await list_medications(engine, vendor_id, vertical_id, is_active, search)
+    
+    # Calculate skip for pagination
+    skip = (page - 1) * limit if limit else 0
+    
+    medications = await list_medications(engine, vendor_id, vertical_id, is_active, search, skip, limit)
+    total_count = await count_medications(engine, vendor_id, vertical_id, is_active, search)
     
     medication_responses = [
         MedicationResponse(
@@ -159,7 +167,7 @@ async def list_medications_endpoint(
     ]
     
     response_data = MedicationListResponse(
-        total=len(medication_responses),
+        total=total_count,
         medications=medication_responses
     )
     

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from odmantic import AIOEngine
@@ -23,6 +23,13 @@ router = APIRouter(
 
 from vendor.schemas.booking import VendorBookingResponse, UserSummary, PetSummary, ServiceSummary, BookingStatusUpdate
 from vendor.models.vendor_service import VendorService
+
+def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBookingResponse:
@@ -152,7 +159,7 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
 
         return VendorBookingResponse(
             id=booking_id,
-            booking_date=booking_doc.get("startTime"),
+            booking_date=ensure_utc(booking_doc.get("startTime")),
             status=status if isinstance(status, str) else str(status),
             service_name=service_name,
             care_professional_id=(
@@ -169,7 +176,7 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
             delivery_mode=booking_doc.get("delivery_mode", "In-Center"),
             final_amount=float(booking_doc.get("bookingAmount", 0)),
             vendor_notes=booking_doc.get("instructions"),
-            created_at=booking_doc.get("createdAt"),
+            created_at=ensure_utc(booking_doc.get("createdAt")),
             user=UserSummary(id=user_info_id, name=user_name, phone=user_phone, email=user_email, image=user_image),
             pet=pet_summary
         )
@@ -261,7 +268,7 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
 
     return VendorBookingResponse(
             id=booking_id,
-            booking_date=booking.booking_date,
+            booking_date=ensure_utc(booking.booking_date),
             status=raw_status if isinstance(raw_status, str) else str(raw_status),
             service_name=booking.service_name,
             care_professional_id=booking.care_professional_id,
@@ -270,7 +277,7 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
             delivery_mode=booking.delivery_mode,
             final_amount=booking.final_amount,
             vendor_notes=booking.vendor_notes,
-            created_at=booking.created_at,
+            created_at=ensure_utc(booking.created_at),
             user=UserSummary(
                 id=user_info_id_modern,
                 name=booking.user_name,

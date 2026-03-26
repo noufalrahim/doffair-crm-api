@@ -15,9 +15,11 @@ class MetricAmountWithGrowth(BaseModel):
     status_amount: str = Field(..., description="Direction of growth for amount: positive, negative, or neutral")
 
 class VerticalStat(BaseModel):
-    completed: int
-    growth: float
-    status: str = Field(..., description="Direction of growth: positive, negative, or neutral")
+    active: int = 0
+    completed: int = 0
+    cancelled: int = 0
+    growth: float = 0.0
+    status: str = Field("neutral", description="Direction of growth: positive, negative, or neutral")
 
 class AnalyticsBookings(BaseModel):
     offline: MetricAmountWithGrowth

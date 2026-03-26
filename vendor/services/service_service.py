@@ -69,6 +69,7 @@ async def create_combo_service(engine: AIOEngine, vendor_id: str, payload):
         description=payload.description,
         service_kind="COMBO",
         included_service_ids=payload.included_service_ids,
+        delivery_mode=payload.delivery_mode,
         dog_sizes=payload.dog_sizes or [],
         base_price=payload.base_price,
         discount_type=payload.discount_type,

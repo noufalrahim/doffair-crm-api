@@ -23,7 +23,7 @@ def get_period_ranges(period: str) -> Tuple[datetime, datetime, datetime, dateti
     """
     Returns (current_start, current_end, previous_start, previous_end)
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     
     if period == "today":
         current_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -60,6 +60,8 @@ def get_growth_status(growth: float) -> str:
     elif growth < 0:
         return "negative"
     return "neutral"
+
+ACTIVE_STATUSES = [BookingStatus.CONFIRMED, BookingStatus.ONGOING, BookingStatus.PENDING_APPROVAL]
 
 async def aggregate_metrics(
     primary_db, 
@@ -114,6 +116,12 @@ async def aggregate_metrics(
     total_completed = await walkin_coll.count_documents({**offline_criteria, "status": "completed"}) + \
                       await online_coll.count_documents({**online_criteria, "status": "completed"})
     
+    total_active = await walkin_coll.count_documents({**offline_criteria, "status": {"$in": ACTIVE_STATUSES}}) + \
+                   await online_coll.count_documents({**online_criteria, "status": {"$in": ACTIVE_STATUSES}})
+
+    total_cancelled = await walkin_coll.count_documents({**offline_criteria, "status": "cancelled"}) + \
+                      await online_coll.count_documents({**online_criteria, "status": {"$in": ["cancelled", "cancelByProvider", "rejected"]}})
+
     vet_codes = ['veteran', 'vet', 'veterinary']
     groomer_codes = ['groomer', 'groom', 'grooming']
     
@@ -129,10 +137,21 @@ async def aggregate_metrics(
         }
         comp = await walkin_coll.count_documents({**p_crit, "status": "completed"}) + \
                await online_coll.count_documents({**s_crit, "status": "completed"})
-        return comp
+        
+        active = await walkin_coll.count_documents({**p_crit, "status": {"$in": ACTIVE_STATUSES}}) + \
+                 await online_coll.count_documents({**s_crit, "status": {"$in": ACTIVE_STATUSES}})
+        
+        cancelled = await walkin_coll.count_documents({**p_crit, "status": "cancelled"}) + \
+                    await online_coll.count_documents({**s_crit, "status": {"$in": ["cancelled", "cancelByProvider", "rejected"]}})
+                    
+        return {
+            "completed": comp,
+            "active": active,
+            "cancelled": cancelled
+        }
 
-    vet_comp = await get_v_data(VET_VERTICAL_ID, vet_codes)
-    groomer_comp = await get_v_data(GROOMER_VERTICAL_ID, groomer_codes)
+    vet_data = await get_v_data(VET_VERTICAL_ID, vet_codes)
+    groomer_data = await get_v_data(GROOMER_VERTICAL_ID, groomer_codes)
 
     off_cust = await walkin_coll.distinct("user_phone", {"vendor_id": vendor_id, "booking_date": {"$gte": start_date, "$lt": end_date}})
     on_cust = await online_coll.distinct("userId", online_criteria)
@@ -145,9 +164,11 @@ async def aggregate_metrics(
         "online_count": total_online_count,
         "online_amount": total_online_amount,
         "total_completed": total_completed,
+        "total_active": total_active,
+        "total_cancelled": total_cancelled,
         "total_bookings": total_offline_count + total_online_count,
-        "vet_completed": vet_comp,
-        "groomer_completed": groomer_comp,
+        "vet": vet_data,
+        "groomer": groomer_data,
         "total_customers": total_cust
     }
 
@@ -224,12 +245,16 @@ async def get_vendor_analytics(
         },
         "verticals": {
             "vet": {
-                "completed": current_metrics["vet_completed"],
+                "active": current_metrics["vet"]["active"],
+                "completed": current_metrics["vet"]["completed"],
+                "cancelled": current_metrics["vet"]["cancelled"],
                 "growth": vet_g,
                 "status": get_growth_status(vet_g)
             },
             "groomer": {
-                "completed": current_metrics["groomer_completed"],
+                "active": current_metrics["groomer"]["active"],
+                "completed": current_metrics["groomer"]["completed"],
+                "cancelled": current_metrics["groomer"]["cancelled"],
                 "growth": groomer_g,
                 "status": get_growth_status(groomer_g)
             }
