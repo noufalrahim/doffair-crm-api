@@ -9,6 +9,7 @@ from vendor.schemas.work_info import (
     VendorWorkInfoRequest,
     VendorWorkInfoUpdateRequest,
 )
+from typing import Optional
 from vendor.services.work_info_service import (
     update_work_info,
     get_work_info,
@@ -24,12 +25,13 @@ router = APIRouter(
 @router.put("/work-info")
 async def create_or_update_work_info(
     payload: VendorWorkInfoRequest,
+    location_id: Optional[str] = None, # Add this
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
     """Create or update work-related info for the vendor."""
     vendor_id = token["vendor_id"]
-    vendor = await update_work_info(engine, vendor_id, payload)
+    vendor = await update_work_info(engine, vendor_id, payload, location_id=location_id)
 
     return success_response(
         message="Work info updated successfully",
@@ -47,12 +49,13 @@ async def create_or_update_work_info(
 @router.patch("/work-info")
 async def patch_work_info(
     payload: VendorWorkInfoUpdateRequest,
+    location_id: Optional[str] = None, # Add this
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
     """Partially update work-related info for the vendor."""
     vendor_id = token["vendor_id"]
-    vendor = await update_work_info(engine, vendor_id, payload)
+    vendor = await update_work_info(engine, vendor_id, payload, location_id=location_id)
 
     return success_response(
         message="Work info updated successfully",
@@ -69,12 +72,13 @@ async def patch_work_info(
 
 @router.get("/work-info")
 async def get_vendor_work_info(
+    location_id: Optional[str] = None, # Add this
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
     """Get work-related info for the vendor."""
     vendor_id = token["vendor_id"]
-    work_info = await get_work_info(engine, vendor_id)
+    work_info = await get_work_info(engine, vendor_id, location_id=location_id)
 
     return success_response(
         message="Work info retrieved successfully",

@@ -2,6 +2,7 @@ from datetime import datetime
 from bson import ObjectId
 from odmantic import AIOEngine
 from fastapi import HTTPException, status
+from typing import Optional, Union
 
 from vendor.models.vendor import Vendor
 from user.models.user import User
@@ -81,6 +82,7 @@ async def update_basic_info(
     engine: AIOEngine,
     vendor_id: str,
     payload: VendorBasicInfoRequest,
+    location_id: Optional[str] = None,
 ) -> Vendor:
     try:
         vendor_oid = ObjectId(vendor_id)
@@ -96,6 +98,26 @@ async def update_basic_info(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Vendor not found",
         )
+
+    # If location_id is provided, update the specific location
+    if location_id:
+        location = await engine.find_one(
+            VendorLocation, 
+            (VendorLocation.id == ObjectId(location_id)) & (VendorLocation.vendor_id == vendor_id)
+        )
+        if not location:
+            raise HTTPException(status_code=404, detail="Location not found")
+        
+        location.legal_name = payload.legal_name
+        location.gst_number = payload.gst_number
+        location.business_registration_number = payload.business_registration_number
+        location.profileImage = payload.profileImage
+        location.coverPhoto = payload.coverPhoto
+        location.updated_at = datetime.utcnow()
+        await engine.save(location)
+        
+        # We still return vendor for the response structure, but the data is in location
+        return vendor
 
     vendor.legal_name = payload.legal_name
     vendor.gst_number = payload.gst_number
@@ -134,11 +156,29 @@ async def update_basic_info_partial(
     engine,
     vendor_id: str,
     payload,
+    location_id: Optional[str] = None,
 ):
     vendor = await engine.find_one(Vendor, Vendor.id == ObjectId(vendor_id))
     ensure_vendor_editable(vendor)
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # If location_id is provided, update the specific location
+    if location_id:
+        location = await engine.find_one(
+            VendorLocation, 
+            (VendorLocation.id == ObjectId(location_id)) & (VendorLocation.vendor_id == vendor_id)
+        )
+        if not location:
+            raise HTTPException(status_code=404, detail="Location not found")
+        
+        for field, value in payload.dict(exclude_unset=True).items():
+            if hasattr(location, field):
+                setattr(location, field, value)
+        
+        location.updated_at = datetime.utcnow()
+        await engine.save(location)
+        return vendor
 
     for field, value in payload.dict(exclude_unset=True).items():
         setattr(vendor, field, value)
@@ -148,7 +188,7 @@ async def update_basic_info_partial(
     return vendor
 
 
-async def get_vendor_onboarding_progress(engine: AIOEngine, vendor_id: str):
+async def get_vendor_onboarding_progress(engine: AIOEngine, vendor_id: str, location_id: Optional[str] = None):
     """
     Calculate vendor onboarding progress
     """
@@ -168,6 +208,16 @@ async def get_vendor_onboarding_progress(engine: AIOEngine, vendor_id: str):
 
     # Step 4: Work Info (New)
     work_info_added = bool(vendor.home_service or vendor.centre_service)
+
+    # If location_id is provided, check specifically for that location's profile/work info
+    if location_id:
+        location = await engine.find_one(
+            VendorLocation, 
+            (VendorLocation.id == ObjectId(location_id)) & (VendorLocation.vendor_id == vendor_id)
+        )
+        if location:
+            basic_info_added = bool(location.legal_name)
+            work_info_added = bool(location.home_service or location.centre_service)
 
     # Step 5: Verticals (Refined)
     vertical_count = await engine.count(

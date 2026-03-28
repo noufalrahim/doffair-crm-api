@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
 from odmantic import AIOEngine
 
 from core.database import get_engine
@@ -58,12 +59,13 @@ async def vendor_signup(
 @router.post("/basic-info")
 async def vendor_basic_info(
     payload: VendorBasicInfoRequest,
+    location_id: Optional[str] = None, # Add this
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
     vendor_id = token.get("vendor_id")
 
-    vendor = await update_basic_info(engine, vendor_id, payload)
+    vendor = await update_basic_info(engine, vendor_id, payload, location_id=location_id)
 
     return success_response(
         message="Basic information saved successfully",
@@ -99,6 +101,7 @@ async def vendor_status(
 
 @router.get("/progress", response_model=dict)
 async def get_onboarding_progress(
+    location_id: Optional[str] = None, # Add this
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
@@ -112,7 +115,7 @@ async def get_onboarding_progress(
             detail="Vendor ID not found in token",
         )
 
-    progress = await get_vendor_onboarding_progress(engine, vendor_id)
+    progress = await get_vendor_onboarding_progress(engine, vendor_id, location_id=location_id)
 
     return success_response(
         message="Onboarding progress retrieved successfully",
@@ -128,12 +131,13 @@ async def get_onboarding_progress(
 @router.patch("/basic-info")
 async def update_vendor_basic_info(
     payload: VendorBasicInfoUpdateRequest,
+    location_id: Optional[str] = None, # Add this
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
     vendor_id = token["vendor_id"]
 
-    vendor = await update_basic_info_partial(engine, vendor_id, payload)
+    vendor = await update_basic_info_partial(engine, vendor_id, payload, location_id=location_id)
 
     return success_response(
         message="Basic info updated",

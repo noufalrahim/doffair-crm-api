@@ -17,6 +17,19 @@ class VendorLocation(Model):
     latitude: float
     longitude: float
 
+    # Location specific profile info
+    legal_name: Optional[str] = None
+    gst_number: Optional[str] = None
+    business_registration_number: Optional[str] = None
+    profileImage: Optional[str] = None
+    coverPhoto: Optional[str] = None
+
+    # Location specific work info
+    home_service: bool = False
+    centre_service: bool = False
+    home_service_radius: Optional[float] = None  # radius in km
+    work_experience: Optional[float] = None
+
     is_active: bool = True
     is_default: bool = False
 

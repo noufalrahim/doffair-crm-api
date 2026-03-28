@@ -8,7 +8,9 @@ from core.database import get_engine
 from core.security import get_current_vendor
 from utils.response import success_response, error_response
 from vendor.models.vendor import Vendor
+from vendor.models.vendor_location import VendorLocation
 from bson import ObjectId
+from typing import Optional
 
 router = APIRouter(
     prefix="/vendor",
@@ -18,6 +20,7 @@ router = APIRouter(
 
 @router.get("/me", response_model=dict)
 async def get_vendor_profile(
+    location_id: Optional[str] = None,
     current_vendor: dict = Depends(get_current_vendor),
     engine: AIOEngine = Depends(get_engine)
 ):
@@ -61,6 +64,32 @@ async def get_vendor_profile(
             "created_at": vendor.created_at.isoformat() if vendor.created_at else None,
             "updated_at": vendor.updated_at.isoformat() if vendor.updated_at else None
         }
+
+        # Override with location-specific data if location_id is provided
+        if location_id:
+            try:
+                loc_oid = ObjectId(location_id)
+                location = await engine.find_one(
+                    VendorLocation,
+                    (VendorLocation.id == loc_oid) & (VendorLocation.vendor_id == vendor_id)
+                )
+                if location:
+                    # Basic info overrides
+                    if location.legal_name: data["legal_name"] = location.legal_name
+                    if location.gst_number: data["gst_number"] = location.gst_number
+                    if location.business_registration_number: data["business_registration_number"] = location.business_registration_number
+                    if location.profileImage: data["profileImage"] = location.profileImage
+                    if location.coverPhoto: data["coverPhoto"] = location.coverPhoto
+                    
+                    # Work info overrides (always override if location exists to support location-specific settings)
+                    # Note: We check if they were set on the location level
+                    data["home_service"] = location.home_service
+                    data["centre_service"] = location.centre_service
+                    if location.home_service_radius is not None: data["home_service_radius"] = location.home_service_radius
+                    if location.work_experience is not None: data["work_experience"] = location.work_experience
+            except Exception as e:
+                # Log error but don't fail, just return base vendor data
+                print(f"Error fetching location profile: {e}")
 
         care_professional_id = current_vendor.get("care_professional_id")
         if care_professional_id:
