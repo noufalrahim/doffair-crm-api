@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from odmantic import AIOEngine
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List, Tuple
 from bson import ObjectId
 
@@ -209,8 +209,8 @@ async def get_vendor_analytics(
     on_g_amount = calculate_growth(current_metrics["online_amount"], previous_metrics["online_amount"])
     total_comp_g = calculate_growth(current_metrics["total_completed"], previous_metrics["total_completed"])
     total_bk_g = calculate_growth(current_metrics["total_bookings"], previous_metrics["total_bookings"])
-    vet_g = calculate_growth(current_metrics["vet_completed"], previous_metrics["vet_completed"])
-    groomer_g = calculate_growth(current_metrics["groomer_completed"], previous_metrics["groomer_completed"])
+    vet_g = calculate_growth(current_metrics["vet"]["completed"], previous_metrics["vet"]["completed"])
+    groomer_g = calculate_growth(current_metrics["groomer"]["completed"], previous_metrics["groomer"]["completed"])
     cust_g = calculate_growth(current_metrics["total_customers"], previous_metrics["total_customers"])
 
     return success_response(data={

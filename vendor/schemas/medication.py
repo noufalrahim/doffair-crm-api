@@ -111,6 +111,11 @@ class MedicationUpdate(BaseModel):
     
     status: Optional[str] = None
     is_active: Optional[bool] = None
+    
+    dosage: Optional[str] = None
+    frequency: Optional[str] = None
+    duration: Optional[str] = None
+    notes: Optional[str] = None
 
 class MedicationResponse(BaseModel):
     id: str
@@ -162,6 +167,11 @@ class MedicationResponse(BaseModel):
     
     images: Optional[list[str]] = None
     image_url: Optional[str] = None
+    
+    dosage: Optional[str] = None
+    frequency: Optional[str] = None
+    duration: Optional[str] = None
+    notes: Optional[str] = ""
     
     status: str
     is_active: bool

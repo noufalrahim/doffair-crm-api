@@ -1,6 +1,6 @@
 from odmantic import AIOEngine
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import HTTPException
 from typing import List, Optional
 
@@ -75,14 +75,44 @@ async def count_medications(
     return count
 
 async def update_medication(engine: AIOEngine, vendor_id: str, medication_id: str, data: MedicationUpdate) -> Medication:
+    print(f"DEBUG: Updating medication {medication_id} for vendor {vendor_id}")
     medication = await get_medication_by_id(engine, vendor_id, medication_id)
     
     update_data = data.model_dump(exclude_unset=True)
+    print(f"DEBUG: Initial update data: {update_data}")
+    
+    # Identify valid model fields to prevent TypeError from unknown keys
+    valid_fields = set(Medication.model_fields.keys())
+    
+    # Handle date and string conversions (str expected in model)
+    string_fields = ["barcode", "qr_code", "supplier_contact", "medicine_id", "batch_id", "mfd_date", "expiry_date", "last_restocked_date"]
+    
+    for key, value in list(update_data.items()):
+        if key not in valid_fields:
+            print(f"DEBUG: Skipping invalid field for medication update: {key}")
+            del update_data[key]
+            continue
+            
+        if value is None:
+            continue
+            
+        # Robust string conversion for numeric-looking fields
+        if key in string_fields:
+            if isinstance(value, (datetime,)):
+                update_data[key] = value.strftime("%Y-%m-%d")
+            elif not isinstance(value, str):
+                if isinstance(value, float) and value.is_integer():
+                    update_data[key] = str(int(value))
+                else:
+                    update_data[key] = str(value)
+            print(f"DEBUG: Field {key} converted to {update_data[key]}")
+
     for key, value in update_data.items():
         setattr(medication, key, value)
     
-    medication.updated_at = datetime.utcnow()
+    medication.updated_at = datetime.now(timezone.utc)
     await engine.save(medication)
+    print(f"DEBUG: Medication {medication_id} updated successfully with keys: {list(update_data.keys())}")
     return medication
 
 async def delete_medication(engine: AIOEngine, vendor_id: str, medication_id: str) -> bool:
@@ -116,11 +146,29 @@ async def bulk_create_medications(engine: AIOEngine, vendor_id: str, medications
             
             # 3. Ensure vendor_id is set
             filtered_data["vendor_id"] = vendor_id
+            # Also ensure vertical_id is explicitly handled if passed in data
+            if "vertical_id" in data and data["vertical_id"]:
+                filtered_data["vertical_id"] = str(data["vertical_id"])
+
+            # 4. Handle date and string conversions (str expected in model)
+            # Some numeric fields like barcode or contact might be read as int/float by pandas
+            string_fields = ["barcode", "qr_code", "supplier_contact", "medicine_id", "batch_id", "mfd_date", "expiry_date", "last_restocked_date"]
+            for field in string_fields:
+                if field in filtered_data:
+                    val = filtered_data[field]
+                    if isinstance(val, (datetime,)):
+                        filtered_data[field] = val.strftime("%Y-%m-%d")
+                    elif not isinstance(val, str) and val is not None:
+                        # Convert numeric types to string (avoiding .0 for integers)
+                        if isinstance(val, float) and val.is_integer():
+                            filtered_data[field] = str(int(val))
+                        else:
+                            filtered_data[field] = str(val)
             
-            # 4. Instantiate model
+            # 5. Instantiate model
             m = Medication(**filtered_data)
             
-            # 5. Save individually (Odmantic save)
+            # 6. Save individually (Odmantic save)
             await engine.save(m)
             medications.append(m)
             
