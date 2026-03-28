@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tax Invoice - {{ invoice_number }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 1px solid #eee;
+            padding: 30px;
+            background: #fff;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+        }
+        .logo span {
+            color: #f39c12;
+        }
+        .company-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .company-details {
+            font-size: 11px;
+            color: #666;
+        }
+        .title {
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 20px 0;
+            letter-spacing: 1px;
+            text-decoration: underline;
+        }
+        .info-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            padding: 10px;
+        }
+        .info-column {
+            width: 48%;
+        }
+        .info-row {
+            display: flex;
+            margin-bottom: 3px;
+        }
+        .info-label {
+            width: 120px;
+            font-weight: bold;
+        }
+        .info-value {
+            flex: 1;
+        }
+        .billing-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .billing-box {
+            width: 48%;
+            border: 1px solid #ddd;
+        }
+        .billing-header {
+            background: #27ae60;
+            color: #fff;
+            padding: 5px 10px;
+            font-weight: bold;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        .billing-content {
+            padding: 10px;
+        }
+        .table-section {
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+        th {
+            background: #f39c12;
+            color: #333;
+            padding: 8px 5px;
+            text-align: center;
+            border: 1px solid #ddd;
+            text-transform: uppercase;
+        }
+        td {
+            padding: 8px 5px;
+            border: 1px solid #ddd;
+            vertical-align: middle;
+        }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-left { text-align: left; }
+        .bold { font-weight: bold; }
+        
+        .totals-section {
+            display: flex;
+            justify-content: space-between;
+        }
+        .word-amount {
+            width: 55%;
+            padding: 10px;
+            border: 1px solid #eee;
+            background: #fdfdfd;
+        }
+        .summary-box {
+            width: 40%;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            border-bottom: 1px dotted #ccc;
+        }
+        .summary-row.final {
+            border-bottom: none;
+            border-top: 2px solid #333;
+            margin-top: 5px;
+            padding-top: 5px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 40px;
+            font-size: 10px;
+            color: #666;
+        }
+        .terms {
+            margin-bottom: 20px;
+        }
+        .thank-you {
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+            text-transform: uppercase;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">ROMS <span>N</span> RAKS</div>
+            <div class="company-name">{{ vendor_name|upper }}</div>
+            <div class="company-details">
+                {{ vendor_address }}<br>
+                {% if vendor_phone %}MOB : {{ vendor_phone }}{% endif %} 
+                {% if vendor_gstin %}GSTIN : {{ vendor_gstin }}{% endif %}
+            </div>
+        </div>
+
+        <div class="title">TAX INVOICE</div>
+
+        <!-- Meta Info -->
+        <div class="info-section">
+            <div class="info-column">
+                <div class="info-row">
+                    <span class="info-label">Invoice No.</span>
+                    <span class="info-value">: <span class="bold">{{ invoice_number }}</span></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Invoice Date</span>
+                    <span class="info-value">: {{ invoice_date.strftime('%d-%m-%Y') }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Invoice Time</span>
+                    <span class="info-value">: {{ invoice_date.strftime('%I:%M %p') }}</span>
+                </div>
+            </div>
+            <div class="info-column">
+                <div class="info-row">
+                    <span class="info-label">Sales Person</span>
+                    <span class="info-value">: {{ vendor_name }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Payment Method</span>
+                    <span class="info-value">: {{ status|upper }} - {{ grand_total }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Billing Info -->
+        <div class="billing-section">
+            <div class="billing-box">
+                <div class="billing-header">BILLED TO</div>
+                <div class="billing-content">
+                    <div class="info-row">
+                        <span class="info-label" style="width: 100px;">Customer name</span>
+                        <span class="info-value">: {{ customer_name }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label" style="width: 100px;">Mobile</span>
+                        <span class="info-value">: {{ customer_phone }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="billing-box">
+                <div class="billing-header">SHIPPED TO</div>
+                <div class="billing-content">
+                    <div class="info-row">
+                        <span class="info-label" style="width: 100px;">Name</span>
+                        <span class="info-value">: {{ customer_name }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label" style="width: 100px;">Mobile</span>
+                        <span class="info-value">: {{ customer_phone }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <div class="table-section">
+            <table>
+                <thead>
+                    <tr>
+                        <th width="30">#</th>
+                        <th>ITEM DESCRIPTION</th>
+                        <th width="70">HSN/SAC</th>
+                        <th width="60">MRP</th>
+                        <th width="40">QTY</th>
+                        <th width="70">AMOUNT</th>
+                        <th width="60">DIS AMOUNT</th>
+                        <th width="80">TAXABLE VALUE</th>
+                        <th width="60">SGST/CGST RATE</th>
+                        <th width="60">TAX AMOUNT</th>
+                        <th width="80">TOTAL AMOUNT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td class="text-center">{{ loop.index }}</td>
+                        <td class="text-left bold">{{ item.name }}</td>
+                        <td class="text-center">{{ item.hsn_sac or '-' }}</td>
+                        <td class="text-right">{{ item.mrp or '-' }}</td>
+                        <td class="text-center">{{ item.quantity }}</td>
+                        <td class="text-right">{{ (item.mrp or item.unit_price) * item.quantity }}</td>
+                        <td class="text-right">{{ item.discount_amount or '-' }}</td>
+                        <td class="text-right">{{ item.taxable_value }}</td>
+                        <td class="text-center">{{ item.tax_rate }}%</td>
+                        <td class="text-right">{{ item.tax_amount }}</td>
+                        <td class="text-right bold">{{ item.subtotal }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="bold" style="background: #f9f9f9;">
+                        <td colspan="4" class="text-right">TOTAL</td>
+                        <td class="text-center">{{ items|sum(attribute='quantity') }}</td>
+                        <td colspan="5"></td>
+                        <td class="text-right">{{ grand_total }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Summary -->
+        <div class="totals-section">
+            <div class="word-amount">
+                <div class="bold" style="margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Total Invoice amount in words</div>
+                <div style="font-style: italic; color: #555;">{{ grand_total_words }}</div>
+            </div>
+            <div class="summary-box">
+                <div class="summary-row">
+                    <span>Total Taxable amount :</span>
+                    <span class="bold">{{ items|sum(attribute='taxable_value') }}</span>
+                </div>
+                {% for key, val in tax_details.items() %}
+                <div class="summary-row">
+                    <span>(+) {{ key|lower }} :</span>
+                    <span>{{ val }}</span>
+                </div>
+                {% endfor %}
+                <div class="summary-row" style="margin-top: 10px;">
+                    <span>Total MRP :</span>
+                    <span>{{ items|sum(attribute='mrp') }}</span>
+                </div>
+                <div class="summary-row">
+                    <span>SUB TOTAL :</span>
+                    <span>{{ items|sum(attribute='subtotal') }}</span>
+                </div>
+                <div class="summary-row">
+                    <span>ROUNDING OFF :</span>
+                    <span>{{ rounding_off }}</span>
+                </div>
+                <div class="summary-row final">
+                    <span>TOTAL :</span>
+                    <span>INR {{ grand_total }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div class="terms">
+                <div class="bold">Terms & Conditions</div>
+                <ul>
+                    <li>Any quality issue/damages/short deliveries must be reported on the same day to avail any claims</li>
+                    <li>Only unused material is eligible for any claims</li>
+                    <li>All disputes are subjected to Kerala jurisdiction</li>
+                    <li>Loyalty Points Can Only Be Redeemed On Grooming Services</li>
+                </ul>
+            </div>
+            <div class="thank-you">THANK YOU VISIT AGAIN</div>
+        </div>
+    </div>
+</body>
+</html>

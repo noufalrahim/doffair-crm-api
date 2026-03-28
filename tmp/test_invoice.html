@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tax Invoice - 25-INV-WF-2448</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 1px solid #eee;
+            padding: 30px;
+            background: #fff;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+        }
+        .logo span {
+            color: #f39c12;
+        }
+        .company-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .company-details {
+            font-size: 11px;
+            color: #666;
+        }
+        .title {
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 20px 0;
+            letter-spacing: 1px;
+            text-decoration: underline;
+        }
+        .info-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            padding: 10px;
+        }
+        .info-column {
+            width: 48%;
+        }
+        .info-row {
+            display: flex;
+            margin-bottom: 3px;
+        }
+        .info-label {
+            width: 120px;
+            font-weight: bold;
+        }
+        .info-value {
+            flex: 1;
+        }
+        .billing-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .billing-box {
+            width: 48%;
+            border: 1px solid #ddd;
+        }
+        .billing-header {
+            background: #27ae60;
+            color: #fff;
+            padding: 5px 10px;
+            font-weight: bold;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        .billing-content {
+            padding: 10px;
+        }
+        .table-section {
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+        th {
+            background: #f39c12;
+            color: #333;
+            padding: 8px 5px;
+            text-align: center;
+            border: 1px solid #ddd;
+            text-transform: uppercase;
+        }
+        td {
+            padding: 8px 5px;
+            border: 1px solid #ddd;
+            vertical-align: middle;
+        }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-left { text-align: left; }
+        .bold { font-weight: bold; }
+        
+        .totals-section {
+            display: flex;
+            justify-content: space-between;
+        }
+        .word-amount {
+            width: 55%;
+            padding: 10px;
+            border: 1px solid #eee;
+            background: #fdfdfd;
+        }
+        .summary-box {
+            width: 40%;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            border-bottom: 1px dotted #ccc;
+        }
+        .summary-row.final {
+            border-bottom: none;
+            border-top: 2px solid #333;
+            margin-top: 5px;
+            padding-top: 5px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 40px;
+            font-size: 10px;
+            color: #666;
+        }
+        .terms {
+            margin-bottom: 20px;
+        }
+        .thank-you {
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+            text-transform: uppercase;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">ROMS <span>N</span> RAKS</div>
+            <div class="company-name">EVERTUSK DISTRIBUTIONS PRIVATE LIMITED</div>
+            <div class="company-details">
+                Roms N Raks Pet Store No 441/343, Ground Floor Opposite D Mart Whitefield, Main Road Siddapura, Bangalore Karnataka 560066<br>
+                MOB : 8589010081 
+                GSTIN : 29AAICE2439G1Z
+            </div>
+        </div>
+
+        <div class="title">TAX INVOICE</div>
+
+        <!-- Meta Info -->
+        <div class="info-section">
+            <div class="info-column">
+                <div class="info-row">
+                    <span class="info-label">Invoice No.</span>
+                    <span class="info-value">: <span class="bold">25-INV-WF-2448</span></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Invoice Date</span>
+                    <span class="info-value">: 26-03-2026</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Invoice Time</span>
+                    <span class="info-value">: 06:04 PM</span>
+                </div>
+            </div>
+            <div class="info-column">
+                <div class="info-row">
+                    <span class="info-label">Sales Person</span>
+                    <span class="info-value">: EVERTUSK DISTRIBUTIONS PRIVATE LIMITED</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Payment Method</span>
+                    <span class="info-value">: PAID - 1351.0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Billing Info -->
+        <div class="billing-section">
+            <div class="billing-box">
+                <div class="billing-header">BILLED TO</div>
+                <div class="billing-content">
+                    <div class="info-row">
+                        <span class="info-label" style="width: 100px;">Customer name</span>
+                        <span class="info-value">: Mourya</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label" style="width: 100px;">Mobile</span>
+                        <span class="info-value">: 9985750207</span>
+                    </div>
+                </div>
+            </div>
+            <div class="billing-box">
+                <div class="billing-header">SHIPPED TO</div>
+                <div class="billing-content">
+                    <div class="info-row">
+                        <span class="info-label" style="width: 100px;">Name</span>
+                        <span class="info-value">: Mourya</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label" style="width: 100px;">Mobile</span>
+                        <span class="info-value">: 9985750207</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <div class="table-section">
+            <table>
+                <thead>
+                    <tr>
+                        <th width="30">#</th>
+                        <th>ITEM DESCRIPTION</th>
+                        <th width="70">HSN/SAC</th>
+                        <th width="60">MRP</th>
+                        <th width="40">QTY</th>
+                        <th width="70">AMOUNT</th>
+                        <th width="60">DIS AMOUNT</th>
+                        <th width="80">TAXABLE VALUE</th>
+                        <th width="60">SGST/CGST RATE</th>
+                        <th width="60">TAX AMOUNT</th>
+                        <th width="80">TOTAL AMOUNT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr>
+                        <td class="text-center">1</td>
+                        <td class="text-left bold">Bb Fofos Flexy Ball Ultra Bounce Toy-M</td>
+                        <td class="text-center">39269069</td>
+                        <td class="text-right">540.0</td>
+                        <td class="text-center">1</td>
+                        <td class="text-right">540.0</td>
+                        <td class="text-right">81.0</td>
+                        <td class="text-right">388.98</td>
+                        <td class="text-center">18.0%</td>
+                        <td class="text-right">70.02</td>
+                        <td class="text-right bold">459.0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td class="text-center">2</td>
+                        <td class="text-left bold">Pets Way Dog T-shirt Printed 5XL</td>
+                        <td class="text-center">61099010</td>
+                        <td class="text-right">1049.0</td>
+                        <td class="text-center">1</td>
+                        <td class="text-right">1049.0</td>
+                        <td class="text-right">157.35</td>
+                        <td class="text-right">849.19</td>
+                        <td class="text-center">5.0%</td>
+                        <td class="text-right">42.46</td>
+                        <td class="text-right bold">891.65</td>
+                    </tr>
+                    
+                    <tr class="bold" style="background: #f9f9f9;">
+                        <td colspan="4" class="text-right">TOTAL</td>
+                        <td class="text-center">2</td>
+                        <td colspan="5"></td>
+                        <td class="text-right">1351.0</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Summary -->
+        <div class="totals-section">
+            <div class="word-amount">
+                <div class="bold" style="margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Total Invoice amount in words</div>
+                <div style="font-style: italic; color: #555;">(Amount in words will be displayed here based on total 1351.0)</div>
+            </div>
+            <div class="summary-box">
+                <div class="summary-row">
+                    <span>Total Taxable amount :</span>
+                    <span class="bold">1238.17</span>
+                </div>
+                
+                <div class="summary-row">
+                    <span>(+) sgst 9.0% :</span>
+                    <span>35.01</span>
+                </div>
+                
+                <div class="summary-row">
+                    <span>(+) cgst 9.0% :</span>
+                    <span>35.01</span>
+                </div>
+                
+                <div class="summary-row">
+                    <span>(+) sgst 2.5% :</span>
+                    <span>21.23</span>
+                </div>
+                
+                <div class="summary-row">
+                    <span>(+) cgst 2.5% :</span>
+                    <span>21.23</span>
+                </div>
+                
+                <div class="summary-row" style="margin-top: 10px;">
+                    <span>Total MRP :</span>
+                    <span>1589.0</span>
+                </div>
+                <div class="summary-row">
+                    <span>SUB TOTAL :</span>
+                    <span>1350.65</span>
+                </div>
+                <div class="summary-row">
+                    <span>ROUNDING OFF :</span>
+                    <span>0.35</span>
+                </div>
+                <div class="summary-row final">
+                    <span>TOTAL :</span>
+                    <span>INR 1351.0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div class="terms">
+                <div class="bold">Terms & Conditions</div>
+                <ul>
+                    <li>Any quality issue/damages/short deliveries must be reported on the same day to avail any claims</li>
+                    <li>Only unused material is eligible for any claims</li>
+                    <li>All disputes are subjected to Kerala jurisdiction</li>
+                    <li>Loyalty Points Can Only Be Redeemed On Grooming Services</li>
+                </ul>
+            </div>
+            <div class="thank-you">THANK YOU VISIT AGAIN</div>
+        </div>
+    </div>
+</body>
+</html>

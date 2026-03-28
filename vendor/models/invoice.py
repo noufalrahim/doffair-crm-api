@@ -9,9 +9,15 @@ class InvoiceItem(EmbeddedModel):
     Line item for an invoice
     """
     name: str
+    hsn_sac: Optional[str] = None
+    mrp: Optional[float] = 0.0
     quantity: int = 1
     unit_price: float = 0.0
-    subtotal: float = 0.0
+    discount_amount: float = 0.0
+    taxable_value: float = 0.0
+    tax_rate: float = 0.0  # Percentage (e.g., 18.0)
+    tax_amount: float = 0.0
+    subtotal: float = 0.0  # Total for this item (taxable_value + tax_amount)
 
 
 class Invoice(Model):
@@ -27,14 +33,29 @@ class Invoice(Model):
     invoice_date: datetime = Field(default_factory=datetime.utcnow)
     due_date: Optional[datetime] = None
     
+    # Cached details for the invoice
+    vendor_name: Optional[str] = None
+    vendor_address: Optional[str] = None
+    vendor_gstin: Optional[str] = None
+    vendor_phone: Optional[str] = None
+    
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
+    customer_pincode: Optional[str] = None
+    
     items: List[InvoiceItem] = []
     notes: Optional[str] = None
     
     tax_amount: float = 0.0
     discount_amount: float = 0.0
+    rounding_off: float = 0.0
     grand_total: float = 0.0
+    grand_total_words: Optional[str] = None
     paid_amount: float = 0.0
     balance_due: float = 0.0
+    
+    # Detailed tax breakdown (e.g., {"SGST 9%": 35.01, "CGST 9%": 35.01})
+    tax_details: dict = {}
     
     status: InvoiceStatus = InvoiceStatus.DRAFT
     

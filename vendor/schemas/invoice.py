@@ -7,8 +7,14 @@ from core.enums import InvoiceStatus
 class InvoiceItemSchema(BaseModel):
     """Line item for an invoice"""
     name: str
+    hsn_sac: Optional[str] = None
+    mrp: Optional[float] = 0.0
     quantity: int = Field(1, gt=0)
     unit_price: float = Field(0.0, ge=0)
+    discount_amount: float = Field(0.0, ge=0)
+    taxable_value: float = Field(0.0, ge=0)
+    tax_rate: float = Field(0.0, ge=0)
+    tax_amount: float = Field(0.0, ge=0)
     subtotal: float = Field(0.0, ge=0)
 
 
@@ -23,6 +29,7 @@ class InvoiceCreateRequest(BaseModel):
     notes: Optional[str] = None
     tax_amount: float = 0.0
     discount_amount: float = 0.0
+    rounding_off: float = 0.0
     
     # Grand total can be provided or calculated
     grand_total: Optional[float] = Field(None, gt=0)
@@ -47,13 +54,25 @@ class InvoiceResponse(BaseModel):
     booking_id: Optional[str] = None
     vertical_id: Optional[str] = None
     
+    vendor_name: Optional[str] = None
+    vendor_address: Optional[str] = None
+    vendor_gstin: Optional[str] = None
+    vendor_phone: Optional[str] = None
+    
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
+    customer_pincode: Optional[str] = None
+    
     items: List[InvoiceItemSchema] = []
     notes: Optional[str] = None
     tax_amount: float = 0.0
     discount_amount: float = 0.0
+    rounding_off: float = 0.0
     grand_total: float = 0.0
+    grand_total_words: Optional[str] = None
     paid_amount: float = 0.0
     balance_due: float = 0.0
+    tax_details: dict = {}
     status: InvoiceStatus
     created_at: datetime
     updated_at: datetime
