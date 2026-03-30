@@ -3,7 +3,7 @@ import string
 from datetime import datetime
 from typing import Optional, List, Tuple
 from odmantic import AIOEngine
-from bson import ObjectId
+from bson import ObjectId, DBRef
 from fastapi import HTTPException, status
 import logging
 
@@ -19,6 +19,7 @@ from vendor.schemas.invoice import (
     InvoiceItemSchema
 )
 from core.enums import InvoiceStatus
+from core.database import get_secondary_engine
 from notifications.events.publisher import event_publisher
 from notifications.events.types import EventType, EventSource
 
@@ -120,6 +121,24 @@ def num_to_words(n: float) -> str:
     return res.strip().upper() + " RUPEES ONLY"
 
 
+async def generate_unique_invoice_number(engine: AIOEngine, vendor_id: str) -> str:
+    """
+    Generate a unique invoice number.
+    Format: INV-YYYY-RANDOM (e.g., INV-2024-A7B2)
+    """
+    year = datetime.utcnow().year
+    
+    while True:
+        # Generate a random 4-char suffix to ensure global uniqueness and maintain some pattern
+        suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+        invoice_number = f"INV-{year}-{suffix}"
+        
+        # Check if exists
+        exists = await engine.find_one(Invoice, Invoice.invoice_number == invoice_number)
+        if not exists:
+            return invoice_number
+
+
 async def create_invoice(engine: AIOEngine, vendor_id: str, payload: InvoiceCreateRequest) -> Invoice:
     """Create a new itemized invoice with detailed data population"""
     invoice_number = await generate_unique_invoice_number(engine, vendor_id)
@@ -136,10 +155,47 @@ async def create_invoice(engine: AIOEngine, vendor_id: str, payload: InvoiceCrea
         except Exception:
             pass
 
-    # Fetch User data
-    user = await engine.find_one(User, User.id == ObjectId(payload.customer_id))
+    # Resolve Customer ID and Fetch User data
+    customer_id = booking.user_id if booking else payload.customer_id
+    print(f"[INVOICE DEBUG] customer_id resolved to: '{customer_id}'")
+    
+    user = None
+    if customer_id:
+        try:
+            # Users live in secondary DB (doffair_dev)
+            user_engine = get_secondary_engine()
+            user_col = user_engine.database.get_collection("users")
+            user_info_col = user_engine.database.get_collection("userInfo")
             
-    # Process items
+            
+            uid = ObjectId(customer_id) if ObjectId.is_valid(customer_id) else customer_id
+            
+            raw_user = await user_col.find_one({"_id": uid})
+            
+            if raw_user:
+                # Get User info
+                user_info = await user_info_col.find_one({"userId": DBRef("users", uid)})
+                if not user_info:
+                    user_info = await user_info_col.find_one({"userId": uid})
+                
+                class _U:
+                    pass
+                u = _U()
+                
+                if user_info and user_info.get("name"):
+                    u.name = user_info.get("name")
+                else:
+                    u.name = raw_user.get("username") or raw_user.get("firstName") or "Customer"
+                
+                u.email = raw_user.get("email", "")
+                u.phone = raw_user.get("phoneNumber") or raw_user.get("phone", "")
+                
+                user = u
+                
+            print(f"[INVOICE DEBUG] User lookup result: {'FOUND' if user else 'NOT FOUND'} | email='{user.email if user else ''}' | phone='{user.phone if user else ''}' | name='{user.name if user else ''}'")
+        except Exception as ue:
+            print(f"[INVOICE DEBUG] User lookup failed: {ue}")
+    
     invoice_items = []
     if not payload.items and booking:
         # Auto-generate item from booking if no items provided
@@ -182,7 +238,7 @@ async def create_invoice(engine: AIOEngine, vendor_id: str, payload: InvoiceCrea
     
     invoice = Invoice(
         vendor_id=vendor_id,
-        customer_id=payload.customer_id,
+        customer_id=customer_id,
         booking_id=payload.booking_id,
         vertical_id=payload.vertical_id or (booking.vertical_id if booking else None),
         invoice_number=invoice_number,
@@ -213,6 +269,45 @@ async def create_invoice(engine: AIOEngine, vendor_id: str, payload: InvoiceCrea
     
     await engine.save(invoice)
     logger.info(f"✅ Itemized Invoice created: {invoice_number}")
+    
+    # Send invoice via email immediately on creation
+    try:
+        # Resolve email — prioritize live DB user, then booking cache
+        resolved_email = (user.email if user else None) or (booking.user_email if booking else None) or ""
+        resolved_phone = (user.phone if user else None) or (booking.user_phone if booking else None) or ""
+        resolved_name = (user.name if user else None) or (booking.user_name if booking else None) or "Customer"
+        print(f"[INVOICE] 📧 Triggering email for invoice {invoice_number}")
+        print(f"[INVOICE]    → To: {resolved_email} | Phone: {resolved_phone} | Name: {resolved_name}")
+        event_publisher.publish(
+            event_type=EventType.INVOICE_SENT,
+            source=EventSource.VENDOR_SERVICE,
+            data={
+                "invoice_id": str(invoice.id),
+                "invoice_number": invoice.invoice_number,
+                "invoice_date": invoice.invoice_date.strftime("%Y-%m-%d"),
+                "vendor_id": vendor_id,
+                "customer_id": customer_id,
+                "user_id": customer_id,
+                "customer_name": resolved_name,
+                "user_name": resolved_name,
+                "user_phone": resolved_phone,
+                "user_email": resolved_email,
+                "grand_total": f"{invoice.grand_total:,.2f}",
+                "balance_due": f"{invoice.balance_due:,.2f}",
+                "due_date": invoice.due_date.strftime("%Y-%m-%d") if invoice.due_date else "N/A",
+                "service_name": booking.service_name if booking else (invoice.items[0].name if invoice.items else "Service"),
+                "service_date": booking.booking_date.strftime("%Y-%m-%d") if (booking and booking.booking_date) else invoice.invoice_date.strftime("%Y-%m-%d"),
+                "vendor_name": vendor.legal_name if vendor else "Doffair Vendor",
+                "vendor_phone": vendor.primary_contact_phone if vendor else "",
+                "vendor_email": "",
+                "template_id": "InvoiceSent"
+            }
+        )
+        print(f"[INVOICE] ✅ Invoice email event published for {invoice_number}")
+    except Exception as e:
+        print(f"[INVOICE] ❌ Failed to send invoice email: {str(e)}")
+        logger.error(f"❌ Failed to publish invoice email event: {str(e)}")
+    
     return invoice
 
 
@@ -292,7 +387,33 @@ async def update_invoice(
     if invoice.status == InvoiceStatus.SENT:
         # Trigger Notification
         # We need to fetch the customer/user to get their phone/email if not in payload
-        user = await engine.find_one(User, User.id == ObjectId(invoice.customer_id))
+        user_engine = get_secondary_engine()
+        user_col = user_engine.database.get_collection("users")
+        user_info_col = user_engine.database.get_collection("userInfo")
+        
+        
+        uid = ObjectId(invoice.customer_id) if ObjectId.is_valid(invoice.customer_id) else invoice.customer_id
+        
+        raw_user = await user_col.find_one({"_id": uid}) if invoice.customer_id else None
+        class _U:
+            pass
+        user = None
+        if raw_user:
+            user = _U()
+            user.email = raw_user.get("email", "")
+            user.phone = raw_user.get("phoneNumber") or raw_user.get("phone", "")
+            
+            user_info = await user_info_col.find_one({"userId": DBRef("users", uid)})
+            if not user_info:
+                user_info = await user_info_col.find_one({"userId": uid})
+                
+            if user_info and user_info.get("name"):
+                user.name = user_info.get("name")
+            else:
+                user.name = raw_user.get("name") or raw_user.get("username") or raw_user.get("firstName", "Customer")
+        
+        # Fetch vendor for data enrichment
+        vendor = await engine.find_one(Vendor, Vendor.id == ObjectId(invoice.vendor_id))
         
         event_publisher.publish(
             event_type=EventType.INVOICE_SENT,
@@ -300,15 +421,22 @@ async def update_invoice(
             data={
                 "invoice_id": str(invoice.id),
                 "invoice_number": invoice.invoice_number,
+                "invoice_date": invoice.invoice_date.strftime("%Y-%m-%d"),
                 "vendor_id": invoice.vendor_id,
                 "customer_id": invoice.customer_id,
                 "user_id": invoice.customer_id,
-                "user_name": user.username if user else "Customer",
-                "user_phone": user.phoneNumber if user else "",
+                "customer_name": user.name if user else "Customer",
+                "user_name": user.name if user else "Customer",
+                "user_phone": user.phone if user else "",
                 "user_email": user.email if user else "",
-                "grand_total": invoice.grand_total,
+                "grand_total": f"{invoice.grand_total:,.2f}",
+                "balance_due": f"{invoice.balance_due:,.2f}",
                 "due_date": invoice.due_date.strftime("%Y-%m-%d") if invoice.due_date else "N/A",
-                "vendor_name": "Doffair Vendor", # Ideally fetch vendor name
+                "service_name": invoice.items[0].name if invoice.items else "Service",
+                "service_date": invoice.invoice_date.strftime("%Y-%m-%d"),
+                "vendor_name": vendor.legal_name if vendor else "Doffair Vendor",
+                "vendor_phone": vendor.primary_contact_phone if vendor else "",
+                "vendor_email": vendor.email if hasattr(vendor, 'email') else "",
                 "template_id": "InvoiceSent"
             }
         )

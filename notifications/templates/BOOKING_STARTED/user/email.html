@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: sans-serif; line-height: 1.5; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px; }
+        .header { background: #4CAF50; color: white; padding: 15px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { padding: 20px; }
+        .footer { font-size: 0.8em; color: #777; text-align: center; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Service Started!</h2>
+        </div>
+        <div class="content">
+            <p>Hi {{ user_name }},</p>
+            <p>Great news! The vendor has started your service for <strong>{{ service_name }}</strong>.</p>
+            <p><strong>Booking ID:</strong> {{ booking_id }}</p>
+            {% if care_professional_name %}
+            <p><strong>Care Professional:</strong> {{ care_professional_name }}</p>
+            {% endif %}
+            <p>We hope you have a great experience. You will be notified once the service is completed.</p>
+        </div>
+        <div class="footer">
+            <p>&copy; 2026 Doffair. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

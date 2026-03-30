@@ -13,7 +13,12 @@ from notifications.models.notification import NotificationLog, InAppNotification
 from notifications.handlers.email_handler import EmailHandler
 from notifications.handlers.sms_handler import SMSHandler
 from notifications.handlers.whatsapp_handler import WhatsAppHandler
-from core.database import get_engine
+from notifications.services.pdf_service import pdf_service
+from core.database import get_engine, get_secondary_engine
+from core.enums import InvoiceStatus
+from vendor.models.invoice import Invoice
+from user.models.user import User
+from odmantic import ObjectId
 
 engine = get_engine()
 
@@ -93,10 +98,10 @@ async def process_recipient(
     recipient_role: RecipientRole
 ) -> List[Dict[str, Any]]:
     try:
+        role_str = recipient_role.value if hasattr(recipient_role, 'value') else str(recipient_role)
         recipient_id = extract_recipient_id(event.data, recipient_role)
         
         if not recipient_id:
-            role_str = recipient_role.value if hasattr(recipient_role, 'value') else str(recipient_role)
             logger.warning(
                 f"⚠️ Could not extract recipient ID for role {role_str} "
                 f"from event {event.event_id}"
@@ -110,6 +115,8 @@ async def process_recipient(
             return []
         
         channels = notification_router.get_channels(event.event_type, recipient_role)
+        channel_names = [c.value if hasattr(c, 'value') else str(c) for c in channels]
+        logger.info(f"📤 Event {event.event_id} for role={role_str} recipient={recipient_id} → channels: {channel_names}")
         
         results = []
         for channel in channels:
@@ -257,10 +264,32 @@ async def send_email_notification(
 ) -> bool:
     try:
         email = extract_email(event.data, recipient_role)
+        print(f"[EMAIL] Extracted email for {recipient_id}: '{email}'")
+        
+        # Fallback: if email is empty, try fetching from DB using user_id/customer_id
         if not email:
+            fallback_uid = event.data.get("user_id") or event.data.get("customer_id")
+            if fallback_uid:
+                print(f"[EMAIL] ⚠️ Empty email — DB lookup for user_id={fallback_uid}")
+                try:
+                    # Users live in secondary DB (doffair_dev)
+                    sec_engine = get_secondary_engine()
+                    user_col = sec_engine.database.get_collection("users")
+                    raw = await user_col.find_one({"_id": ObjectId(fallback_uid)})
+                    if raw and raw.get("email"):
+                        email = raw["email"]
+                        print(f"[EMAIL] ✅ DB fallback found email: '{email}'")
+                    else:
+                        print(f"[EMAIL] ❌ DB fallback: user not found or email empty for id={fallback_uid}. Raw={raw}")
+                except Exception as db_err:
+                    print(f"[EMAIL] ❌ DB fallback error: {db_err}")
+        
+        if not email:
+            print(f"[EMAIL] ⚠️ No email found for recipient {recipient_id}. Data keys: {list(event.data.keys())}")
             logger.warning(f"⚠️ No email found for recipient {recipient_id}")
             return False
         
+        print(f"[EMAIL] 📧 Sending email to: {email} | Subject: {get_notification_title(event.event_type)}")
         handler = EmailHandler()
         notification_data = {
             "recipient_email": email,
@@ -269,12 +298,41 @@ async def send_email_notification(
             "notification_id": event.event_id,
             "data": event.data
         }
+
+        # Handle Invoice PDF Attachment
+        if event.event_type == EventType.INVOICE_SENT:
+            invoice_id = event.data.get("invoice_id")
+            if invoice_id:
+                try:
+                    invoice = await engine.find_one(Invoice, Invoice.id == ObjectId(invoice_id))
+                    if invoice:
+                        invoice_dict = invoice.model_dump()
+                        pdf_content = pdf_service.generate_invoice_pdf(invoice_dict)
+                        
+                        if pdf_content:
+                            if "attachments" not in notification_data:
+                                notification_data["attachments"] = []
+                            
+                            notification_data["attachments"].append({
+                                "filename": f"Invoice_{invoice.invoice_number}.pdf",
+                                "content": pdf_content
+                            })
+                            logger.info(f"📎 Attached PDF for invoice {invoice.invoice_number}")
+                except Exception as ex:
+                    logger.error(f"❌ Failed to attach PDF to email: {str(ex)}")
+
         result = await handler.send(notification_data)
-        
-        return result.get("success", False)
+        success = result.get("success", False)
+        if success:
+            print(f"[EMAIL] ✅ Email sent successfully to {email}")
+        else:
+            print(f"[EMAIL] ❌ Email send returned failure for {email}")
+        return success
         
     except Exception as e:
+        print(f"[EMAIL] ❌ Exception while sending email: {str(e)}")
         logger.error(f"❌ Failed to send email: {str(e)}")
+        import traceback; traceback.print_exc()
         return False
 
 
@@ -285,23 +343,33 @@ async def send_sms_notification(
 ) -> bool:
     try:
         phone = extract_phone(event.data)
+        print(f"[SMS] Extracted phone for {recipient_id}: '{phone}'")
         if not phone:
+            print(f"[SMS] ⚠️ No phone found in event data for recipient {recipient_id}. Data keys: {list(event.data.keys())}")
             logger.warning(f"⚠️ No phone found for recipient {recipient_id}")
             return False
         
+        print(f"[SMS] 📱 Sending SMS to: {phone} | Template: {event.data.get('template_id')}")
         handler = SMSHandler()
         notification_data = {
             "recipient_phone": phone,
             "body": content,
             "notification_id": event.event_id,
+            "template_id": event.data.get("template_id"),
             "data": event.data
         }
         result = await handler.send(notification_data)
-        
-        return result.get("success", False)
+        success = result.get("success", False)
+        if success:
+            print(f"[SMS] ✅ SMS sent successfully to {phone}")
+        else:
+            print(f"[SMS] ❌ SMS send returned failure for {phone}")
+        return success
         
     except Exception as e:
+        print(f"[SMS] ❌ Exception while sending SMS: {str(e)}")
         logger.error(f"❌ Failed to send SMS: {str(e)}")
+        import traceback; traceback.print_exc()
         return False
 
 
@@ -369,7 +437,8 @@ def get_notification_title(event_type: EventType) -> str:
         "BOOKING_CANCELLED": "Booking Cancelled",
         "BOOKING_RESCHEDULED": "Booking Rescheduled",
         "BOOKING_CONFIRMED": "Booking Confirmed by Vendor",
-        "BOOKING_COMPLETED": "Booking Completed",
+        "BOOKING_COMPLETED": "Service Completed",
+        "BOOKING_STARTED": "Service Started",
         "PAYMENT_SUCCESS": "Payment Successful",
         "PAYMENT_FAILED": "Payment Failed",
         "PAYMENT_REFUNDED": "Payment Refunded",

@@ -83,6 +83,14 @@ class SMSHandler(BaseNotificationHandler):
                     params["var3"] = data.get("postpone_date", "N/A")
                     params["var4"] = data.get("postpone_time", "N/A")
                     params["var5"] = data.get("vendor_name", "Doffair Vendor")
+                elif template_name == "BookingStarted":
+                    params["var1"] = data.get("user_name", "Customer")
+                    params["var2"] = data.get("service_name", "Service")
+                    params["var3"] = data.get("booking_id", "N/A")
+                elif template_name == "BookingCompleted":
+                    params["var1"] = data.get("user_name", "Customer")
+                    params["var2"] = data.get("service_name", "Service")
+                    params["var3"] = data.get("booking_id", "N/A")
                 else:
                     # Generic mapping for other templates (up to 5 vars)
                     for i in range(1, 6):
@@ -90,6 +98,7 @@ class SMSHandler(BaseNotificationHandler):
                         if val:
                             params[f"var{i}"] = val
 
+                logger.info(f"📱 Attempting to send SMS to {recipient_phone} via 2Factor API")
                 async with aiohttp.ClientSession() as session:
                     async with session.get(self.api_url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as response:
                         response_text = await response.text()
@@ -101,6 +110,8 @@ class SMSHandler(BaseNotificationHandler):
                         if response.status != 200 or response_data.get("Status") != "Success":
                             logger.error(f"❌ 2Factor API Error: {response_text}")
                             raise Exception(f"2Factor API error: {response_data}")
+                        
+                        logger.info(f"✅ SMS successfully sent to {recipient_phone}. Status: {response_data.get('Status')}, Details: {response_data.get('Details')}")
                         
                         metadata = {
                             "recipient": recipient_phone,
@@ -118,6 +129,7 @@ class SMSHandler(BaseNotificationHandler):
             }
             
         except Exception as e:
-            error_msg = f"Failed to send SMS: {str(e)}"
+            error_msg = f"❌ Failed to send SMS to {recipient_phone if 'recipient_phone' in locals() else 'unknown'}: {str(e)}"
+            logger.error(error_msg)
             self.log_failure(notification_data.get("notification_id"), error_msg)
             raise Exception(error_msg)

@@ -1,5 +1,13 @@
 from dotenv import load_dotenv
 load_dotenv()
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s:     %(name)s - %(message)s"
+)
+# Ensure app loggers show INFO level
+for _logger_name in ["vendor.routers.bookings", "notifications.events.publisher", "notifications.events.consumer", "notifications.handlers.email_handler", "notifications.handlers.sms_handler"]:
+    logging.getLogger(_logger_name).setLevel(logging.INFO)
 from fastapi import FastAPI
 from admin.routers import auth as admin_auth_router
 from admin.routers import verticals as admin_verticals_router

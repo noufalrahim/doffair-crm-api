@@ -1,0 +1,1 @@
+Hi {{ user_name }}, your service for {{ service_name }} has been completed! Booking ID: {{ booking_id }}. Thank you for choosing Doffair.

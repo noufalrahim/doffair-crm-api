@@ -2,10 +2,11 @@
 Email Notification Handler
 Sends emails via SMTP (Gmail, SendGrid, SES, etc.)
 """
-from typing import Dict, Any
-import aiosmtplib
-from email.mime.text import MIMEText
+from typing import Dict, Any, List, Optional
+from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+import aiosmtplib
 import logging
 
 from notifications.handlers.base import BaseNotificationHandler
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 class EmailHandler(BaseNotificationHandler):
     """
     Handles email notifications via SMTP
-    Supports HTML and plain text emails
+    Supports HTML and plain text emails, and attachments
     """
     
     def __init__(self):
@@ -46,26 +47,46 @@ class EmailHandler(BaseNotificationHandler):
             
             recipient_email = notification_data["recipient_email"]
             notification_id = notification_data.get("notification_id")
+            attachments = notification_data.get("attachments", [])
             
             # Prepare content
             subject = notification_data.get("subject", "Notification from Doffair")
             body = await self.prepare_content(notification_data)
+            notification_data["message"] = body # Ensure content is available for HTML renderer
+            html_body = self._create_html_body(notification_data)
             
             # Create email message
-            message = MIMEMultipart("alternative")
+            if attachments:
+                message = MIMEMultipart("mixed")
+            else:
+                message = MIMEMultipart("alternative")
+                
             message["From"] = f"{self.from_name} <{self.from_email}>"
             message["To"] = recipient_email
             message["Subject"] = subject
             
-            # Add plain text version
-            text_part = MIMEText(body, "plain")
-            message.attach(text_part)
-            
-            # Add HTML version if template data exists
-            html_body = self._create_html_body(notification_data)
-            if html_body:
-                html_part = MIMEText(html_body, "html")
-                message.attach(html_part)
+            # Create body part
+            if attachments:
+                body_multipart = MIMEMultipart("alternative")
+                body_multipart.attach(MIMEText(body, "plain"))
+                if html_body:
+                    body_multipart.attach(MIMEText(html_body, "html"))
+                message.attach(body_multipart)
+                
+                # Add attachments
+                for att in attachments:
+                    part = MIMEApplication(att["content"])
+                    part.add_header(
+                        "Content-Disposition",
+                        "attachment",
+                        filename=att["filename"]
+                    )
+                    message.attach(part)
+            else:
+                # Standard simple email
+                message.attach(MIMEText(body, "plain"))
+                if html_body:
+                    message.attach(MIMEText(html_body, "html"))
             
             # Send email via SMTP
             if not self.smtp_username or not self.smtp_password:
@@ -73,14 +94,18 @@ class EmailHandler(BaseNotificationHandler):
                 logger.warning(f"📧 [MOCK] Would send email to {recipient_email}")
                 logger.info(f"   Subject: {subject}")
                 logger.info(f"   Body: {body[:100]}...")
+                if attachments:
+                    logger.info(f"   Attachments: {[a['filename'] for a in attachments]}")
                 
                 metadata = {
                     "recipient": recipient_email,
                     "subject": subject,
-                    "mode": "mock"
+                    "mode": "mock",
+                    "has_attachments": bool(attachments)
                 }
             else:
                 # Real SMTP sending
+                logger.info(f"📧 Attempting to send email to {recipient_email} via {self.smtp_host}:{self.smtp_port}")
                 await aiosmtplib.send(
                     message,
                     hostname=self.smtp_host,
@@ -90,11 +115,13 @@ class EmailHandler(BaseNotificationHandler):
                     start_tls=True
                 )
                 
+                logger.info(f"✅ Email successfully sent to {recipient_email}")
                 metadata = {
                     "recipient": recipient_email,
                     "subject": subject,
                     "smtp_host": self.smtp_host,
-                    "mode": "smtp"
+                    "mode": "smtp",
+                    "has_attachments": bool(attachments)
                 }
             
             self.log_success(notification_id, metadata)
@@ -106,7 +133,8 @@ class EmailHandler(BaseNotificationHandler):
             }
             
         except Exception as e:
-            error_msg = f"Failed to send email: {str(e)}"
+            error_msg = f"❌ Failed to send email to {recipient_email if 'recipient_email' in locals() else 'unknown'}: {str(e)}"
+            logger.error(error_msg)
             self.log_failure(notification_data.get("notification_id"), error_msg)
             raise Exception(error_msg)
     
@@ -146,7 +174,18 @@ class EmailHandler(BaseNotificationHandler):
         """
         
         # Add template-specific content
-        if template_id == "BOOKING_CONFIRMED" and data:
+        if template_id == "INVOICE_SENT" or data.get("invoice_number"):
+            html += f"""
+                    <p><strong>Invoice Details:</strong></p>
+                    <ul>
+                        <li>Invoice Number: {data.get('invoice_number', 'N/A')}</li>
+                        <li>Total Amount: {data.get('grand_total', 'N/A')}</li>
+                        <li>Due Date: {data.get('due_date', 'N/A')}</li>
+                        <li>Vendor: {data.get('vendor_name', 'Doffair Vendor')}</li>
+                    </ul>
+                    <p>Please find your invoice attached as a PDF.</p>
+            """
+        elif template_id == "BOOKING_CONFIRMED" and data:
             html += f"""
                     <p><strong>Booking Details:</strong></p>
                     <ul>
@@ -156,6 +195,14 @@ class EmailHandler(BaseNotificationHandler):
                         <li>Vendor: {data.get('vendor_name', 'N/A')}</li>
                     </ul>
             """
+        elif data:
+            # Generic catch-all for other data
+            html += "<p><strong>Details:</strong></p><ul>"
+            # Limit to 5 fields to avoid huge emails
+            for key, val in list(data.items())[:5]:
+                if key not in ["id", "_id", "user_id", "vendor_id"]:
+                    html += f"<li>{key.replace('_', ' ').title()}: {val}</li>"
+            html += "</ul>"
         
         html += """
                 </div>

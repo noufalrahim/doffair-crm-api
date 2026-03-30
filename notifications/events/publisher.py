@@ -72,13 +72,9 @@ class EventPublisher:
         # Ensure connection is established
         self._ensure_connection()
         
-        # If Redis is not available, log warning and return placeholder event_id
+        # If Redis is not available, we proceed to synchronous fallback later in the function
         if self._redis_conn is None or self._queue is None:
-            logger.warning(f"⚠️ Cannot publish event {event_type} - Redis not connected")
-            # Return event_id so caller doesn't crash, but event won't be processed
-            generated_event_id = event_id or f"evt_{int(datetime.utcnow().timestamp() * 1000)}"
-            logger.error(f"❌ Event {generated_event_id} NOT published - notification service unavailable")
-            return generated_event_id
+            logger.warning(f"⚠️ Redis not connected - proceeding to synchronous fallback for {event_type}")
         
         try:
             # Generate event ID as string to avoid serialization issues
@@ -96,12 +92,24 @@ class EventPublisher:
             # Serialize to JSON string then parse to dict - this ensures datetime objects are ISO strings
             payload_json_str = event_payload.model_dump_json()
             payload_dict = json.loads(payload_json_str)
-            
+
+            # If Redis is not available, use synchronous fallback
+            if self._redis_conn is None or self._queue is None:
+                logger.warning(f"⚠️ Redis not connected - using synchronous fallback for event {event_type}")
+                try:
+                    # Circular import guard
+                    from notifications.events.consumer import process_event
+                    process_event(payload_dict)
+                    logger.info(f"✅ Event {generated_event_id} processed via synchronous fallback")
+                except Exception as fallback_error:
+                    logger.error(f"❌ Synchronous fallback failed: {str(fallback_error)}")
+                return generated_event_id
+
+            from notifications.events.consumer import process_event as _process_event
             job = self._queue.enqueue(
-                'notifications.events.consumer.process_event',
+                _process_event,
                 payload_dict,
-                job_timeout=None,
-                retry=None,
+                job_timeout=300,
                 result_ttl=500
             )
             

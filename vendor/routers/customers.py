@@ -214,7 +214,20 @@ async def get_vendor_customers(
                                 images=pet_doc.get("images", [])
                             )
 
+                # Resolve user_id for this customer
+                user_id_str = None
+                raw_user_id = doc.get("userId") or doc.get("user_id")
+                if raw_user_id:
+                    user_id_str = str(raw_user_id)
+                # Also try looking up by phone to get the canonical user ID
+                if not user_id_str and phone:
+                    user_coll2 = secondary_engine.database.get_collection("users")
+                    u = await user_coll2.find_one({"$or": [{"phoneNumber": phone}, {"phone": phone}]})
+                    if u:
+                        user_id_str = str(u["_id"])
+
                 customers_dict[key] = CustomerPetDiscoveryResponse(
+                    id=user_id_str,
                     name=name or "Unknown",
                     email=email,
                     phone=phone,
@@ -244,7 +257,16 @@ async def get_vendor_customers(
                         images=doc.get("pet_images", [])
                     )
                     
+                # For offline bookings, look up user by phone to get their ID
+                offline_user_id_str = None
+                if phone:
+                    user_coll3 = secondary_engine.database.get_collection("users")
+                    ou = await user_coll3.find_one({"$or": [{"phoneNumber": phone}, {"phone": phone}]})
+                    if ou:
+                        offline_user_id_str = str(ou["_id"])
+                    
                 customers_dict[key] = CustomerPetDiscoveryResponse(
+                    id=offline_user_id_str,
                     name=name,
                     email=email,
                     phone=phone,

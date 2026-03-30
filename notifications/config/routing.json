@@ -31,10 +31,18 @@
     },
     "priority": "medium"
   },
+  "BOOKING_STARTED": {
+    "recipients": ["user", "vendor"],
+    "channels": {
+      "user": ["email", "in_app", "sms"],
+      "vendor": ["email", "in_app"]
+    },
+    "priority": "high"
+  },
   "BOOKING_COMPLETED": {
     "recipients": ["user", "vendor"],
     "channels": {
-      "user": ["email", "in_app"],
+      "user": ["email", "in_app", "sms"],
       "vendor": ["in_app"]
     },
     "priority": "low"
@@ -109,5 +117,12 @@
     },
     "priority": "high",
     "dynamic_channels": true
+  },
+  "INVOICE_SENT": {
+    "recipients": ["user"],
+    "channels": {
+      "user": ["email", "in_app"]
+    },
+    "priority": "high"
   }
 }

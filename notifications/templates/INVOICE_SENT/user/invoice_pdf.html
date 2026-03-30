@@ -4,20 +4,20 @@
     <meta charset="UTF-8">
     <title>Tax Invoice - {{ invoice_number }}</title>
     <style>
+        @page {
+            size: a4 portrait;
+            margin: 1cm;
+        }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: Helvetica, Arial, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 0;
             color: #333;
-            font-size: 12px;
-            line-height: 1.4;
+            font-size: 10pt;
+            line-height: 1.2;
         }
         .container {
-            max-width: 800px;
-            margin: 0 auto;
-            border: 1px solid #eee;
-            padding: 30px;
-            background: #fff;
+            width: 100%;
         }
         .header {
             text-align: center;
@@ -26,140 +26,130 @@
             padding-bottom: 15px;
         }
         .logo {
-            font-size: 28px;
+            font-size: 24pt;
             font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 2px;
             margin-bottom: 5px;
         }
-        .logo span {
+        .logo-orange {
             color: #f39c12;
         }
         .company-name {
-            font-size: 18px;
+            font-size: 14pt;
             font-weight: bold;
             margin-bottom: 5px;
         }
         .company-details {
-            font-size: 11px;
+            font-size: 9pt;
             color: #666;
         }
         .title {
             text-align: center;
-            font-size: 20px;
+            font-size: 16pt;
             font-weight: bold;
-            text-transform: uppercase;
             margin: 20px 0;
-            letter-spacing: 1px;
             text-decoration: underline;
         }
         .info-section {
-            display: flex;
-            justify-content: space-between;
+            width: 100%;
             margin-bottom: 20px;
             border: 1px solid #ddd;
-            padding: 10px;
         }
-        .info-column {
-            width: 48%;
+        .info-table {
+            width: 100%;
         }
-        .info-row {
-            display: flex;
-            margin-bottom: 3px;
+        .info-table td {
+            padding: 5px 10px;
+            vertical-align: top;
         }
         .info-label {
-            width: 120px;
+            width: 100px;
             font-weight: bold;
         }
-        .info-value {
-            flex: 1;
-        }
-        .billing-section {
-            display: flex;
-            justify-content: space-between;
+        .billing-table {
+            width: 100%;
             margin-bottom: 20px;
         }
-        .billing-box {
-            width: 48%;
-            border: 1px solid #ddd;
+        .billing-table td {
+            width: 50%;
+            vertical-align: top;
+            padding: 0 5px;
         }
         .billing-header {
             background: #27ae60;
             color: #fff;
             padding: 5px 10px;
             font-weight: bold;
-            font-size: 11px;
-            text-transform: uppercase;
+            font-size: 9pt;
         }
         .billing-content {
+            border: 1px solid #ddd;
             padding: 10px;
+            height: 100px;
         }
         .table-section {
             margin-bottom: 20px;
         }
-        table {
+        table.items-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 11px;
         }
-        th {
+        table.items-table th {
             background: #f39c12;
             color: #333;
             padding: 8px 5px;
             text-align: center;
             border: 1px solid #ddd;
-            text-transform: uppercase;
+            font-size: 8pt;
         }
-        td {
-            padding: 8px 5px;
+        table.items-table td {
+            padding: 5px;
             border: 1px solid #ddd;
             vertical-align: middle;
+            font-size: 8pt;
         }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
         .text-left { text-align: left; }
         .bold { font-weight: bold; }
         
-        .totals-section {
-            display: flex;
-            justify-content: space-between;
+        .totals-table {
+            width: 100%;
+        }
+        .totals-table td {
+            vertical-align: top;
         }
         .word-amount {
-            width: 55%;
             padding: 10px;
             border: 1px solid #eee;
             background: #fdfdfd;
         }
         .summary-box {
-            width: 40%;
+            padding-left: 20px;
         }
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
+        .summary-row-table {
+            width: 100%;
+        }
+        .summary-row-table td {
             padding: 3px 0;
             border-bottom: 1px dotted #ccc;
+            font-size: 9pt;
         }
-        .summary-row.final {
+        .summary-row-table tr.final td {
             border-bottom: none;
             border-top: 2px solid #333;
-            margin-top: 5px;
             padding-top: 5px;
-            font-size: 14px;
+            font-size: 11pt;
             font-weight: bold;
         }
         .footer {
             margin-top: 40px;
-            font-size: 10px;
+            font-size: 8pt;
             color: #666;
-        }
-        .terms {
-            margin-bottom: 20px;
         }
         .thank-you {
             text-align: center;
             font-weight: bold;
-            font-size: 14px;
-            text-transform: uppercase;
+            font-size: 12pt;
             margin-top: 20px;
         }
     </style>
@@ -169,9 +159,9 @@
         <!-- Header -->
         <div class="header">
             <div class="logo">ROMS <span>N</span> RAKS</div>
-            <div class="company-name">{{ vendor_name|upper }}</div>
+            <div class="company-name">{{ (vendor_name or "Doffair Vendor")|upper }}</div>
             <div class="company-details">
-                {{ vendor_address }}<br>
+                {{ vendor_address or "Kerala, India" }}<br>
                 {% if vendor_phone %}MOB : {{ vendor_phone }}{% endif %} 
                 {% if vendor_gstin %}GSTIN : {{ vendor_gstin }}{% endif %}
             </div>
@@ -181,61 +171,76 @@
 
         <!-- Meta Info -->
         <div class="info-section">
-            <div class="info-column">
-                <div class="info-row">
-                    <span class="info-label">Invoice No.</span>
-                    <span class="info-value">: <span class="bold">{{ invoice_number }}</span></span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Invoice Date</span>
-                    <span class="info-value">: {{ invoice_date.strftime('%d-%m-%Y') }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Invoice Time</span>
-                    <span class="info-value">: {{ invoice_date.strftime('%I:%M %p') }}</span>
-                </div>
-            </div>
-            <div class="info-column">
-                <div class="info-row">
-                    <span class="info-label">Sales Person</span>
-                    <span class="info-value">: {{ vendor_name }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Payment Method</span>
-                    <span class="info-value">: {{ status|upper }} - {{ grand_total }}</span>
-                </div>
-            </div>
+            <table class="info-table">
+                <tr>
+                    <td width="48%">
+                        <table width="100%">
+                            <tr>
+                                <td class="info-label">Invoice No.</td>
+                                <td class="bold">: {{ invoice_number }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Invoice Date</td>
+                                <td>: {{ (invoice_date.strftime('%d-%m-%Y') if invoice_date else '-') }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Invoice Time</td>
+                                <td>: {{ (invoice_date.strftime('%I:%M %p') if invoice_date else '-') }}</td>
+                            </tr>
+                        </table>
+                    </td>
+                    <td width="4%"></td>
+                    <td width="48%">
+                        <table width="100%">
+                            <tr>
+                                <td class="info-label">Sales Person</td>
+                                <td>: {{ vendor_name or "Manager" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Payment Method</td>
+                                <td>: {{ (status or "Draft")|upper }} - {{ grand_total }}</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
         </div>
 
         <!-- Billing Info -->
-        <div class="billing-section">
-            <div class="billing-box">
-                <div class="billing-header">BILLED TO</div>
-                <div class="billing-content">
-                    <div class="info-row">
-                        <span class="info-label" style="width: 100px;">Customer name</span>
-                        <span class="info-value">: {{ customer_name }}</span>
+        <table class="billing-table">
+            <tr>
+                <td>
+                    <div class="billing-header">BILLED TO</div>
+                    <div class="billing-content">
+                        <table width="100%">
+                            <tr>
+                                <td width="100" class="bold">Customer</td>
+                                <td>: {{ customer_name or "-" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="bold">Mobile</td>
+                                <td>: {{ customer_phone or "-" }}</td>
+                            </tr>
+                        </table>
                     </div>
-                    <div class="info-row">
-                        <span class="info-label" style="width: 100px;">Mobile</span>
-                        <span class="info-value">: {{ customer_phone }}</span>
+                </td>
+                <td>
+                    <div class="billing-header">SHIPPED TO</div>
+                    <div class="billing-content">
+                        <table width="100%">
+                            <tr>
+                                <td width="100" class="bold">Name</td>
+                                <td>: {{ customer_name or "-" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="bold">Mobile</td>
+                                <td>: {{ customer_phone or "-" }}</td>
+                            </tr>
+                        </table>
                     </div>
-                </div>
-            </div>
-            <div class="billing-box">
-                <div class="billing-header">SHIPPED TO</div>
-                <div class="billing-content">
-                    <div class="info-row">
-                        <span class="info-label" style="width: 100px;">Name</span>
-                        <span class="info-value">: {{ customer_name }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label" style="width: 100px;">Mobile</span>
-                        <span class="info-value">: {{ customer_phone }}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
+                </td>
+            </tr>
+        </table>
 
         <!-- Items Table -->
         <div class="table-section">
@@ -262,60 +267,68 @@
                         <td class="text-left bold">{{ item.name }}</td>
                         <td class="text-center">{{ item.hsn_sac or '-' }}</td>
                         <td class="text-right">{{ item.mrp or '-' }}</td>
-                        <td class="text-center">{{ item.quantity }}</td>
-                        <td class="text-right">{{ (item.mrp or item.unit_price) * item.quantity }}</td>
+                        <td class="text-center">{{ item.quantity or 0 }}</td>
+                        <td class="text-right">{{ (((item.mrp or item.unit_price) * item.quantity) if (item.mrp or item.unit_price) and item.quantity else 0) }}</td>
                         <td class="text-right">{{ item.discount_amount or '-' }}</td>
-                        <td class="text-right">{{ item.taxable_value }}</td>
-                        <td class="text-center">{{ item.tax_rate }}%</td>
-                        <td class="text-right">{{ item.tax_amount }}</td>
-                        <td class="text-right bold">{{ item.subtotal }}</td>
+                        <td class="text-right">{{ item.taxable_value or 0 }}</td>
+                        <td class="text-center">{{ item.tax_rate or 0 }}%</td>
+                        <td class="text-right">{{ item.tax_amount or 0 }}</td>
+                        <td class="text-right bold">{{ item.subtotal or 0 }}</td>
                     </tr>
                     {% endfor %}
                     <tr class="bold" style="background: #f9f9f9;">
                         <td colspan="4" class="text-right">TOTAL</td>
-                        <td class="text-center">{{ items|sum(attribute='quantity') }}</td>
+                        <td class="text-center">{{ items|sum(attribute='quantity') if items else 0 }}</td>
                         <td colspan="5"></td>
-                        <td class="text-right">{{ grand_total }}</td>
+                        <td class="text-right">{{ grand_total or 0 }}</td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
         <!-- Summary -->
-        <div class="totals-section">
-            <div class="word-amount">
-                <div class="bold" style="margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Total Invoice amount in words</div>
-                <div style="font-style: italic; color: #555;">{{ grand_total_words }}</div>
-            </div>
-            <div class="summary-box">
-                <div class="summary-row">
-                    <span>Total Taxable amount :</span>
-                    <span class="bold">{{ items|sum(attribute='taxable_value') }}</span>
-                </div>
-                {% for key, val in tax_details.items() %}
-                <div class="summary-row">
-                    <span>(+) {{ key|lower }} :</span>
-                    <span>{{ val }}</span>
-                </div>
-                {% endfor %}
-                <div class="summary-row" style="margin-top: 10px;">
-                    <span>Total MRP :</span>
-                    <span>{{ items|sum(attribute='mrp') }}</span>
-                </div>
-                <div class="summary-row">
-                    <span>SUB TOTAL :</span>
-                    <span>{{ items|sum(attribute='subtotal') }}</span>
-                </div>
-                <div class="summary-row">
-                    <span>ROUNDING OFF :</span>
-                    <span>{{ rounding_off }}</span>
-                </div>
-                <div class="summary-row final">
-                    <span>TOTAL :</span>
-                    <span>INR {{ grand_total }}</span>
-                </div>
-            </div>
-        </div>
+        <table class="totals-table">
+            <tr>
+                <td width="55%">
+                    <div class="word-amount">
+                        <div class="bold" style="margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Total Invoice amount in words</div>
+                        <div style="font-style: italic; color: #555;">{{ grand_total_words or "Zero" }}</div>
+                    </div>
+                </td>
+                <td width="45%">
+                    <div class="summary-box">
+                        <table class="summary-row-table">
+                            <tr>
+                                <td>Total Taxable amount :</td>
+                                <td class="bold text-right">{{ items|sum(attribute='taxable_value') if items else 0 }}</td>
+                            </tr>
+                            {% for key, val in (tax_details or {}).items() %}
+                            <tr>
+                                <td>(+) {{ key|lower }} :</td>
+                                <td class="text-right">{{ val or 0 }}</td>
+                            </tr>
+                            {% endfor %}
+                            <tr>
+                                <td style="padding-top: 10px;">Total MRP :</td>
+                                <td class="text-right" style="padding-top: 10px;">{{ items|sum(attribute='mrp') if items else 0 }}</td>
+                            </tr>
+                            <tr>
+                                <td>SUB TOTAL :</td>
+                                <td class="text-right">{{ items|sum(attribute='subtotal') if items else 0 }}</td>
+                            </tr>
+                            <tr>
+                                <td>ROUNDING OFF :</td>
+                                <td class="text-right">{{ rounding_off or 0 }}</td>
+                            </tr>
+                            <tr class="final">
+                                <td>TOTAL :</td>
+                                <td class="text-right">INR {{ grand_total or 0 }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        </table>
 
         <!-- Footer -->
         <div class="footer">

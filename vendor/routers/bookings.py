@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from odmantic import AIOEngine
@@ -19,6 +20,8 @@ router = APIRouter(
     prefix="/vendor/bookings",
     tags=["Vendor Bookings"],
 )
+
+logger = logging.getLogger(__name__)
 
 
 from vendor.schemas.booking import VendorBookingResponse, UserSummary, PetSummary, ServiceSummary, BookingStatusUpdate
@@ -59,6 +62,7 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
         raw_u_id = booking_doc.get("userId")
         if raw_u_id:
              u_id = ObjectId(raw_u_id) if isinstance(raw_u_id, str) and ObjectId.is_valid(raw_u_id) else raw_u_id
+             user_info_id = str(u_id)
              
              # User info is primarily in Secondary DB as per inspection
              secondary_engine = get_secondary_engine()
@@ -87,7 +91,6 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
                  user_email = user_doc.get("email", "Unknown")
                  
              if user_info:
-                 user_info_id = str(user_info.get("_id"))
                  user_image = user_info.get("image") or user_info.get("profileImage") or user_info.get("avatar") or user_info.get("photo")
 
         # Pet
@@ -250,12 +253,12 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
             })
             if u_doc:
                 u_id_to_lookup = u_doc["_id"]
+                user_info_id_modern = str(u_id_to_lookup)
                 user_info = await user_info_collection.find_one({"userId": DBRef("users", u_id_to_lookup)})
                 if not user_info:
                     user_info = await user_info_collection.find_one({"userId": u_id_to_lookup})
                  
         if user_info:
-            user_info_id_modern = str(user_info.get("_id"))
             user_image_modern = user_info.get("image") or user_info.get("profileImage") or user_info.get("avatar") or user_info.get("photo")
     except Exception as e:
         print(f"DEBUG: Error in map_booking_doc userInfo lookup: {e}")
@@ -749,7 +752,6 @@ async def update_booking_status(
     
     if not booking_doc:
         raise HTTPException(status_code=404, detail="Booking not found")
-
     # Verify Ownership
     doc_vendor_id = booking_doc.get("vendor_id") or str(booking_doc.get("serviceProviderId") or "")
     if doc_vendor_id != vendor_id:
@@ -757,6 +759,11 @@ async def update_booking_status(
 
     # Update Status
     new_status = status_update.status
+    print(f"\n[BOOKING STATUS] ===== STATUS UPDATE RECEIVED =====")
+    print(f"[BOOKING STATUS] Booking ID : {booking_id}")
+    print(f"[BOOKING STATUS] New Status : '{new_status}'")
+    print(f"[BOOKING STATUS] Vendor ID  : {vendor_id}")
+    print(f"[BOOKING STATUS] =====================================\n")
     
     update_result = await collection.update_one(
         {"_id": ObjectId(booking_id)},
@@ -764,13 +771,20 @@ async def update_booking_status(
     )
     
     if update_result.modified_count > 0:
-        # Trigger Notification based on status (Only for Online/Secondary DB usually, but we check if user info exists)
+        print(f"[BOOKING STATUS] ✅ DB updated successfully for booking {booking_id}")
+        # Trigger Notification based on status
         event_type = None
         template_id = None
         
         if new_status == "confirmed":
             event_type = EventType.BOOKING_CONFIRMED
             template_id = "BookingConfirm1"
+        elif new_status == "ongoing":
+            event_type = EventType.BOOKING_STARTED
+            template_id = "BookingStarted"
+        elif new_status == "completed":
+            event_type = EventType.BOOKING_COMPLETED
+            template_id = "BookingCompleted"
         elif new_status in ["cancelled", "rejected", "cancelByProvider"]:
             event_type = EventType.BOOKING_CANCELLED
             template_id = "BookingCancel"
@@ -779,29 +793,44 @@ async def update_booking_status(
             template_id = "BookingReschedule"
             
         if event_type:
+            print(f"[BOOKING STATUS] 📣 Notification triggered: event={event_type}, template={template_id}")
             try:
                 # Map doc to response to get formatted data
                 mapped = await map_booking_doc(booking_doc, current_engine)
+                print(f"[BOOKING STATUS] Mapped user: name={mapped.user.name if mapped.user else 'None'}, email={mapped.user.email if mapped.user else 'None'}, id={mapped.user.id if mapped.user else 'None'}")
                 
                 # Only publish if user ID is effectively present (for real users)
                 if mapped.user and mapped.user.id:
+                    print(f"[BOOKING STATUS] 📤 Publishing event to Redis for user '{mapped.user.name}' ({mapped.user.email})")
                     event_publisher.publish(
                         event_type=event_type,
                         source=EventSource.BOOKING_SERVICE,
                         data={
                             "booking_id": str(mapped.id),
                             "user_id": mapped.user.id,
+                            "user_name": mapped.user.name,
+                            "user_email": mapped.user.email,
+                            "user_phone": mapped.user.phone,
+                            "service_name": mapped.service_name,
                             "status": new_status,
                             "template_id": template_id,
                             "vendor_id": vendor_id,
+                            "booking_date": mapped.booking_date.strftime("%Y-%m-%d %H:%M") if mapped.booking_date else "N/A",
                             "postpone_date": status_update.postpone_date or "N/A",
                             "postpone_time": status_update.postpone_time or "N/A"
                         }
                     )
+                    print(f"[BOOKING STATUS] ✅ Event published successfully!")
+                else:
+                    print(f"[BOOKING STATUS] ⚠️ SKIPPING NOTIFICATION: mapped.user is None or has no id for booking {booking_id}")
             except Exception as e:
-                print(f"DEBUG: Error publishing notification for status update: {e}")
-                pass
-                
-        return success_response(message=f"Booking status updated to {new_status}")
-    
-    return success_response(message="Status already up to date")
+                print(f"[BOOKING STATUS] ❌ ERROR during notification trigger: {str(e)}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print(f"[BOOKING STATUS] ℹ️ Status '{new_status}' does NOT match any notification trigger (checked: confirmed, ongoing, completed, cancelled, rejected, cancelByProvider, rescheduleRequest).")
+    else:
+        print(f"[BOOKING STATUS] ℹ️ No DB change for booking {booking_id} — status may already be '{new_status}'")
+            
+    return success_response(message=f"Booking status updated to {new_status}")
+
