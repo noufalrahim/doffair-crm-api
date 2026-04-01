@@ -60,7 +60,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="Doffair API", swagger_ui_parameters={"persistAuthorization": True})
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
