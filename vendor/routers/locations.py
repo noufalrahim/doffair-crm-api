@@ -7,6 +7,8 @@ from core.database import get_engine
 from core.security import require_vendor
 from utils.response import success_response
 
+from bson import ObjectId
+from vendor.models.vendor import Vendor
 from vendor.models.care_professional import CareProfessional
 from vendor.models.vendor_service import VendorService
 
@@ -62,6 +64,8 @@ async def get_vendor_locations(
     vendor_id = token["vendor_id"]
 
     locations = await list_locations(engine, vendor_id)
+    vendor = await engine.find_one(Vendor, Vendor.id == ObjectId(vendor_id))
+    legal_name = vendor.legal_name if vendor else None
 
     active_staff = await engine.find(
         CareProfessional,
@@ -90,10 +94,12 @@ async def get_vendor_locations(
                 is_default=loc.is_default,
                 staff_count=staff_counts.get(str(loc.id), 0),
                 service_count=service_counts.get(str(loc.id), 0),
+                legal_name=legal_name,
             )
             for loc in locations
         ]
     )
+
 
 
 @router.patch("/locations/{location_id}")

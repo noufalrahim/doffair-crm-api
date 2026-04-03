@@ -91,11 +91,11 @@ async def bulk_create_store_items(engine: AIOEngine, vendor_id: str, items_data:
     # Identify valid model fields to prevent TypeError from unknown keys
     valid_fields = set(StoreItem.model_fields.keys())
     
-    for data in items_data:
+    for i, data in enumerate(items_data):
         try:
             # 1. Skip rows missing critical info (e.g., name)
             if not data.get("name"):
-                print("DEBUG: Skipping store item row with missing name")
+                print(f"DEBUG: Skipping store item row {i+1} with missing name")
                 continue
                 
             # 2. Filter data to only include valid model fields
@@ -109,8 +109,24 @@ async def bulk_create_store_items(engine: AIOEngine, vendor_id: str, items_data:
             if "vertical_id" in data and data["vertical_id"]:
                 filtered_data["vertical_id"] = str(data["vertical_id"])
 
-            # 4. Handle date and string conversions (str expected in model)
-            # Numeric fields like SKU might be read as int/float by pandas
+            # 4. Handle Boolean fields
+            bool_fields = ["is_active"]
+            for field in bool_fields:
+                if field in filtered_data:
+                    val = str(filtered_data[field]).lower().strip()
+                    filtered_data[field] = val in ["true", "1", "yes", "active", "y"]
+
+            # 5. Handle List fields (e.g., tags)
+            list_fields = ["tags", "images"]
+            for field in list_fields:
+                if field in filtered_data:
+                    val = filtered_data[field]
+                    if isinstance(val, str) and val.strip():
+                        filtered_data[field] = [item.strip() for item in val.split(",") if item.strip()]
+                    elif val is None:
+                        filtered_data[field] = []
+
+            # 6. Handle date and string conversions (str expected in model)
             string_fields = ["sku", "mfd_date", "expiry_date", "manufacturer", "category"]
             for field in string_fields:
                 if field in filtered_data:
@@ -124,19 +140,19 @@ async def bulk_create_store_items(engine: AIOEngine, vendor_id: str, items_data:
                         else:
                             filtered_data[field] = str(val)
             
-            # 5. Instantiate model
+            # 7. Instantiate and save model
             it = StoreItem(**filtered_data)
-            
-            # 6. Save individually (Odmantic save)
             await engine.save(it)
             items.append(it)
             
         except Exception as e:
-            # Log error for this specific row and continue
-            print(f"DEBUG: Error creating store item row: {data.get('name', 'Unknown')}. Error: {e}")
+            # Log specific details to help debugging
+            item_name = data.get('name', f"Row {i+1}")
+            print(f"ERROR: Bulk creation failed for '{item_name}': {e}")
             continue
             
     return items
+
 
 
 async def bulk_delete_store_items(engine: AIOEngine, vendor_id: str, item_ids: List[str]) -> int:

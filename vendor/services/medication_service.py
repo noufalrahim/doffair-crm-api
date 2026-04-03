@@ -131,11 +131,11 @@ async def bulk_create_medications(engine: AIOEngine, vendor_id: str, medications
     # Identify valid model fields to prevent TypeError from unknown keys
     valid_fields = set(Medication.model_fields.keys())
     
-    for data in medications_data:
+    for i, data in enumerate(medications_data):
         try:
             # 1. Skip rows missing critical info (e.g., name)
             if not data.get("name"):
-                print("DEBUG: Skipping medication row with missing name")
+                print(f"DEBUG: Skipping medication row {i+1} with missing name")
                 continue
                 
             # 2. Filter data to only include valid model fields
@@ -144,15 +144,30 @@ async def bulk_create_medications(engine: AIOEngine, vendor_id: str, medications
                 if k in valid_fields and v is not None
             }
             
-            # 3. Ensure vendor_id is set
+            # 3. Ensure vendor_id and vertical_id are set correctly
             filtered_data["vendor_id"] = vendor_id
-            # Also ensure vertical_id is explicitly handled if passed in data
             if "vertical_id" in data and data["vertical_id"]:
                 filtered_data["vertical_id"] = str(data["vertical_id"])
 
-            # 4. Handle date and string conversions (str expected in model)
-            # Some numeric fields like barcode or contact might be read as int/float by pandas
-            string_fields = ["barcode", "qr_code", "supplier_contact", "medicine_id", "batch_id", "mfd_date", "expiry_date", "last_restocked_date"]
+            # 4. Handle Boolean fields
+            bool_fields = ["is_prescription_required", "near_expiry_flag", "is_expired", "is_active"]
+            for field in bool_fields:
+                if field in filtered_data:
+                    val = str(filtered_data[field]).lower().strip()
+                    filtered_data[field] = val in ["true", "1", "yes", "active", "y"]
+
+            # 5. Handle List fields (e.g., images)
+            list_fields = ["images"]
+            for field in list_fields:
+                if field in filtered_data:
+                    val = filtered_data[field]
+                    if isinstance(val, str) and val.strip():
+                        filtered_data[field] = [item.strip() for item in val.split(",") if item.strip()]
+                    elif val is None:
+                        filtered_data[field] = []
+
+            # 6. Handle date and string conversions (str expected in model)
+            string_fields = ["barcode", "qr_code", "supplier_contact", "medicine_id", "batch_id", "mfd_date", "expiry_date", "last_restocked_date", "category", "manufacturer", "dosage_form", "strength"]
             for field in string_fields:
                 if field in filtered_data:
                     val = filtered_data[field]
@@ -165,19 +180,19 @@ async def bulk_create_medications(engine: AIOEngine, vendor_id: str, medications
                         else:
                             filtered_data[field] = str(val)
             
-            # 5. Instantiate model
-            m = Medication(**filtered_data)
-            
-            # 6. Save individually (Odmantic save)
-            await engine.save(m)
-            medications.append(m)
+            # 7. Instantiate and save model
+            med = Medication(**filtered_data)
+            await engine.save(med)
+            medications.append(med)
             
         except Exception as e:
-            # Log error for this specific row and continue
-            print(f"DEBUG: Error creating medication row: {data.get('name', 'Unknown')}. Error: {e}")
+            # Log specific details to help debugging
+            med_name = data.get('name', f"Row {i+1}")
+            print(f"ERROR: Bulk creation failed for medication '{med_name}': {e}")
             continue
             
     return medications
+
 
 async def bulk_delete_medications(engine: AIOEngine, vendor_id: str, medication_ids: List[str]) -> int:
     """

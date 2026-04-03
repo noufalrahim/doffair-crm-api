@@ -28,6 +28,8 @@ class VendorLocationResponse(BaseModel):
     is_default: bool = False
     staff_count: int = 0
     service_count: int = 0
+    legal_name: Optional[str] = None
+
 
 
 class VendorLocationUpdateRequest(BaseModel):
