@@ -20,12 +20,14 @@ from notifications.enums import NotificationStatus, NotificationChannel
 from notifications.queue import notification_queue
 from core.database import get_engine
 from utils.response import success_response, error_response
+from schemas.common import APIResponse
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
-@router.post("/send", response_model=dict, status_code=202)
+@router.post("/send", response_model=APIResponse, status_code=202)
 async def send_notification(
     payload: NotificationRequest,
     engine: AIOEngine = Depends(get_engine)
@@ -154,7 +156,8 @@ async def send_notification(
             ).dict(),
             message="Notification request accepted and queued for processing"
         )
-        return response.model_dump()
+        return response
+
         
     except HTTPException:
         raise
@@ -163,7 +166,7 @@ async def send_notification(
         raise HTTPException(status_code=500, detail=f"Failed to process notification: {str(e)}")
 
 
-@router.get("/status/{notification_id}", response_model=dict)
+@router.get("/status/{notification_id}", response_model=APIResponse)
 async def get_notification_status(
     notification_id: str,
     engine: AIOEngine = Depends(get_engine)
@@ -194,9 +197,9 @@ async def get_notification_status(
                 sent_at=notification_doc.get("sent_at"),
                 retry_count=notification_doc.get("retry_count", 0),
                 error_message=notification_doc.get("error_message")
-            ).dict()
+            )
         )
-        return response.model_dump()
+        return response
         
     except HTTPException:
         raise
@@ -205,7 +208,7 @@ async def get_notification_status(
         raise HTTPException(status_code=500, detail="Failed to fetch notification status")
 
 
-@router.get("/user/{user_id}/in-app", response_model=dict)
+@router.get("/user/{user_id}/in-app", response_model=APIResponse)
 async def get_user_notifications(
     user_id: str,
     unread_only: bool = Query(False, description="Show only unread notifications"),
@@ -269,7 +272,7 @@ async def get_user_notifications(
         raise HTTPException(status_code=500, detail="Failed to fetch notifications")
 
 
-@router.put("/user/{user_id}/in-app/{notification_id}/read", response_model=dict)
+@router.put("/user/{user_id}/in-app/{notification_id}/read", response_model=APIResponse)
 async def mark_notification_read(
     user_id: str,
     notification_id: str,
@@ -307,7 +310,7 @@ async def mark_notification_read(
         raise HTTPException(status_code=500, detail="Failed to update notification")
 
 
-@router.put("/user/{user_id}/in-app/read-all", response_model=dict)
+@router.put("/user/{user_id}/in-app/read-all", response_model=APIResponse)
 async def mark_all_notifications_read(
     user_id: str,
     engine: AIOEngine = Depends(get_engine)
@@ -332,7 +335,7 @@ async def mark_all_notifications_read(
         raise HTTPException(status_code=500, detail="Failed to update notifications")
 
 
-@router.get("/queue/info", response_model=dict)
+@router.get("/queue/info", response_model=APIResponse)
 async def get_queue_info():
     """
     Get current notification queue statistics
@@ -349,7 +352,8 @@ async def get_queue_info():
                 "queue": queue_info
             }
         )
-        return response.model_dump()
+        return response
+
     except Exception as e:
         logger.error(f"Error fetching queue info: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch queue information")

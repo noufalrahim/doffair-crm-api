@@ -6,6 +6,9 @@ from datetime import datetime
 from typing import Dict, Any
 from bson import ObjectId
 import logging
+import json
+import redis.asyncio as redis
+from core.config import settings
 
 from notifications.handlers.base import BaseNotificationHandler
 from notifications.models.notification import InAppNotification
@@ -23,6 +26,7 @@ class InAppHandler(BaseNotificationHandler):
     def __init__(self, engine: AIOEngine):
         super().__init__()
         self.engine = engine
+        self.redis_client = redis.from_url(settings.REDIS_URL)
     
     def validate_recipient(self, notification_data: Dict[str, Any]) -> bool:
         """Validate user_id is present"""
@@ -71,6 +75,24 @@ class InAppHandler(BaseNotificationHandler):
             }
             
             self.log_success(notification_id, metadata)
+            
+            # Broadcast via Redis for WebSockets
+            try:
+                broadcast_data = {
+                    "user_id": user_id,
+                    "notification": {
+                        "id": str(saved.id),
+                        "title": title,
+                        "message": message,
+                        "notification_type": in_app_notif.notification_type,
+                        "created_at": saved.created_at.isoformat(),
+                        "data": in_app_notif.data
+                    }
+                }
+                await self.redis_client.publish("notifications_broadcast", json.dumps(broadcast_data))
+                logger.info(f"📣 Published real-time notification for user {user_id}")
+            except Exception as e:
+                logger.error(f"❌ Failed to publish real-time notification: {str(e)}")
             
             return {
                 "success": True,

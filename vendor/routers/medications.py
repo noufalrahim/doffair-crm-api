@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 import pandas as pd
 import io
 from odmantic import AIOEngine
-from typing import Optional
+from typing import Optional, List
 
 from core.database import get_engine
 from core.security import get_current_vendor
@@ -14,6 +14,7 @@ from vendor.services.medication_service import (
     list_medications,
     update_medication,
     delete_medication,
+    bulk_delete_medications,
     bulk_create_medications,
     count_medications
 )
@@ -219,6 +220,23 @@ async def update_medication_endpoint(
         data=response_data.model_dump()
     ).model_dump()
 
+@router.delete("/bulk", response_model=APIResponse)
+async def bulk_delete_medications_endpoint(
+    medication_ids: List[str] = Query(..., description="List of medication IDs to delete"),
+    current_vendor: dict = Depends(get_current_vendor),
+    engine: AIOEngine = Depends(get_engine)
+):
+    """
+    Delete multiple medications at once.
+    """
+    vendor_id = current_vendor["vendor_id"]
+    deleted_count = await bulk_delete_medications(engine, vendor_id, medication_ids)
+    
+    return success_response(
+        message=f"Successfully deleted {deleted_count} medications",
+        data={"deleted_count": deleted_count}
+    ).model_dump()
+
 @router.delete("/{medication_id}", response_model=APIResponse)
 async def delete_medication_endpoint(
     medication_id: str,
@@ -235,6 +253,8 @@ async def delete_medication_endpoint(
         message="Medication deleted successfully",
         data={"medication_id": medication_id, "deleted": True}
     ).model_dump()
+
+
 
 @router.post("/bulk-import", response_model=APIResponse)
 async def bulk_import_medications_endpoint(

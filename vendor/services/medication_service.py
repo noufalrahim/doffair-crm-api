@@ -178,3 +178,24 @@ async def bulk_create_medications(engine: AIOEngine, vendor_id: str, medications
             continue
             
     return medications
+
+async def bulk_delete_medications(engine: AIOEngine, vendor_id: str, medication_ids: List[str]) -> int:
+    """
+    Bulk delete medications for a specific vendor.
+    """
+    object_ids = [ObjectId(mid) for mid in medication_ids]
+    query = [
+        Medication.id.in_(object_ids),
+        Medication.vendor_id == vendor_id
+    ]
+    
+    # Odmantic doesn't have a direct bulk delete by query in the same way as PyMongo,
+    # so we find and then delete, or use the engine's collection directly for efficiency.
+    collection = engine.get_collection(Medication)
+    result = await collection.delete_many({
+        "_id": {"$in": object_ids},
+        "vendor_id": vendor_id
+    })
+    
+    return result.deleted_count
+

@@ -9,6 +9,9 @@ logging.basicConfig(
 for _logger_name in ["vendor.routers.bookings", "notifications.events.publisher", "notifications.events.consumer", "notifications.handlers.email_handler", "notifications.handlers.sms_handler"]:
     logging.getLogger(_logger_name).setLevel(logging.INFO)
 from fastapi import FastAPI
+import asyncio
+from contextlib import asynccontextmanager
+from core.socket_manager import socket_app, sio, redis_listener
 from admin.routers import auth as admin_auth_router
 from admin.routers import verticals as admin_verticals_router
 from vendor.routers import onboarding as vendor_onboarding_router
@@ -57,7 +60,26 @@ from vendor.routers import notifications as vendor_notifications_router
 from core.config import settings
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="Doffair API", swagger_ui_parameters={"persistAuthorization": True})
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start Redis listener for WebSockets in the background
+    listener_task = asyncio.create_task(redis_listener())
+    yield
+    # Clean up
+    listener_task.cancel()
+    try:
+        await listener_task
+    except asyncio.CancelledError:
+        pass
+
+app = FastAPI(
+    title="Doffair API", 
+    swagger_ui_parameters={"persistAuthorization": True},
+    lifespan=lifespan
+)
+
+# Mount Socket.IO
+app.mount("/socket.io", socket_app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
