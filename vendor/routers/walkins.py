@@ -12,6 +12,9 @@ from vendor.schemas.walkin import WalkinBookingCreate
 from core.enums import BookingStatus, ServiceDeliveryMode
 from vendor.models.vendor_service import VendorService
 from admin.models.vertical import Vertical
+from notifications.models.notification import NotificationLog
+from notifications.queue import notification_queue
+from notifications.events.types import EventType
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +128,30 @@ async def create_walkin_booking(
         
         await engine.save(booking)
         logger.info(f"✅ Walk-in booking created: {booking.id}")
+        
+        # Send confirmation notification to pet owner
+        try:
+            notification = NotificationLog(
+                user_id=booking.user_id,
+                recipient_email=booking.user_email,
+                recipient_phone=booking.user_phone,
+                channels=["email", "sms"],
+                template_id=EventType.WALKIN_BOOKING_CONFIRMED,
+                event_type="booking",
+                data={
+                    "user_name": booking.user_name,
+                    "booking_date": booking.booking_date.strftime("%d %b %Y, %I:%M %p") if booking.booking_date else "N/A",
+                    "vendor_name": booking.vendor_name,
+                    "service_name": booking.service_name
+                },
+                reference_type="booking",
+                reference_id=str(booking.id)
+            )
+            await engine.save(notification)
+            notification_queue.enqueue_notification(str(notification.id))
+            logger.info(f"✅ Notification enqueued for walk-in booking: {booking.id}")
+        except Exception as en:
+            logger.error(f"⚠️ Failed to queue notification for walk-in booking {booking.id}: {str(en)}")
         
         return success_response(
             message="Walk-in booking created successfully",

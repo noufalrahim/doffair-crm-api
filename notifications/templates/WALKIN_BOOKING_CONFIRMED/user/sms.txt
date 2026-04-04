@@ -1,0 +1,1 @@
+Hey {{ user_name }}, your booking at {{ vendor_name }} on {{ booking_date }} is confirmed! Please download the Doffair app to complete your pet's details: https://doffair.com/download -Doffair

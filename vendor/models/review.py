@@ -9,7 +9,7 @@ class Review(Model):
     vendor_id: str
     review_by: str          # user_id of the reviewer
     booking_id: str
-    care_professional_id: str
+    care_professional_id: Optional[str] = None
     vertical_id: Optional[str] = None
 
     review_text: str

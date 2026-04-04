@@ -74,7 +74,7 @@ class EventPublisher:
         
         # If Redis is not available, we proceed to synchronous fallback later in the function
         if self._redis_conn is None or self._queue is None:
-            logger.warning(f"⚠️ Redis not connected - proceeding to synchronous fallback for {event_type}")
+            logger.warning(f"⚠️ Redis not connected to {getattr(settings, 'REDIS_URL', 'Unknown')} - proceeding to synchronous fallback for {event_type}")
         
         try:
             # Generate event ID as string to avoid serialization issues

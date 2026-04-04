@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional, List, Tuple
 from odmantic import AIOEngine
 from bson import ObjectId, DBRef
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, BackgroundTasks
 import logging
 
 from vendor.models.invoice import Invoice, InvoiceItem
@@ -16,7 +16,8 @@ from vendor.schemas.invoice import (
     InvoiceCreateRequest, 
     InvoiceUpdateRequest,
     InvoiceStatisticsResponse,
-    InvoiceItemSchema
+    InvoiceItemSchema,
+    InvoiceGenerateRequest
 )
 from core.enums import InvoiceStatus
 from core.database import get_secondary_engine
@@ -39,9 +40,6 @@ async def calculate_invoice_totals(items: List[InvoiceItem], tax_amount_input: f
     for item in items:
         # If tax_rate is provided but tax_amount is not, calculate it
         if item.tax_rate > 0 and item.tax_amount == 0:
-            # item.unit_price is usually the price AFTER discount but BEFORE tax in some systems, 
-            # but let's assume item.unit_price is the taxable value per unit for simplicity here 
-            # or calculate based on the provided sample logic.
             item.taxable_value = item.unit_price * item.quantity
             item.tax_amount = round(item.taxable_value * (item.tax_rate / 100), 2)
         
@@ -139,7 +137,12 @@ async def generate_unique_invoice_number(engine: AIOEngine, vendor_id: str) -> s
             return invoice_number
 
 
-async def create_invoice(engine: AIOEngine, vendor_id: str, payload: InvoiceCreateRequest) -> Invoice:
+async def create_invoice(
+    engine: AIOEngine, 
+    vendor_id: str, 
+    payload: InvoiceCreateRequest,
+    background_tasks: Optional[BackgroundTasks] = None
+) -> Invoice:
     """Create a new itemized invoice with detailed data population"""
     invoice_number = await generate_unique_invoice_number(engine, vendor_id)
     
@@ -278,32 +281,43 @@ async def create_invoice(engine: AIOEngine, vendor_id: str, payload: InvoiceCrea
         resolved_name = (user.name if user else None) or (booking.user_name if booking else None) or "Customer"
         print(f"[INVOICE] 📧 Triggering email for invoice {invoice_number}")
         print(f"[INVOICE]    → To: {resolved_email} | Phone: {resolved_phone} | Name: {resolved_name}")
-        event_publisher.publish(
-            event_type=EventType.INVOICE_SENT,
-            source=EventSource.VENDOR_SERVICE,
-            data={
-                "invoice_id": str(invoice.id),
-                "invoice_number": invoice.invoice_number,
-                "invoice_date": invoice.invoice_date.strftime("%Y-%m-%d"),
-                "vendor_id": vendor_id,
-                "customer_id": customer_id,
-                "user_id": customer_id,
-                "customer_name": resolved_name,
-                "user_name": resolved_name,
-                "user_phone": resolved_phone,
-                "user_email": resolved_email,
-                "grand_total": f"{invoice.grand_total:,.2f}",
-                "balance_due": f"{invoice.balance_due:,.2f}",
-                "due_date": invoice.due_date.strftime("%Y-%m-%d") if invoice.due_date else "N/A",
-                "service_name": booking.service_name if booking else (invoice.items[0].name if invoice.items else "Service"),
-                "service_date": booking.booking_date.strftime("%Y-%m-%d") if (booking and booking.booking_date) else invoice.invoice_date.strftime("%Y-%m-%d"),
-                "vendor_name": vendor.legal_name if vendor else "Doffair Vendor",
-                "vendor_phone": vendor.primary_contact_phone if vendor else "",
-                "vendor_email": "",
-                "template_id": "InvoiceSent"
-            }
-        )
-        print(f"[INVOICE] ✅ Invoice email event published for {invoice_number}")
+        
+        event_data = {
+            "invoice_id": str(invoice.id),
+            "invoice_number": invoice.invoice_number,
+            "invoice_date": invoice.invoice_date.strftime("%Y-%m-%d"),
+            "vendor_id": vendor_id,
+            "customer_id": customer_id,
+            "user_id": customer_id,
+            "customer_name": resolved_name,
+            "user_name": resolved_name,
+            "user_phone": resolved_phone,
+            "user_email": resolved_email,
+            "grand_total": f"{invoice.grand_total:,.2f}",
+            "balance_due": f"{invoice.balance_due:,.2f}",
+            "due_date": invoice.due_date.strftime("%Y-%m-%d") if invoice.due_date else "N/A",
+            "service_name": booking.service_name if booking else (invoice.items[0].name if invoice.items else "Service"),
+            "service_date": booking.booking_date.strftime("%Y-%m-%d") if (booking and booking.booking_date) else invoice.invoice_date.strftime("%Y-%m-%d"),
+            "vendor_name": vendor.legal_name if vendor else "Doffair Vendor",
+            "vendor_phone": vendor.primary_contact_phone if vendor else "",
+            "vendor_email": "",
+            "template_id": "InvoiceSent"
+        }
+
+        if background_tasks:
+            background_tasks.add_task(
+                _publish_invoice_event_sync,
+                EventType.INVOICE_SENT,
+                invoice_number,
+                event_data
+            )
+        else:
+            event_publisher.publish(
+                event_type=EventType.INVOICE_SENT,
+                source=EventSource.VENDOR_SERVICE,
+                data=event_data
+            )
+        print(f"[INVOICE] ✅ Invoice email event {'offloaded' if background_tasks else 'published'} for {invoice_number}")
     except Exception as e:
         print(f"[INVOICE] ❌ Failed to send invoice email: {str(e)}")
         logger.error(f"❌ Failed to publish invoice email event: {str(e)}")
@@ -364,7 +378,8 @@ async def update_invoice(
     engine: AIOEngine, 
     vendor_id: str, 
     invoice_id: str, 
-    payload: InvoiceUpdateRequest
+    payload: InvoiceUpdateRequest,
+    background_tasks: Optional[BackgroundTasks] = None
 ) -> Invoice:
     """Update an invoice and recalculate balance_due if needed"""
     invoice = await get_invoice_by_id(engine, vendor_id, invoice_id)
@@ -415,10 +430,7 @@ async def update_invoice(
         # Fetch vendor for data enrichment
         vendor = await engine.find_one(Vendor, Vendor.id == ObjectId(invoice.vendor_id))
         
-        event_publisher.publish(
-            event_type=EventType.INVOICE_SENT,
-            source=EventSource.VENDOR_SERVICE,
-            data={
+        event_data = {
                 "invoice_id": str(invoice.id),
                 "invoice_number": invoice.invoice_number,
                 "invoice_date": invoice.invoice_date.strftime("%Y-%m-%d"),
@@ -438,8 +450,21 @@ async def update_invoice(
                 "vendor_phone": vendor.primary_contact_phone if vendor else "",
                 "vendor_email": vendor.email if hasattr(vendor, 'email') else "",
                 "template_id": "InvoiceSent"
-            }
-        )
+        }
+
+        if background_tasks:
+            background_tasks.add_task(
+                _publish_invoice_event_sync,
+                EventType.INVOICE_SENT,
+                invoice.invoice_number,
+                event_data
+            )
+        else:
+            event_publisher.publish(
+                event_type=EventType.INVOICE_SENT,
+                source=EventSource.VENDOR_SERVICE,
+                data=event_data
+            )
 
     logger.info(f"✏️ Invoice updated: {invoice.invoice_number}")
     return invoice
@@ -477,5 +502,167 @@ async def get_invoice_statistics(
     }
     
     return InvoiceStatisticsResponse(**stats)
+
+
+async def generate_invoice_from_booking(
+    engine: AIOEngine, 
+    vendor_id: str, 
+    payload: InvoiceGenerateRequest
+) -> Invoice:
+    """
+    Generate an invoice automatically from a completed booking.
+    """
+    from datetime import timedelta
+    # 1. Fetch booking
+    booking = await engine.find_one(Booking, Booking.id == ObjectId(payload.booking_id))
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+        
+    if str(booking.vendor_id) != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied to this booking")
+
+    # 2. Prepare Create Request
+    # Use booking service name and price for the line item
+    item = InvoiceItemSchema(
+        name=booking.service_name,
+        quantity=1,
+        unit_price=booking.base_amount - booking.discount_amount,
+        mrp=booking.base_amount,
+        taxable_value=booking.base_amount - booking.discount_amount,
+        tax_rate=18.0 # Default
+    )
+    
+    # Calculate due date if due_days provided
+    due_date = None
+    if payload.due_days:
+        due_date = datetime.utcnow() + timedelta(days=payload.due_days)
+
+    create_payload = InvoiceCreateRequest(
+        customer_id=str(booking.user_id),
+        booking_id=payload.booking_id,
+        vertical_id=booking.vertical_id,
+        due_date=due_date,
+        items=[item],
+        notes=payload.notes or f"Generated for booking {booking.booking_id}",
+        tax_amount=0.0,
+        discount_amount=0.0
+    )
+    
+    # 3. Create the invoice
+    invoice = await create_invoice(engine, vendor_id, create_payload)
+    
+    # 4. Auto-send if requested (create_invoice already sends by default, 
+    # but we can ensure it's marked as SENT if needed)
+    if payload.auto_send:
+        invoice.status = InvoiceStatus.SENT
+        await engine.save(invoice)
+        
+    return invoice
+
+
+async def send_invoice_notification(
+    engine: AIOEngine,
+    vendor_id: str,
+    invoice_id: str,
+    channels: List[str] = ["email"],
+    background_tasks: Optional[BackgroundTasks] = None
+) -> bool:
+    """
+    Manually trigger invoice notification across specified channels.
+    """
+    invoice = await get_invoice_by_id(engine, vendor_id, invoice_id)
+    
+    # Fetch customer/user details
+    user_engine = get_secondary_engine()
+    user_col = user_engine.database.get_collection("users")
+    user_info_col = user_engine.database.get_collection("userInfo")
+    
+    uid = ObjectId(invoice.customer_id) if ObjectId.is_valid(invoice.customer_id) else invoice.customer_id
+    raw_user = await user_col.find_one({"_id": uid}) if invoice.customer_id else None
+    
+    user_email = ""
+    user_phone = ""
+    user_name = "Customer"
+    
+    if raw_user:
+        user_email = raw_user.get("email", "")
+        user_phone = raw_user.get("phoneNumber") or raw_user.get("phone", "")
+        
+        user_info = await user_info_col.find_one({"userId": DBRef("users", uid)})
+        if not user_info:
+            user_info = await user_info_col.find_one({"userId": uid})
+            
+        if user_info and user_info.get("name"):
+            user_name = user_info.get("name")
+        else:
+            user_name = raw_user.get("name") or raw_user.get("username") or raw_user.get("firstName", "Customer")
+
+    # Fetch vendor
+    vendor = await engine.find_one(Vendor, Vendor.id == ObjectId(vendor_id))
+    
+    # Publish event
+    event_data = {
+        "invoice_id": str(invoice.id),
+        "invoice_number": invoice.invoice_number,
+        "invoice_date": invoice.invoice_date.strftime("%Y-%m-%d"),
+        "vendor_id": vendor_id,
+        "customer_id": invoice.customer_id,
+        "user_id": invoice.customer_id,
+        "customer_name": user_name,
+        "user_name": user_name,
+        "user_phone": user_phone,
+        "user_email": user_email,
+        "grand_total": f"{invoice.grand_total:,.2f}",
+        "balance_due": f"{invoice.balance_due:,.2f}",
+        "due_date": invoice.due_date.strftime("%Y-%m-%d") if invoice.due_date else "N/A",
+        "service_name": invoice.items[0].name if invoice.items else "Service",
+        "service_date": invoice.invoice_date.strftime("%Y-%m-%d"),
+        "vendor_name": vendor.legal_name if vendor else "Doffair Vendor",
+        "vendor_phone": vendor.primary_contact_phone if vendor else "",
+        "vendor_email": vendor.email if hasattr(vendor, 'email') else "",
+        "channels": channels,
+        "template_id": "InvoiceSent"
+    }
+
+    if background_tasks:
+        background_tasks.add_task(
+            _publish_invoice_event_sync,
+            EventType.INVOICE_SENT,
+            invoice.invoice_number,
+            event_data
+        )
+    else:
+        event_publisher.publish(
+            event_type=EventType.INVOICE_SENT,
+            source=EventSource.VENDOR_SERVICE,
+            data=event_data
+        )
+    
+    # Update status to SENT if it was DRAFT
+    if invoice.status == InvoiceStatus.DRAFT:
+        invoice.status = InvoiceStatus.SENT
+        await engine.save(invoice)
+        
+    return True
+
+
+def _publish_invoice_event_sync(
+    event_type: EventType,
+    invoice_number: str,
+    data: dict
+):
+    """Synchronous background task for publishing invoice events"""
+    try:
+        from notifications.events.publisher import event_publisher
+        from notifications.events.types import EventSource
+        
+        event_publisher.publish(
+            event_type=event_type,
+            source=EventSource.VENDOR_SERVICE,
+            data=data
+        )
+        print(f"[INVOICE] ✅ Background event published for {invoice_number}")
+    except Exception as e:
+        print(f"[INVOICE] ❌ Background notification failed for {invoice_number}: {str(e)}")
 
 

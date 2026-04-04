@@ -35,6 +35,21 @@ class InvoiceCreateRequest(BaseModel):
     grand_total: Optional[float] = Field(None, gt=0)
 
 
+class InvoiceGenerateRequest(BaseModel):
+    """Request to generate an invoice from a booking"""
+    booking_id: str
+    due_days: Optional[int] = 30
+    notes: Optional[str] = None
+    terms_and_conditions: Optional[str] = None
+    auto_send: bool = True
+
+
+class InvoiceSendRequest(BaseModel):
+    """Request to manually send an invoice"""
+    channels: List[str] = ["email"]
+    notes: Optional[str] = None
+
+
 class InvoiceUpdateRequest(BaseModel):
     """Update invoice details"""
     due_date: Optional[datetime] = None

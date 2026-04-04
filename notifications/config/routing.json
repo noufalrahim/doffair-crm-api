@@ -124,5 +124,12 @@
       "user": ["email", "in_app"]
     },
     "priority": "high"
+  },
+  "WALKIN_BOOKING_CONFIRMED": {
+    "recipients": ["user"],
+    "channels": {
+      "user": ["email", "sms"]
+    },
+    "priority": "high"
   }
 }

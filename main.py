@@ -55,6 +55,7 @@ from vendor.routers import transactions as vendor_transactions_router
 from vendor.routers import store_items as vendor_store_items_router
 from vendor.routers import documents as vendor_documents_router
 from vendor.routers import notifications as vendor_notifications_router
+from internal.routers import reviews as internal_reviews_router
 
 
 from core.config import settings
@@ -150,3 +151,6 @@ app.include_router(vendor_notifications_router.router)
 # Notification routers
 app.include_router(notifications_router.router)
 app.include_router(events_router.router)
+
+# Internal routers
+app.include_router(internal_reviews_router.router)

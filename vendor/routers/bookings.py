@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from odmantic import AIOEngine
 from bson import ObjectId
 
@@ -726,6 +726,7 @@ async def get_booking_details(
 async def update_booking_status(
     booking_id: str,
     status_update: BookingStatusUpdate,
+    background_tasks: BackgroundTasks,
     token: dict = Depends(require_vendor()),
     secondary_engine: AIOEngine = Depends(get_secondary_engine),
     primary_engine: AIOEngine = Depends(get_engine),
@@ -795,42 +796,81 @@ async def update_booking_status(
         if event_type:
             print(f"[BOOKING STATUS] 📣 Notification triggered: event={event_type}, template={template_id}")
             try:
-                # Map doc to response to get formatted data
+                # Map doc to response to get formatted data (ASYNCHRONOUS)
                 mapped = await map_booking_doc(booking_doc, current_engine)
-                print(f"[BOOKING STATUS] Mapped user: name={mapped.user.name if mapped.user else 'None'}, email={mapped.user.email if mapped.user else 'None'}, id={mapped.user.id if mapped.user else 'None'}")
                 
                 # Only publish if user ID is effectively present (for real users)
                 if mapped.user and mapped.user.id:
-                    print(f"[BOOKING STATUS] 📤 Publishing event to Redis for user '{mapped.user.name}' ({mapped.user.email})")
-                    event_publisher.publish(
-                        event_type=event_type,
-                        source=EventSource.BOOKING_SERVICE,
-                        data={
-                            "booking_id": str(mapped.id),
-                            "user_id": mapped.user.id,
-                            "user_name": mapped.user.name,
-                            "user_email": mapped.user.email,
-                            "user_phone": mapped.user.phone,
-                            "service_name": mapped.service_name,
-                            "status": new_status,
-                            "template_id": template_id,
-                            "vendor_id": vendor_id,
-                            "booking_date": mapped.booking_date.strftime("%Y-%m-%d %H:%M") if mapped.booking_date else "N/A",
-                            "postpone_date": status_update.postpone_date or "N/A",
-                            "postpone_time": status_update.postpone_time or "N/A"
-                        }
+                    print(f"[BOOKING STATUS] 📤 Offloading event to background for user '{mapped.user.name}'")
+                    # Offload the blocking publish call to a background thread
+                    background_tasks.add_task(
+                        _publish_booking_event_sync,
+                        event_type,
+                        new_status,
+                        template_id,
+                        vendor_id,
+                        mapped.model_dump(),
+                        status_update.model_dump()
                     )
-                    print(f"[BOOKING STATUS] ✅ Event published successfully!")
                 else:
-                    print(f"[BOOKING STATUS] ⚠️ SKIPPING NOTIFICATION: mapped.user is None or has no id for booking {booking_id}")
+                    print(f"[BOOKING STATUS] ⚠️ SKIPPING NOTIFICATION: user is None or has no id")
             except Exception as e:
-                print(f"[BOOKING STATUS] ❌ ERROR during notification trigger: {str(e)}")
-                import traceback
-                traceback.print_exc()
+                print(f"[BOOKING STATUS] ❌ ERROR preparing notification: {str(e)}")
         else:
-            print(f"[BOOKING STATUS] ℹ️ Status '{new_status}' does NOT match any notification trigger (checked: confirmed, ongoing, completed, cancelled, rejected, cancelByProvider, rescheduleRequest).")
+            print(f"[BOOKING STATUS] ℹ️ Status '{new_status}' does NOT match any trigger")
     else:
-        print(f"[BOOKING STATUS] ℹ️ No DB change for booking {booking_id} — status may already be '{new_status}'")
+        print(f"[BOOKING STATUS] ℹ️ No DB change for booking {booking_id}")
             
     return success_response(message=f"Booking status updated to {new_status}")
+
+
+def _publish_booking_event_sync(
+    event_type: EventType,
+    new_status: str,
+    template_id: str,
+    vendor_id: str,
+    mapped_data: dict,
+    status_update_data: dict
+):
+    """Synchronous background task to handle potentially blocking Redis/Notification calls"""
+    try:
+        from notifications.events.publisher import event_publisher
+        from notifications.events.types import EventSource
+        
+        # Format the data for publisher
+        booking_date_str = "N/A"
+        if mapped_data.get("booking_date"):
+            try:
+                from datetime import datetime
+                # Check if it's already a string or needs formatting
+                bd = mapped_data.get("booking_date")
+                if isinstance(bd, datetime):
+                    booking_date_str = bd.strftime("%Y-%m-%d %H:%M")
+                else:
+                    # It was likely serialized to a string by model_dump()
+                    booking_date_str = str(bd)
+            except Exception:
+                pass
+
+        event_publisher.publish(
+            event_type=event_type,
+            source=EventSource.BOOKING_SERVICE,
+            data={
+                "booking_id": str(mapped_data.get("id")),
+                "user_id": mapped_data.get("user", {}).get("id"),
+                "user_name": mapped_data.get("user", {}).get("name"),
+                "user_email": mapped_data.get("user", {}).get("email"),
+                "user_phone": mapped_data.get("user", {}).get("phone"),
+                "service_name": mapped_data.get("service_name"),
+                "status": new_status,
+                "template_id": template_id,
+                "vendor_id": vendor_id,
+                "booking_date": booking_date_str,
+                "postpone_date": status_update_data.get("postpone_date") or "N/A",
+                "postpone_time": status_update_data.get("postpone_time") or "N/A"
+            }
+        )
+        print(f"[BOOKING STATUS] ✅ Background event published successfully!")
+    except Exception as e:
+        print(f"[BOOKING STATUS] ❌ Background notification failed: {str(e)}")
 

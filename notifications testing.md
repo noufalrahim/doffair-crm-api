@@ -31,7 +31,7 @@ Copy `.env.example` to `.env` and configure:
 
 ```env
 # Minimal configuration for testing (mock mode)
-REDIS_URL=redis://localhost:6379/0
+REDIS_URL=redis://20.244.38.208:6379/0
 MONGODB_URI=mongodb://localhost:27017/
 MONGODB_DB_NAME=doffair_dev
 

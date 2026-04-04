@@ -83,21 +83,15 @@ async def get_vendor_reviews(
             rating_q["$lte"] = max_rating
         query["rating"] = rating_q
 
-    collection = engine.get_collection(Review)
-    total = await collection.count_documents(query)
-    
-    cursor = collection.find(query).sort("created_at", -1).skip(skip)
-    if limit is not None:
-        cursor = cursor.limit(limit)
-    
-    raw_reviews = await cursor.to_list(length=limit if limit is not None else total)
-
-    reviews = []
-    for doc in raw_reviews:
-        doc["id"] = doc.pop("_id")
-        if "vertical_id" not in doc:
-            doc["vertical_id"] = None
-        reviews.append(Review.model_construct(**doc))
+    # Use engine.find() to properly initialize Review instances and avoid FieldProxy errors
+    reviews = await engine.find(
+        Review,
+        query,
+        sort=Review.created_at.desc(),
+        limit=limit,
+        skip=skip
+    )
+    total = await engine.count(Review, query)
 
     return reviews, total
 
@@ -108,21 +102,18 @@ async def get_review_by_id(
     review_id: str,
 ) -> Review:
     """Get a single review by ID, ensuring it belongs to the vendor."""
-    raw = await engine.get_collection(Review).find_one({
-        "_id": ObjectId(review_id),
-        "vendor_id": vendor_id,
+    review = await engine.find_one(Review, {
+        Review.id: ObjectId(review_id),
+        Review.vendor_id: vendor_id,
     })
 
-    if not raw:
+    if not review:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Review not found or access denied",
         )
 
-    raw["id"] = raw.pop("_id")
-    if "vertical_id" not in raw:
-        raw["vertical_id"] = None
-    return Review.model_construct(**raw)
+    return review
 
 
 # ============================================

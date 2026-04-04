@@ -66,6 +66,7 @@ class InAppNotification(Model):
     """
     
     user_id: str
+    vendor_id: Optional[str] = None
     
     # Content
     title: str

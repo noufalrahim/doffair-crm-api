@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, BackgroundTasks
 from odmantic import AIOEngine
 from typing import Optional
 
@@ -11,7 +11,9 @@ from vendor.schemas.invoice import (
     InvoiceUpdateRequest,
     InvoiceResponse,
     InvoiceListResponse,
-    InvoiceItemSchema
+    InvoiceItemSchema,
+    InvoiceGenerateRequest,
+    InvoiceSendRequest
 )
 from vendor.services.invoice_service import (
     create_invoice,
@@ -19,7 +21,9 @@ from vendor.services.invoice_service import (
     list_invoices,
     update_invoice,
     delete_invoice,
-    get_invoice_statistics
+    get_invoice_statistics,
+    generate_invoice_from_booking,
+    send_invoice_notification
 )
 from core.enums import InvoiceStatus
 
@@ -55,6 +59,7 @@ def map_invoice_to_response(invoice) -> InvoiceResponse:
 @router.post("")
 async def create_new_invoice(
     payload: InvoiceCreateRequest,
+    background_tasks: BackgroundTasks,
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
@@ -63,10 +68,54 @@ async def create_new_invoice(
     """
     vendor_id = token.get("vendor_id")
     try:
-        invoice = await create_invoice(engine, vendor_id, payload)
+        invoice = await create_invoice(engine, vendor_id, payload, background_tasks)
         return success_response(
             message="Invoice created successfully",
             data=map_invoice_to_response(invoice).model_dump()
+        ).model_dump()
+    except Exception as e:
+        return error_response(message=str(e)).model_dump()
+
+
+@router.post("/generate")
+async def generate_from_booking(
+    payload: InvoiceGenerateRequest,
+    background_tasks: BackgroundTasks,
+    token: dict = Depends(require_vendor()),
+    engine: AIOEngine = Depends(get_engine),
+):
+    """
+    Automatically generate an invoice from a completed booking
+    """
+    vendor_id = token.get("vendor_id")
+    try:
+        invoice = await generate_invoice_from_booking(engine, vendor_id, payload)
+        # Manually trigger notification in background if generated
+        await send_invoice_notification(engine, vendor_id, str(invoice.id), ["email"], background_tasks)
+        return success_response(
+            message=f"Invoice generated successfully: {invoice.invoice_number}",
+            data=map_invoice_to_response(invoice).model_dump()
+        ).model_dump()
+    except Exception as e:
+        return error_response(message=str(e)).model_dump()
+
+
+@router.post("/{invoice_id}/send")
+async def send_invoice_endpoint(
+    invoice_id: str,
+    payload: InvoiceSendRequest,
+    background_tasks: BackgroundTasks,
+    token: dict = Depends(require_vendor()),
+    engine: AIOEngine = Depends(get_engine),
+):
+    """
+    Manually send or resend an invoice via specified channels
+    """
+    vendor_id = token.get("vendor_id")
+    try:
+        await send_invoice_notification(engine, vendor_id, invoice_id, payload.channels, background_tasks)
+        return success_response(
+            message="Invoice sent successfully"
         ).model_dump()
     except Exception as e:
         return error_response(message=str(e)).model_dump()
@@ -126,6 +175,7 @@ async def get_invoice_details(
 async def update_invoice_details(
     invoice_id: str,
     payload: InvoiceUpdateRequest,
+    background_tasks: BackgroundTasks,
     token: dict = Depends(require_vendor()),
     engine: AIOEngine = Depends(get_engine),
 ):
@@ -134,7 +184,7 @@ async def update_invoice_details(
     """
     vendor_id = token.get("vendor_id")
     try:
-        invoice = await update_invoice(engine, vendor_id, invoice_id, payload)
+        invoice = await update_invoice(engine, vendor_id, invoice_id, payload, background_tasks)
         return success_response(
             message="Invoice updated successfully",
             data=map_invoice_to_response(invoice).model_dump()

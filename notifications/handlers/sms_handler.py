@@ -91,6 +91,11 @@ class SMSHandler(BaseNotificationHandler):
                     params["var1"] = data.get("user_name", "Customer")
                     params["var2"] = data.get("service_name", "Service")
                     params["var3"] = data.get("booking_id", "N/A")
+                elif template_name == "WALKIN_BOOKING_CONFIRMED":
+                    params["var1"] = data.get("user_name", "Customer")
+                    params["var2"] = data.get("booking_date", "N/A")
+                    params["var3"] = data.get("vendor_name", "Doffair Vendor")
+                    params["var4"] = "https://doffair.com/download"
                 else:
                     # Generic mapping for other templates (up to 5 vars)
                     for i in range(1, 6):
