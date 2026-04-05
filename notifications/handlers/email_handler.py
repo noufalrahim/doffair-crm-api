@@ -143,11 +143,15 @@ class EmailHandler(BaseNotificationHandler):
         Create HTML email body from template
         Simple version - can be enhanced with Jinja2 templates
         """
-        template_id = notification_data.get("template_id")
         data = notification_data.get("data", {})
+        template_id = notification_data.get("template_id") or data.get("template_id")
         subject = notification_data.get("subject", "")
         message = notification_data.get("message", "")
         
+        # If message is already a full HTML document, return it as is
+        if message and (message.strip().startswith("<!DOCTYPE html>") or message.strip().startswith("<html")):
+            return message
+            
         # Simple HTML template
         html = f"""
         <!DOCTYPE html>
@@ -195,6 +199,26 @@ class EmailHandler(BaseNotificationHandler):
                         <li>Vendor: {data.get('vendor_name', 'N/A')}</li>
                     </ul>
             """
+        elif template_id == "SERVICE_START_OTP":
+            otp_code = data.get('otp_code') or data.get('var2') or '----'
+            html += f"""
+                    <div style="text-align: center; margin: 40px 0; padding: 30px; background-color: #fff; border: 2px dashed #4CAF50; border-radius: 10px;">
+                        <p style="margin: 0; font-size: 16px; color: #666; text-transform: uppercase; letter-spacing: 2px;">Your Verification Code</p>
+                        <h1 style="margin: 15px 0 0 0; font-size: 64px; color: #4CAF50; letter-spacing: 12px; font-weight: bold;">{otp_code}</h1>
+                    </div>
+                    <p style="text-align: center; font-size: 15px; color: #555;">Please provide this code to start your service. Valid for 10 minutes.</p>
+            """
+            html += "</div>" # close content
+            html += """
+                <div class="footer">
+                    <p>&copy; 2026 Doffair. All rights reserved.</p>
+                </div>
+            </div>
+            </body>
+            </html>
+            """
+            return html
+
         elif data:
             # Generic catch-all for other data
             html += "<p><strong>Details:</strong></p><ul>"

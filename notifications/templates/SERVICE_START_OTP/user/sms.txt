@@ -1,0 +1,3 @@
+Your Doffair verification code for starting the service is: {{ otp_code }}. Valid for 10 minutes.
+Booking ID: {{ booking_id }}
+Please provide this to our service professional.

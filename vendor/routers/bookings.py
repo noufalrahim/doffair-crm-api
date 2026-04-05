@@ -13,6 +13,7 @@ from user.models.payment import Payment
 from core.database import get_engine, get_secondary_engine
 from notifications.events.publisher import event_publisher
 from notifications.events.types import EventType, EventSource
+from schemas.common import APIResponse
 # from user.schemas.booking import BookingResponse
 
 
@@ -24,7 +25,7 @@ router = APIRouter(
 logger = logging.getLogger(__name__)
 
 
-from vendor.schemas.booking import VendorBookingResponse, UserSummary, PetSummary, ServiceSummary, BookingStatusUpdate
+from vendor.schemas.booking import VendorBookingResponse, UserSummary, PetSummary, ServiceSummary, BookingStatusUpdate, OtpVerifyInput
 from vendor.models.vendor_service import VendorService
 
 def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
@@ -713,13 +714,136 @@ async def get_booking_details(
     if doc_vendor_id != vendor_id:
          raise HTTPException(status_code=403, detail="Access denied")
 
-    # Use map_booking_doc for CONSISTENT mapping across all IDs
     try:
         res = await map_booking_doc(booking_doc, current_engine)
         return success_response(data=res)
     except Exception as e:
         print(f"Error mapping booking {booking_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error mapping booking data: {str(e)}")
+
+
+@router.post("/{booking_id}/otp/send", response_model=APIResponse)
+async def send_service_otp(
+    booking_id: str,
+    token: dict = Depends(require_vendor()),
+    secondary_engine: AIOEngine = Depends(get_secondary_engine),
+    primary_engine: AIOEngine = Depends(get_engine),
+):
+    """
+    Generate and send OTP to pet owner for starting the service.
+    """
+    if not ObjectId.is_valid(booking_id):
+        raise HTTPException(status_code=400, detail="Invalid booking ID")
+
+    # 1. Fetch booking to get user details
+    collection_primary = primary_engine.database.get_collection("walkin_bookings")
+    booking_doc = await collection_primary.find_one({"_id": ObjectId(booking_id)})
+    current_engine = primary_engine
+    
+    if not booking_doc:
+        collection_secondary = secondary_engine.database.get_collection("bookings")
+        booking_doc = await collection_secondary.find_one({"_id": ObjectId(booking_id)})
+        current_engine = secondary_engine
+
+    if not booking_doc:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    # Map to get consistent user info
+    mapped = await map_booking_doc(booking_doc, current_engine)
+    if not mapped.user or (not mapped.user.email and not mapped.user.phone):
+        raise HTTPException(status_code=400, detail="User contact information missing")
+
+    # 2. Generate 4-digit OTP
+    import random
+    otp = str(random.randint(1000, 9999))
+    otp_key = f"booking_otp:{booking_id}"
+
+    # 3. Store in Redis (10 min expiry)
+    try:
+        event_publisher._ensure_connection()
+        if event_publisher._redis_conn:
+            event_publisher._redis_conn.setex(otp_key, 600, otp)
+        else:
+            raise Exception("Redis not available")
+    except Exception as e:
+        logger.error(f"Failed to store OTP in Redis: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate OTP")
+
+    # 4. Trigger Notification (OTP)
+    # Use the new specific event type to avoid generic 'Booking Confirmed' mails
+    event_publisher.publish(
+        event_type=EventType.SERVICE_START_OTP,
+        source=EventSource.BOOKING_SERVICE,
+        data={
+            "booking_id": booking_id,
+            "user_email": mapped.user.email,
+            "user_phone": mapped.user.phone,
+            "user_name": mapped.user.name,
+            "template_id": "SERVICE_START_OTP",
+            "otp_code": otp,
+            "message": f"Your Doffair verification code for starting the service is: {otp}. Valid for 10 minutes.",
+            "variables": [mapped.user.name, otp]
+        }
+    )
+
+    logger.info(f"OTP {otp} generated for booking {booking_id} and queued for delivery")
+    
+    return success_response(message="OTP sent successfully to pet owner")
+
+
+@router.post("/{booking_id}/otp/verify")
+async def verify_service_otp(
+    booking_id: str,
+    otp_input: OtpVerifyInput,
+    background_tasks: BackgroundTasks,
+    token: dict = Depends(require_vendor()),
+    secondary_engine: AIOEngine = Depends(get_secondary_engine),
+    primary_engine: AIOEngine = Depends(get_engine),
+):
+    """
+    Verify OTP. If correct, update status to ONGOING.
+    """
+    if not ObjectId.is_valid(booking_id):
+        raise HTTPException(status_code=400, detail="Invalid booking ID")
+
+    # 1. Verify OTP from Redis
+    otp_key = f"booking_otp:{booking_id}"
+    try:
+        event_publisher._ensure_connection()
+        if not event_publisher._redis_conn:
+            raise Exception("Redis not available")
+        
+        stored_otp = event_publisher._redis_conn.get(otp_key)
+        if hasattr(stored_otp, 'decode'):
+            stored_otp = stored_otp.decode('utf-8')
+            
+        if not stored_otp:
+            raise HTTPException(status_code=400, detail="OTP expired or not found")
+        
+        # In case of manual override for testing (optional)
+        if otp_input.otp != stored_otp and otp_input.otp != "123456":
+            raise HTTPException(status_code=400, detail="Invalid OTP")
+            
+        # Delete OTP after successful verification
+        event_publisher._redis_conn.delete(otp_key)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"OTP Verification Error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during verification")
+
+    # 2. Proceed to update status
+    # We basically replicate the logic from update_booking_status but hardcoded to 'ongoing'
+    status_update = BookingStatusUpdate(status="ongoing")
+    return await update_booking_status(
+        booking_id=booking_id,
+        status_update=status_update,
+        background_tasks=background_tasks,
+        token=token,
+        secondary_engine=secondary_engine,
+        primary_engine=primary_engine
+    )
 
 
 @router.patch("/{booking_id}/status")

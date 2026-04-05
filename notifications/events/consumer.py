@@ -294,8 +294,9 @@ async def send_email_notification(
         notification_data = {
             "recipient_email": email,
             "subject": get_notification_title(event.event_type),
-            "body": content,
+            "message": content,
             "notification_id": event.event_id,
+            "template_id": event.data.get("template_id"),
             "data": event.data
         }
 
@@ -353,7 +354,7 @@ async def send_sms_notification(
         handler = SMSHandler()
         notification_data = {
             "recipient_phone": phone,
-            "body": content,
+            "message": content,
             "notification_id": event.event_id,
             "template_id": event.data.get("template_id"),
             "data": event.data

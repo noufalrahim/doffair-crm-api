@@ -74,7 +74,7 @@ class InAppNotification(Model):
     icon: Optional[str] = None  # Icon identifier or URL
     
     # Categorization
-    notification_type: str  # "booking", "order", "system", "promotional"
+    notification_type: str = "system"  # "booking", "order", "system", "promotional"
     category: Optional[str] = None
     
     # Status
@@ -86,7 +86,7 @@ class InAppNotification(Model):
     action_label: Optional[str] = None  # "View Booking", "See Details"
     
     # Metadata
-    data: Dict[str, Any] = Field(default_factory=dict)
+    data: Optional[Dict[str, Any]] = Field(default_factory=dict)
     
     # Reference
     reference_type: Optional[str] = None

@@ -105,19 +105,31 @@ class EventPublisher:
                     logger.error(f"❌ Synchronous fallback failed: {str(fallback_error)}")
                 return generated_event_id
 
-            from notifications.events.consumer import process_event as _process_event
-            job = self._queue.enqueue(
-                _process_event,
-                payload_dict,
-                job_timeout=300,
-                result_ttl=500
-            )
-            
-            logger.info(
-                f"📤 Event published: {event_type.value} | "
-                f"Event ID: {generated_event_id} | "
-                f"Job ID: {job.id}"
-            )
+            # --- Push to Simple Worker List (New Integration) ---
+            try:
+                # Add a marker for the simple worker if needed, but it already checks for keys.
+                self._redis_conn.rpush("doffair:notifications_queue", payload_json_str)
+                logger.info(f"✅ Event {generated_event_id} pushed to simple worker list")
+            except Exception as e:
+                logger.error(f"❌ Failed to push to simple worker list: {str(e)}")
+
+            # --- Traditional RQ Enqueue (keep for backward compatibility) ---
+            try:
+                from notifications.events.consumer import process_event as _process_event
+                job = self._queue.enqueue(
+                    _process_event,
+                    payload_dict,
+                    job_timeout=300,
+                    result_ttl=500
+                )
+                
+                logger.info(
+                    f"📤 Event published: {event_type.value} | "
+                    f"Event ID: {generated_event_id} | "
+                    f"Job ID: {job.id}"
+                )
+            except Exception as e:
+                logger.error(f"⚠️ Failed to enqueue to traditional RQ (likely dependency issue): {str(e)}")
             
             return generated_event_id
             

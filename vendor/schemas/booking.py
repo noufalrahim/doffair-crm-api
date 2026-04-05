@@ -61,3 +61,6 @@ class VendorBookingResponse(BaseModel):
     # Nested Objects
     user: UserSummary
     pet: Optional[PetSummary] = None
+
+class OtpVerifyInput(BaseModel):
+    otp: str
