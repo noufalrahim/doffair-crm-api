@@ -254,6 +254,9 @@ async def get_user_notifications(
                 is_read=notif.is_read,
                 action_url=notif.action_url,
                 action_label=notif.action_label,
+                data=notif.data or {},
+                reference_type=notif.reference_type,
+                reference_id=notif.reference_id,
                 created_at=notif.created_at
             )
             for notif in notifications

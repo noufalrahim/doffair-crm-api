@@ -55,7 +55,8 @@ class NotificationLog(Model):
     reference_id: Optional[str] = None  # ID of the booking/order/payment
     
     model_config = {
-        "collection": "notification_logs"
+        "collection": "notification_logs",
+        "parse_doc_with_default_factories": True
     }
 
 
@@ -98,5 +99,6 @@ class InAppNotification(Model):
     expires_at: Optional[datetime] = None
     
     model_config = {
-        "collection": "in_app_notifications"
+        "collection": "in_app_notifications",
+        "parse_doc_with_default_factories": True
     }

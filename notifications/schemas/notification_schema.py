@@ -171,6 +171,9 @@ class InAppNotificationResponse(BaseModel):
     is_read: bool
     action_url: Optional[str] = None
     action_label: Optional[str] = None
+    data: Dict[str, Any] = Field(default_factory=dict)
+    reference_type: Optional[str] = None
+    reference_id: Optional[str] = None
     created_at: datetime
     
     class Config:
