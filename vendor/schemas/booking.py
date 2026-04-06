@@ -7,6 +7,13 @@ class BookingStatusUpdate(BaseModel):
     status: str
     postpone_date: Optional[str] = None
     postpone_time: Optional[str] = None
+    
+    # Optional Payment Details (Primarily for Walk-in Bookings)
+    is_offline: Optional[bool] = False
+    payment_method: Optional[str] = None
+    amount_paid: Optional[float] = None
+    balance_due: Optional[float] = None
+    payment_notes: Optional[str] = None
 
 class UserSummary(BaseModel):
     id: Optional[str] = None

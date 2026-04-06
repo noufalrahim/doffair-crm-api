@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 from vendor.schemas.booking import VendorBookingResponse, UserSummary, PetSummary, ServiceSummary, BookingStatusUpdate, OtpVerifyInput
 from vendor.models.vendor_service import VendorService
+from vendor.services.invoice_service import handle_booking_completion_invoicing
 
 def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
     if dt is None:
@@ -910,6 +911,18 @@ async def update_booking_status(
         elif new_status == "completed":
             event_type = EventType.BOOKING_COMPLETED
             template_id = "BookingCompleted"
+            
+            # --- AUTOMATED INVOICING & TRANSACTIONS ---
+            # Trigger invoice generation and transaction recording
+            background_tasks.add_task(
+                handle_booking_completion_invoicing,
+                primary_engine, # We pass primary engine as it's the main writing DB
+                vendor_id,
+                booking_doc,
+                status_update,
+                background_tasks
+            )
+            print(f"[BOOKING STATUS] 🧾 Automated invoicing triggered for booking {booking_id}")
         elif new_status in ["cancelled", "rejected", "cancelByProvider"]:
             event_type = EventType.BOOKING_CANCELLED
             template_id = "BookingCancel"

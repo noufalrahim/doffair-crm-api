@@ -5,6 +5,7 @@ from redis import Redis
 from core.config import settings
 from notifications.handlers.email_handler import EmailHandler
 from notifications.handlers.sms_handler import SMSHandler
+from notifications.services.pdf_service import pdf_service
 
 # Configure logging
 logging.basicConfig(
@@ -70,6 +71,19 @@ async def process_job(payload_str):
                 
                 return
 
+            # --- Special Handling for Invoices (PDF Generation) ---
+            if event_type == "INVOICE_SENT":
+                logger.info(f"📄 Handling Invoice with PDF generation for: {event_data.get('invoice_number')}")
+                pdf_content = pdf_service.generate_invoice_pdf(event_data)
+                if pdf_content:
+                    event_data["attachments"] = [{
+                        "filename": f"Invoice_{event_data.get('invoice_number')}.pdf",
+                        "content": pdf_content
+                    }]
+                    logger.info(f"✅ PDF generated and attached for invoice {event_data.get('invoice_number')}")
+                else:
+                    logger.warning(f"⚠️ PDF generation failed for invoice {event_data.get('invoice_number')}")
+
             # --- Standard Handling for other events (Send both) ---
             # 1. Email
             if event_data.get("user_email") or event_data.get("vendor_email"):
@@ -83,7 +97,8 @@ async def process_job(payload_str):
                         "recipient_email": email,
                         "template_id": event_data.get("template_id") or event_type,
                         "subject": f"Doffair Alert: {event_type}",
-                        "data": event_data
+                        "data": event_data,
+                        "attachments": event_data.get("attachments", [])
                     }
                     logger.info(f"📧 Dispatching Email to {email}")
                     try:
