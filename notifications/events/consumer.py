@@ -235,12 +235,21 @@ async def send_inapp_notification(
         event_type_str = event.event_type.value if hasattr(event.event_type, 'value') else str(event.event_type)
         recipient_role_str = recipient_role.value if hasattr(recipient_role, 'value') else str(recipient_role)
         
+        # Extract reference info for deep linking
+        ref_id = event.data.get("booking_id") or event.data.get("order_id") or event.data.get("payment_id")
+        ref_type = None
+        if event.data.get("booking_id"): ref_type = "booking"
+        elif event.data.get("order_id"): ref_type = "order"
+        elif event.data.get("payment_id"): ref_type = "payment"
+
         notification = InAppNotification(
             user_id=recipient_id,
             title=get_notification_title(event.event_type),
             message=content,
             notification_type=event_type_str,
-            metadata={
+            reference_type=ref_type,
+            reference_id=ref_id,
+            data={
                 "event_id": event.event_id,
                 "recipient_role": recipient_role_str,
                 **event.data

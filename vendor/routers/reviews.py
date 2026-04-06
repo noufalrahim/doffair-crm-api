@@ -3,7 +3,7 @@ from odmantic import AIOEngine, ObjectId
 from typing import List, Optional
 from datetime import datetime
 
-from core.database import get_engine
+from core.database import get_engine, get_secondary_engine
 from core.security import get_current_vendor
 from vendor.models.review import Review
 from core.enums import ReviewStatus
@@ -32,6 +32,10 @@ def _serialize(review: Review) -> dict:
         "date": review.date.isoformat(),
         "created_at": review.created_at.isoformat(),
         "updated_at": review.updated_at.isoformat(),
+        
+        # Enriched fields from service
+        "reviewer_name": getattr(review, "reviewer_name", None),
+        "reviewer_image": getattr(review, "reviewer_image", None),
     }
 
 
@@ -75,6 +79,7 @@ async def create_review(
 )
 async def list_reviews(
     vertical_id: str = Query(..., description="ID of the vertical to filter reviews by", example="69522b6ce6a07c46de0f88d7"),
+    search: Optional[str] = Query(None, description="Search by customer name"),
     status_filter: Optional[ReviewStatus] = Query(None, description="Filter by review status"),
     care_professional_id: Optional[str] = Query(None, description="Filter by care professional ID"),
     min_rating: Optional[float] = Query(None, ge=1, le=5, description="Minimum rating (1-5)"),
@@ -83,13 +88,16 @@ async def list_reviews(
     skip: int = Query(0, ge=0, description="Results to skip"),
     token: dict = Depends(get_current_vendor),
     engine: AIOEngine = Depends(get_engine),
+    secondary_engine: AIOEngine = Depends(get_secondary_engine),
 ):
     """List reviews for the authenticated vendor filtered by vertical (required)."""
     vendor_id = token.get("vendor_id")
     reviews, total = await review_service.get_vendor_reviews(
         engine=engine,
+        secondary_engine=secondary_engine,
         vendor_id=vendor_id,
         vertical_id=vertical_id,
+        search=search,
         status_filter=status_filter,
         care_professional_id=care_professional_id,
         min_rating=min_rating,

@@ -22,6 +22,10 @@ class Review(Model):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+    # Transient fields for enrichment (not stored in DB)
+    reviewer_name: Optional[str] = None
+    reviewer_image: Optional[str] = None
+
     model_config = {
         "collection": "reviews",
         "indexes": [

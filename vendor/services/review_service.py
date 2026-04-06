@@ -61,8 +61,10 @@ async def get_vendor_reviews(
     max_rating: Optional[float] = None,
     limit: Optional[int] = None,
     skip: int = 0,
+    search: Optional[str] = None,
+    secondary_engine: Optional[AIOEngine] = None,
 ) -> tuple[List[Review], int]:
-    """Get all reviews for a vendor with optional filters."""
+    """Get all reviews for a vendor with optional filters and name search."""
 
     query: dict = {"vendor_id": vendor_id}
 
@@ -83,6 +85,44 @@ async def get_vendor_reviews(
             rating_q["$lte"] = max_rating
         query["rating"] = rating_q
 
+    # Handle Search (Cross-Database Search)
+    if search and secondary_engine:
+        import re
+        search_regex = {"$regex": re.escape(search), "$options": "i"}
+        
+        # 1. Search in Secondary DB (users + userInfo)
+        user_coll = secondary_engine.database.get_collection("users")
+        user_info_coll = secondary_engine.database.get_collection("userInfo")
+        
+        matching_users = await user_coll.find({
+            "$or": [
+                {"username": search_regex},
+                {"phoneNumber": search_regex},
+                {"phone": search_regex},
+                {"email": search_regex}
+            ]
+        }).to_list(length=100)
+        
+        matching_user_infos = await user_info_coll.find({
+            "name": search_regex
+        }).to_list(length=100)
+        
+        user_ids = {str(u["_id"]) for u in matching_users}
+        for ui in matching_user_infos:
+            u_ref = ui.get("userId")
+            if u_ref:
+                from bson import DBRef
+                if isinstance(u_ref, DBRef):
+                    user_ids.add(str(u_ref.id))
+                else:
+                    user_ids.add(str(u_ref))
+        
+        if user_ids:
+            query["review_by"] = {"$in": list(user_ids)}
+        else:
+            # If search term provided but no users found, return empty results
+            return [], 0
+
     # Use engine.find() to properly initialize Review instances and avoid FieldProxy errors
     reviews = await engine.find(
         Review,
@@ -92,6 +132,83 @@ async def get_vendor_reviews(
         skip=skip
     )
     total = await engine.count(Review, query)
+
+    # Data Enrichment (Fetch Names/Images from Secondary DB)
+    if reviews and secondary_engine:
+        unique_uids = {r.review_by for r in reviews if r.review_by}
+        if unique_uids:
+            try:
+                from bson import DBRef
+                
+                # 1. Prepare mapping structures
+                info_map = {}
+                oid_list = []
+                uid_to_oid = {}
+                
+                for uid in unique_uids:
+                    if ObjectId.is_valid(uid):
+                        oid = ObjectId(uid)
+                        oid_list.append(oid)
+                        uid_to_oid[uid] = oid
+                    else:
+                        uid_to_oid[uid] = uid # Keep as string if not valid ObjectId
+
+                # 2. Fetch from 'users' collection (username, firstName fallbacks)
+                user_coll = secondary_engine.database.get_collection("users")
+                user_docs = await user_coll.find({
+                    "_id": {"$in": oid_list}
+                }).to_list(length=len(oid_list))
+                
+                for u in user_docs:
+                    u_id_str = str(u["_id"])
+                    info_map[u_id_str] = {
+                        "name": u.get("username") or u.get("firstName") or "Anonymous",
+                        "image": None
+                    }
+
+                # 3. Fetch from 'userInfo' collection (actual full names and profile images)
+                user_info_coll = secondary_engine.database.get_collection("userInfo")
+                
+                # Prepare exhaustive query for userInfo (matches ObjectId, string, or DBRef)
+                potential_user_ids = []
+                for oid in oid_list:
+                    potential_user_ids.extend([oid, str(oid), DBRef("users", oid)])
+                
+                user_info_docs = await user_info_coll.find({
+                    "userId": {"$in": potential_user_ids}
+                }).to_list(length=len(unique_uids))
+                
+                for ui in user_info_docs:
+                    u_ref = ui.get("userId")
+                    # Extract the ID string from DBRef or raw ID
+                    u_id_str = str(u_ref.id if hasattr(u_ref, 'id') else u_ref)
+                    
+                    if u_id_str not in info_map:
+                        info_map[u_id_str] = {"name": "Anonymous", "image": None}
+                    
+                    if ui.get("name"):
+                        info_map[u_id_str]["name"] = ui.get("name")
+                    
+                    # Preference for images: image > profileImage > avatar > photo
+                    img = ui.get("image") or ui.get("profileImage") or ui.get("avatar") or ui.get("photo")
+                    if img:
+                        info_map[u_id_str]["image"] = img
+                
+                # 4. Attach to Review objects
+                for r in reviews:
+                    uid = str(r.review_by)
+                    if uid in info_map:
+                        setattr(r, "reviewer_name", info_map[uid]["name"])
+                        setattr(r, "reviewer_image", info_map[uid]["image"])
+                    else:
+                        # Final fallback if absolutely nothing found in Secondary DB
+                        setattr(r, "reviewer_name", "Anonymous User")
+                        
+            except Exception as e:
+                logger.error(f"❌ Error enriching reviews: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
+                pass
 
     return reviews, total
 

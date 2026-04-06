@@ -86,7 +86,9 @@ class InAppHandler(BaseNotificationHandler):
                         "message": message,
                         "notification_type": in_app_notif.notification_type,
                         "created_at": saved.created_at.isoformat(),
-                        "data": in_app_notif.data
+                        "data": in_app_notif.data,
+                        "reference_type": in_app_notif.reference_type,
+                        "reference_id": in_app_notif.reference_id
                     }
                 }
                 await self.redis_client.publish("notifications_broadcast", json.dumps(broadcast_data))

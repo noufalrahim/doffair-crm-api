@@ -39,6 +39,7 @@ class ReviewResponse(BaseModel):
 
     # Enriched fields
     reviewer_name: Optional[str] = None
+    reviewer_image: Optional[str] = None
     reviewer_email: Optional[str] = None
     reviewer_phone: Optional[str] = None
     care_professional_name: Optional[str] = None
