@@ -357,6 +357,7 @@ async def get_vendor_bookings(
     search: Optional[str] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
+    location_id: Optional[str] = None,
 ) -> tuple[list[tuple[dict, dict]], int]:
     """
     Get all bookings for a vendor
@@ -371,6 +372,9 @@ async def get_vendor_bookings(
     
     if vertical_id:
         query["vertical_id"] = vertical_id
+
+    if location_id:
+        query["location_id"] = location_id
 
     if search:
         import re

@@ -25,8 +25,32 @@ class VendorService(Model):
     is_active: bool = True
 
     base_price: Optional[float] = None
-    discount_type: Optional[str] = "NONE"
+    discount_type: Optional[str] = None
     discount_value: Optional[float] = None
+
+    @field_validator("base_price", "discount_value", mode="before")
+    @classmethod
+    def validate_float_fields(cls, v: Any) -> Any:
+        if v is None or v == "" or v == "NONE":
+            return None
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return None
+
+    @field_validator("discount_type", mode="before")
+    @classmethod
+    def validate_discount_type(cls, v: Any) -> Any:
+        if v is None or v == "NONE":
+            return None
+        # Handle enum instances - extract the .value
+        if hasattr(v, 'value'):
+            return v.value
+        s = str(v)
+        # Handle string representations like "DiscountType.FLAT"
+        if '.' in s:
+            return s.split('.')[-1]
+        return s
 
     @field_validator("delivery_mode", mode="before")
     @classmethod

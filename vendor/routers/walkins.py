@@ -107,6 +107,7 @@ async def create_walkin_booking(
             service_name=bk_service_name,
             vertical_id=bk_vertical_id or walkin_data.vertical_id,
             vertical_name=bk_vertical_name,
+            location_id=walkin_data.location_id,
             delivery_mode=ServiceDeliveryMode.CENTER,
             booking_date=walkin_data.booking_date,
             

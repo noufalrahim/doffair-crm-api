@@ -1,7 +1,8 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Union, Any
 
 from odmantic import Model, Field
+from pydantic import field_validator
 from core.enums import VendorStatus
 
 
@@ -24,12 +25,12 @@ class Vendor(Model):
     # Basic info fields
     about: Optional[str] = None
     alternative_phone: Optional[str] = None
-    work_experience: Optional[float] = None
+    work_experience: Optional[str] = None
 
     # Work-related info
     home_service: bool = False
     centre_service: bool = False
-    home_service_radius: Optional[float] = None  # radius in km
+    home_service_radius: Optional[str] = None  # radius in km
     overall_rating: Optional[float] = None
 
     status: VendorStatus = VendorStatus.PHONE_VERIFIED
@@ -42,6 +43,24 @@ class Vendor(Model):
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    @field_validator('work_experience', mode='before')
+    @classmethod
+    def validate_work_experience(cls, v: Any) -> Optional[str]:
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return str(v)
+        return str(v) if v is not None else None
+
+    @field_validator('home_service_radius', mode='before')
+    @classmethod
+    def validate_home_service_radius(cls, v: Any) -> Optional[str]:
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return str(v)
+        return str(v) if v is not None else None
 
     model_config = {
         "collection": "vendors",
