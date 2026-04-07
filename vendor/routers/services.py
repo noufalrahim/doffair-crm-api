@@ -20,6 +20,21 @@ from vendor.services.service_service import (
     delete_service,
 )
 from vendor.utils.pricing import calculate_final_price
+from core.enums import DiscountType
+
+
+def _sanitize_discount_type(raw_val):
+    """Sanitize discount_type from DB which may be stored as 'DiscountType.FLAT' etc."""
+    if raw_val is None:
+        return None
+    s = str(raw_val)
+    if '.' in s:
+        s = s.split('.')[-1]
+    try:
+        return DiscountType(s)
+    except (ValueError, KeyError):
+        return None
+
 
 router = APIRouter(
     prefix="/vendor/onboarding",
@@ -110,11 +125,11 @@ async def get_services(
                 delivery_mode=s.delivery_mode,
                 dog_sizes=s.dog_sizes,
                 base_price=s.base_price,
-                discount_type=s.discount_type,
+                discount_type=_sanitize_discount_type(s.discount_type),
                 discount_value=s.discount_value,
                 final_price=calculate_final_price(
                     s.base_price,
-                    s.discount_type,
+                    _sanitize_discount_type(s.discount_type),
                     s.discount_value
                 ) if s.base_price is not None else None,
             )
@@ -154,11 +169,11 @@ async def update_vendor_service(
             delivery_mode=service.delivery_mode,
             dog_sizes=service.dog_sizes,
             base_price=service.base_price,
-            discount_type=service.discount_type,
+            discount_type=_sanitize_discount_type(service.discount_type),
             discount_value=service.discount_value,
             final_price=calculate_final_price(
                 service.base_price,
-                service.discount_type,
+                _sanitize_discount_type(service.discount_type),
                 service.discount_value
             ) if service.base_price is not None else None,
         )

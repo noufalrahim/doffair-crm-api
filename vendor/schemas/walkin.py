@@ -24,6 +24,7 @@ class WalkinBookingCreate(BaseModel):
     care_professional_id: Optional[str] = None
     service_name: Optional[str] = None
     vertical_id: Optional[str] = None
+    location_id: Optional[str] = None
     services: List[str] = [] # List of service names or descriptions (Legacy/Fallback)
     booking_date: datetime
     status: BookingStatus = BookingStatus.CONFIRMED

@@ -45,7 +45,7 @@ async def update_work_info(
         
         location.updated_at = datetime.utcnow()
         await engine.save(location)
-        return vendor
+        return location
 
     for field, value in payload.dict(exclude_unset=True).items():
         setattr(vendor, field, value)

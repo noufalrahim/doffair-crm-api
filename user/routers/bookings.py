@@ -219,6 +219,7 @@ async def get_vendor_my_bookings(
     engine: AIOEngine = Depends(get_engine),
     status: Optional[str] = Query(None, description="Filter by status: confirmed, pending, etc."),
     vertical_id: Optional[str] = Query(None, description="Filter by vertical ID"),
+    location_id: Optional[str] = Query(None, description="Filter by location ID"),
     search: Optional[str] = Query(None, description="Search by customer name, phone, or email"),
     start_date: Optional[datetime] = Query(None, alias="startDate"),
     end_date: Optional[datetime] = Query(None, alias="endDate"),
@@ -261,7 +262,8 @@ async def get_vendor_my_bookings(
         vertical_id=vertical_id,
         search=search,
         start_date=start_date,
-        end_date=end_date
+        end_date=end_date,
+        location_id=location_id
     )
 
     final_data = []

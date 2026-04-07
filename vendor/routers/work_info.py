@@ -31,17 +31,17 @@ async def create_or_update_work_info(
 ):
     """Create or update work-related info for the vendor."""
     vendor_id = token["vendor_id"]
-    vendor = await update_work_info(engine, vendor_id, payload, location_id=location_id)
+    result = await update_work_info(engine, vendor_id, payload, location_id=location_id)
 
     return success_response(
         message="Work info updated successfully",
         data={
-            "vendor_id": str(vendor.id),
-            "home_service": vendor.home_service,
-            "centre_service": vendor.centre_service,
-            "home_service_radius": vendor.home_service_radius,
-            "overall_rating": vendor.overall_rating,
-            "work_experience": vendor.work_experience,
+            "vendor_id": str(result.id),
+            "home_service": result.home_service,
+            "centre_service": result.centre_service,
+            "home_service_radius": result.home_service_radius,
+            "overall_rating": getattr(result, 'overall_rating', None),
+            "work_experience": result.work_experience,
         },
     )
 
@@ -55,17 +55,17 @@ async def patch_work_info(
 ):
     """Partially update work-related info for the vendor."""
     vendor_id = token["vendor_id"]
-    vendor = await update_work_info(engine, vendor_id, payload, location_id=location_id)
+    result = await update_work_info(engine, vendor_id, payload, location_id=location_id)
 
     return success_response(
         message="Work info updated successfully",
         data={
-            "vendor_id": str(vendor.id),
-            "home_service": vendor.home_service,
-            "centre_service": vendor.centre_service,
-            "home_service_radius": vendor.home_service_radius,
-            "overall_rating": vendor.overall_rating,
-            "work_experience": vendor.work_experience,
+            "vendor_id": str(result.id),
+            "home_service": result.home_service,
+            "centre_service": result.centre_service,
+            "home_service_radius": result.home_service_radius,
+            "overall_rating": getattr(result, 'overall_rating', None),
+            "work_experience": result.work_experience,
         },
     )
 
