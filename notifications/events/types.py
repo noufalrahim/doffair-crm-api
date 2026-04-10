@@ -10,6 +10,7 @@ class EventType(str, Enum):
     BOOKING_COMPLETED = "BOOKING_COMPLETED"
     WALKIN_BOOKING_CONFIRMED = "WALKIN_BOOKING_CONFIRMED"
     SERVICE_START_OTP = "SERVICE_START_OTP"
+    ONBOARDING_OTP = "ONBOARDING_OTP"
     
     PAYMENT_SUCCESS = "PAYMENT_SUCCESS"
     PAYMENT_FAILED = "PAYMENT_FAILED"
@@ -38,6 +39,7 @@ class EventSource(str, Enum):
     PAYMENT_SERVICE = "payment-service"
     USER_SERVICE = "user-service"
     VENDOR_SERVICE = "vendor-service"
+    VENDOR_ONBOARDING = "vendor-onboarding"
     SYSTEM = "system"
 
 

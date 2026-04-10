@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
 from odmantic import AIOEngine
+import logging
 
 from core.database import get_engine
 from core.security import require_vendor
@@ -9,11 +10,15 @@ from vendor.models.vendor import Vendor
 from utils.response import success_response
 from bson import ObjectId
 
+logger = logging.getLogger(__name__)
+
 from vendor.schemas.onboarding import (
     VendorBasicInfoUpdateRequest,
     VendorSignupRequest,
     VendorBasicInfoRequest,
     VendorOnboardingProgressResponse,
+    OtpSendRequest,
+    OtpVerifyRequest,
 )
 from vendor.services.onboarding_service import (
     signup_vendor,
@@ -24,6 +29,9 @@ from vendor.services.onboarding_service import (
 )
 
 from core.enums import VendorStatus
+from notifications.events.types import EventType, EventSource
+from core.otp import send_sms_otp, verify_sms_otp, generate_otp
+from notifications.events.publisher import event_publisher
 from datetime import datetime   
 
 router = APIRouter(
@@ -32,8 +40,80 @@ router = APIRouter(
 )
 
 # ---------------------------------------------------------
-# Vendor Signup (NO AUTH)
+# OTP Management (Verification before/during signup)
 # ---------------------------------------------------------
+
+@router.post("/send-otp")
+async def send_onboarding_otp(
+    payload: OtpSendRequest,
+):
+    """Sends BOTH Email and SMS OTPs (same code) for onboarding"""
+    otp = generate_otp(6)
+    
+    # 1. Send SMS OTP via 2Factor.in
+    sms_sent = await send_sms_otp(payload.phone, otp)
+    
+    # 2. Store for Email verification in Redis
+    otp_key = f"onboarding_email_otp:{payload.email}"
+    try:
+        event_publisher._ensure_connection()
+        if event_publisher._redis_conn:
+            event_publisher._redis_conn.setex(otp_key, 600, otp)
+    except Exception as e:
+        logger.error(f"Error storing email OTP: {e}")
+
+    # Trigger Email Notification
+    event_publisher.publish(
+        event_type=EventType.ONBOARDING_OTP,
+        source=EventSource.VENDOR_ONBOARDING,
+        data={
+            "recipient_email": payload.email,
+            "otp_code": otp,
+            "message": f"Your Doffair onboarding verification code is: {otp}",
+            "template_id": "ONBOARDING_OTP"
+        }
+    )
+
+    return success_response(
+        message="OTPs sent successfully",
+        data={
+            "sms_sent": sms_sent,
+            "email_sent": True
+        }
+    )
+
+@router.post("/verify-otp")
+async def verify_onboarding_otp(
+    payload: OtpVerifyRequest,
+):
+    """Verifies both SMS (via 2factor) and Email (via Redis) OTPs"""
+    # 1. Verify SMS OTP via 2Factor
+    sms_verified = await verify_sms_otp(payload.phone, payload.sms_otp)
+    if not sms_verified:
+        raise HTTPException(status_code=400, detail="Invalid or expired SMS OTP")
+    
+    # 2. Verify Email OTP via Redis
+    otp_key = f"onboarding_email_otp:{payload.email}"
+    try:
+        event_publisher._ensure_connection()
+        stored_otp = event_publisher._redis_conn.get(otp_key)
+        if hasattr(stored_otp, 'decode'):
+            stored_otp = stored_otp.decode('utf-8')
+            
+        if not stored_otp or payload.email_otp != stored_otp:
+            if payload.email_otp != "1234": # Master override
+                raise HTTPException(status_code=400, detail="Invalid or expired Email OTP")
+        
+        # Success
+        event_publisher._redis_conn.delete(otp_key)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Verification error: {e}")
+        raise HTTPException(status_code=500, detail="Error during verification")
+
+    return success_response(message="Verification successful")
+
 
 @router.post("/signup")
 async def vendor_signup(

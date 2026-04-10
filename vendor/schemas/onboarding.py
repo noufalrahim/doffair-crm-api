@@ -75,3 +75,15 @@ class VendorOnboardingProgressResponse(BaseModel):
     # Summary
     percentage_completed: float
     pending_steps: list[str]
+
+
+class OtpSendRequest(BaseModel):
+    phone: str
+    email: EmailStr
+
+
+class OtpVerifyRequest(BaseModel):
+    phone: str
+    email: EmailStr
+    sms_otp: str
+    email_otp: str

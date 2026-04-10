@@ -761,6 +761,8 @@ async def get_booking_details(
         raise HTTPException(status_code=500, detail=f"Error mapping booking data: {str(e)}")
 
 
+from core.otp import send_sms_otp, verify_sms_otp, generate_otp
+
 @router.post("/{booking_id}/otp/send", response_model=APIResponse)
 async def send_service_otp(
     booking_id: str,
@@ -769,7 +771,7 @@ async def send_service_otp(
     primary_engine: AIOEngine = Depends(get_engine),
 ):
     """
-    Generate and send OTP to pet owner for starting the service.
+    Generate and send OTP to pet owner via SMS (2Factor) for starting the service.
     """
     if not ObjectId.is_valid(booking_id):
         raise HTTPException(status_code=400, detail="Invalid booking ID")
@@ -789,45 +791,22 @@ async def send_service_otp(
 
     # Map to get consistent user info
     mapped = await map_booking_doc(booking_doc, current_engine)
-    if not mapped.user or (not mapped.user.email and not mapped.user.phone):
-        raise HTTPException(status_code=400, detail="User contact information missing")
+    if not mapped.user or not mapped.user.phone:
+        raise HTTPException(status_code=400, detail="User phone number missing")
 
-    # 2. Generate 4-digit OTP
-    import random
-    otp = str(random.randint(1000, 9999))
-    otp_key = f"booking_otp:{booking_id}"
-
-    # 3. Store in Redis (10 min expiry)
-    try:
-        event_publisher._ensure_connection()
-        if event_publisher._redis_conn:
-            event_publisher._redis_conn.setex(otp_key, 600, otp)
-        else:
-            raise Exception("Redis not available")
-    except Exception as e:
-        logger.error(f"Failed to store OTP in Redis: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate OTP")
-
-    # 4. Trigger Notification (OTP)
-    # Use the new specific event type to avoid generic 'Booking Confirmed' mails
-    event_publisher.publish(
-        event_type=EventType.SERVICE_START_OTP,
-        source=EventSource.BOOKING_SERVICE,
-        data={
-            "booking_id": booking_id,
-            "user_email": mapped.user.email,
-            "user_phone": mapped.user.phone,
-            "user_name": mapped.user.name,
-            "template_id": "SERVICE_START_OTP",
-            "otp_code": otp,
-            "message": f"Your Doffair verification code for starting the service is: {otp}. Valid for 10 minutes.",
-            "variables": [mapped.user.name, otp]
-        }
-    )
-
-    logger.info(f"OTP {otp} generated for booking {booking_id} and queued for delivery")
+    # 2. Generate 4 or 6 digit OTP (2factor V1 API)
+    otp = generate_otp(6)
     
-    return success_response(message="OTP sent successfully to pet owner")
+    # 3. Send SMS OTP via 2Factor.in V1 API
+    # This API handles sending the specified OTP to the phone
+    sms_sent = await send_sms_otp(mapped.user.phone, otp)
+    
+    if not sms_sent:
+        raise HTTPException(status_code=500, detail="Failed to send SMS OTP via service provider")
+
+    logger.info(f"OTP {otp} sent to {mapped.user.phone} for booking {booking_id}")
+    
+    return success_response(message="OTP sent successfully to pet owner via SMS")
 
 
 @router.post("/{booking_id}/otp/verify")
@@ -840,40 +819,35 @@ async def verify_service_otp(
     primary_engine: AIOEngine = Depends(get_engine),
 ):
     """
-    Verify OTP. If correct, update status to ONGOING.
+    Verify OTP via 2Factor API. If correct, update status to ONGOING.
     """
     if not ObjectId.is_valid(booking_id):
         raise HTTPException(status_code=400, detail="Invalid booking ID")
 
-    # 1. Verify OTP from Redis
-    otp_key = f"booking_otp:{booking_id}"
-    try:
-        event_publisher._ensure_connection()
-        if not event_publisher._redis_conn:
-            raise Exception("Redis not available")
-        
-        stored_otp = event_publisher._redis_conn.get(otp_key)
-        if hasattr(stored_otp, 'decode'):
-            stored_otp = stored_otp.decode('utf-8')
-            
-        if not stored_otp:
-            raise HTTPException(status_code=400, detail="OTP expired or not found")
-        
-        # In case of manual override for testing (optional)
-        if otp_input.otp != stored_otp and otp_input.otp != "123456":
-            raise HTTPException(status_code=400, detail="Invalid OTP")
-            
-        # Delete OTP after successful verification
-        event_publisher._redis_conn.delete(otp_key)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"OTP Verification Error: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error during verification")
+    # 1. Fetch booking to get user details
+    collection_primary = primary_engine.database.get_collection("walkin_bookings")
+    booking_doc = await collection_primary.find_one({"_id": ObjectId(booking_id)})
+    current_engine = primary_engine
+    
+    if not booking_doc:
+        collection_secondary = secondary_engine.database.get_collection("bookings")
+        booking_doc = await collection_secondary.find_one({"_id": ObjectId(booking_id)})
+        current_engine = secondary_engine
 
-    # 2. Proceed to update status
-    # We basically replicate the logic from update_booking_status but hardcoded to 'ongoing'
+    if not booking_doc:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    mapped = await map_booking_doc(booking_doc, current_engine)
+    if not mapped.user or not mapped.user.phone:
+        raise HTTPException(status_code=400, detail="User phone number missing")
+
+    # 2. Verify OTP via 2Factor API
+    is_valid = await verify_sms_otp(mapped.user.phone, otp_input.otp)
+    
+    if not is_valid:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+
+    # 3. Proceed to update status
     status_update = BookingStatusUpdate(status="ongoing")
     return await update_booking_status(
         booking_id=booking_id,
