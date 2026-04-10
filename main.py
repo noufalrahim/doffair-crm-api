@@ -84,10 +84,10 @@ app = FastAPI(
 app.mount("/socket.io", socket_app)
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex="http://localhost:.*|https://.*",
+    allow_origin_regex=".*",
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
+    allow_headers=["*"],
     expose_headers=["*"],
 )
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
