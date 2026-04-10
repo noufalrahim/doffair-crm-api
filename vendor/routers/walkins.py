@@ -40,10 +40,45 @@ async def create_walkin_booking(
         vendor = await engine.find_one(Vendor, Vendor.id == ObjectId(vendor_id))
         
         # Determine Service Details
-        bk_service_name = ", ".join(walkin_data.services)
+        bk_service_name = ", ".join(walkin_data.services) if walkin_data.services else "Walk-in"
         bk_vertical_name = "Walk-in"
         bk_service_id = None
         bk_vertical_id = None
+        resolved_services = []
+
+        # Resolve service IDs to actual service objects
+        if walkin_data.services:
+            service_names = []
+            for svc_id_str in walkin_data.services:
+                if ObjectId.is_valid(svc_id_str):
+                    try:
+                        vs = await engine.find_one(VendorService, VendorService.id == ObjectId(svc_id_str))
+                        if vs:
+                            service_names.append(vs.name or svc_id_str)
+                            svc_price = vs.base_price or 0
+                            svc_discount = 0
+                            if vs.discount_value and vs.base_price:
+                                if vs.discount_type == "percentage":
+                                    svc_discount = vs.base_price * (vs.discount_value / 100)
+                                else:
+                                    svc_discount = vs.discount_value
+                            resolved_services.append({
+                                "serviceId": str(vs.id),
+                                "name": vs.name,
+                                "price": svc_price - svc_discount,
+                                "duration": vs.duration_minutes or 0,
+                                "discount": svc_discount,
+                                "status": "confirmed"
+                            })
+                        else:
+                            service_names.append(svc_id_str)
+                    except Exception as e:
+                        logger.error(f"Error resolving service {svc_id_str}: {e}")
+                        service_names.append(svc_id_str)
+                else:
+                    service_names.append(svc_id_str)
+            if service_names:
+                bk_service_name = ", ".join(service_names)
 
         if walkin_data.service_id:
             bk_service_id = walkin_data.service_id
@@ -121,6 +156,7 @@ async def create_walkin_booking(
             # Walk-in specific fields (reusing offline fields)
             is_offline=True,
             vendor_notes=walkin_data.pet_about,
+            payment_mode=walkin_data.payment_mode,
             
             # Additional notes
             customer_notes=f"Vaccinated: {walkin_data.pet_vaccinated}. Height: {walkin_data.pet_height}. About: {walkin_data.pet_about}"
@@ -128,6 +164,21 @@ async def create_walkin_booking(
 
         
         await engine.save(booking)
+        
+        # Store resolved services and paid_amount in document
+        update_fields = {}
+        if resolved_services:
+            update_fields["services"] = resolved_services
+        if walkin_data.paid_amount is not None:
+            update_fields["paid_amount"] = walkin_data.paid_amount
+        if walkin_data.payment_id:
+            update_fields["payment_id"] = walkin_data.payment_id
+        if update_fields:
+            await engine.database.get_collection("walkin_bookings").update_one(
+                {"_id": booking.id},
+                {"$set": update_fields}
+            )
+        
         logger.info(f"✅ Walk-in booking created: {booking.id}")
         
         # Send confirmation notification to pet owner

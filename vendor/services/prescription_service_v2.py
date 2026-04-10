@@ -235,9 +235,37 @@ async def get_unified_prescriptions_by_booking(
     uploaded_files = await list_prescriptions_by_booking(engine, vendor_id, booking_id)
 
     # 2. Get structured data
-    structured_data = await list_prescriptions_data(engine, vendor_id, booking_id=booking_id)
+    raw_structured_data = await list_prescriptions_data(engine, vendor_id, booking_id=booking_id)
+    
+    # 3. Convert structured data to include new fields (avoid circular import)
+    structured_data = []
+    for p in raw_structured_data:
+        # Create response dict with all fields including new ones
+        prescription_dict = {
+            "id": str(p.id),
+            "vendor_id": p.vendor_id,
+            "booking_id": p.booking_id,
+            "pet_name": p.pet_name,
+            "pet_id": p.pet_id,
+            "owner_name": p.owner_name,
+            "owner_id": p.owner_id,
+            "complaints": getattr(p, 'complaints', ''),
+            "medical_history": getattr(p, 'medical_history', ''),
+            "drug_allergies": getattr(p, 'drug_allergies', ''),
+            "tests_prescribed": getattr(p, 'tests_prescribed', ''),
+            "diagnosis": p.diagnosis,
+            "medications": [m.model_dump() for m in p.medications],
+            "instructions": p.instructions,
+            "follow_up_date": p.follow_up_date,
+            "clinic_name": getattr(p, 'clinic_name', ''),
+            "doctor_name": getattr(p, 'doctor_name', ''),
+            "is_active": p.is_active,
+            "created_at": p.created_at,
+            "updated_at": p.updated_at,
+        }
+        structured_data.append(prescription_dict)
 
-    # 3. Combine into unified format
+    # 4. Combine into unified format
     return {
         "booking_id": booking_id,
         "uploaded_files": uploaded_files,

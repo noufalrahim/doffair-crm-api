@@ -213,14 +213,45 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
         if svc_status is None:
             svc_status = booking.status.value if hasattr(booking.status, 'value') else str(booking.status)
 
-        modern_services_list.append(ServiceSummary(
-            id=None,
-            name=booking.service_name,
-            final_price=booking.base_amount,
-            discount=booking.discount_amount,
-            duration_minutes=0,
-            status=svc_status if isinstance(svc_status, str) else str(svc_status)
-        ))
+        # Check if service_name contains ObjectId(s) instead of actual names
+        svc_name = booking.service_name
+        resolved_from_ids = False
+        if svc_name:
+            id_parts = [s.strip() for s in svc_name.split(",")]
+            if all(ObjectId.is_valid(p) for p in id_parts if p):
+                try:
+                    for sid_str in id_parts:
+                        if sid_str:
+                            vs = await engine.find_one(VendorService, VendorService.id == ObjectId(sid_str))
+                            if vs:
+                                svc_price = vs.base_price or 0
+                                svc_discount = 0
+                                if vs.discount_value and vs.base_price:
+                                    if vs.discount_type == "percentage":
+                                        svc_discount = vs.base_price * (vs.discount_value / 100)
+                                    else:
+                                        svc_discount = vs.discount_value
+                                modern_services_list.append(ServiceSummary(
+                                    id=str(vs.id),
+                                    name=vs.name,
+                                    final_price=svc_price - svc_discount,
+                                    discount=svc_discount,
+                                    duration_minutes=vs.duration_minutes or 0,
+                                    status=svc_status if isinstance(svc_status, str) else str(svc_status)
+                                ))
+                                resolved_from_ids = True
+                except Exception as e:
+                    print(f"DEBUG: Error resolving service IDs from service_name: {e}")
+
+        if not resolved_from_ids:
+            modern_services_list.append(ServiceSummary(
+                id=None,
+                name=booking.service_name,
+                final_price=booking.base_amount,
+                discount=booking.discount_amount,
+                duration_minutes=0,
+                status=svc_status if isinstance(svc_status, str) else str(svc_status)
+            ))
 
     # For Modern/Walk-in, fetch UserInfo for ID and image
     user_image_modern = None
@@ -271,11 +302,18 @@ async def map_booking_doc(booking_doc: dict, engine: AIOEngine) -> VendorBooking
     if raw_status is None:
         raw_status = booking.status.value if hasattr(booking.status, 'value') else str(booking.status)
 
+    # Use resolved service names for display if available
+    display_service_name = booking.service_name
+    if modern_services_list:
+        resolved_names = [s.name for s in modern_services_list if s.name and s.name != "Unknown"]
+        if resolved_names:
+            display_service_name = ", ".join(resolved_names)
+
     return VendorBookingResponse(
             id=booking_id,
             booking_date=ensure_utc(booking.booking_date),
             status=raw_status if isinstance(raw_status, str) else str(raw_status),
-            service_name=booking.service_name,
+            service_name=display_service_name,
             care_professional_id=booking.care_professional_id,
             services=modern_services_list,
             vertical_name=booking.vertical_name,

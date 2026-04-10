@@ -37,12 +37,12 @@ class VendorLocation(Model):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-    @field_validator('address_line_2', mode='before')
+    @field_validator('address_line_2', 'legal_name', 'gst_number', 'business_registration_number', 'profileImage', 'coverPhoto', mode='before')
     @classmethod
-    def validate_address_line_2(cls, v: Any) -> Optional[str]:
+    def validate_optional_str_fields(cls, v: Any) -> Optional[str]:
         if v is None:
             return None
-        return str(v) if v is not None else None
+        return str(v)
 
     model_config = {
         "collection": "vendor_locations",

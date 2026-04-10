@@ -29,6 +29,9 @@ class WalkinBookingCreate(BaseModel):
     booking_date: datetime
     status: BookingStatus = BookingStatus.CONFIRMED
     final_amount: float = Field(0.0, ge=0)
+    paid_amount: Optional[float] = None
+    payment_mode: Optional[str] = None  # CASH, CARD, UPI
+    payment_id: Optional[str] = None  # Payment ID
 
     @field_validator("status", mode="before")
     @classmethod
