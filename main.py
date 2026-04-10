@@ -1,5 +1,20 @@
 from dotenv import load_dotenv
 load_dotenv()
+
+# Fix odmantic 1.0.0 bug: Union[int, str] template is a cached singleton,
+# so setattr mutates ALL Optional fields to the last-processed Optional type.
+# Patch validate_type to create a proper new Union instead.
+import odmantic.model as _odm_model
+from typing import Union as _Union, get_origin as _go, get_args as _ga
+_orig_validate_type = _odm_model.validate_type
+def _fixed_validate_type(type_):
+    origin = _go(type_)
+    if origin is _Union:
+        new_args = tuple(_fixed_validate_type(a) for a in _ga(type_))
+        return _Union[tuple(new_args)]
+    return _orig_validate_type(type_)
+_odm_model.validate_type = _fixed_validate_type
+
 import logging
 logging.basicConfig(
     level=logging.INFO,

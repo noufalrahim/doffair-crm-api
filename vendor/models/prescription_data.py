@@ -7,9 +7,11 @@ class PrescriptionMedication(EmbeddedModel):
     Medication details within a prescription
     """
     name: str
-    dosage: str
-    frequency: str
-    duration: str
+    dosage: str = ""
+    frequency: str = ""
+    duration: str = ""
+    timing: str = ""  # e.g. "After Food", "Before Food"
+    qty: str = ""  # e.g. "56", "28"
     notes: str = ""
 
 class PrescriptionData(Model):
@@ -26,10 +28,18 @@ class PrescriptionData(Model):
     owner_id: str = ""
     
     # Medical details
+    complaints: str = ""
+    medical_history: str = ""
+    drug_allergies: str = ""
+    tests_prescribed: str = ""
     diagnosis: str
     medications: List[PrescriptionMedication]
     instructions: str = ""
     follow_up_date: Optional[datetime] = None
+    
+    # Clinic/Doctor context
+    clinic_name: str = ""
+    doctor_name: str = ""
     
     # Metadata
     is_active: bool = True

@@ -279,28 +279,8 @@ async def get_unified_prescriptions_endpoint(
         for p in result["uploaded_files"]
     ]
     
-    # Format structured data (importing schema here to avoid circular imports if any, or just use dict)
-    from vendor.schemas.prescription_data import PrescriptionDataResponse, PrescriptionMedicationSchema
-    
-    formatted_structured = [
-        PrescriptionDataResponse(
-            id=str(p.id),
-            vendor_id=p.vendor_id,
-            booking_id=p.booking_id,
-            pet_name=p.pet_name,
-            pet_id=p.pet_id,
-            owner_name=p.owner_name,
-            owner_id=p.owner_id,
-            diagnosis=p.diagnosis,
-            medications=[PrescriptionMedicationSchema(**m.model_dump()) for m in p.medications],
-            instructions=p.instructions,
-            follow_up_date=p.follow_up_date,
-            is_active=p.is_active,
-            created_at=p.created_at,
-            updated_at=p.updated_at
-        ).model_dump()
-        for p in result["structured_data"]
-    ]
+    # Format structured data - the service now returns dictionaries with all fields
+    formatted_structured = result["structured_data"]  # Already formatted as dicts
     
     response_data = UnifiedPrescriptionResponse(
         booking_id=booking_id,
