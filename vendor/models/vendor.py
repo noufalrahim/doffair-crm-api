@@ -41,6 +41,8 @@ class Vendor(Model):
     reviewed_at: Optional[datetime] = None
     rejection_reason: Optional[str] = None
 
+    is_verified: bool = False
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

@@ -290,5 +290,6 @@ async def get_vendor_onboarding_progress(engine: AIOEngine, vendor_id: str, loca
         "bank_account_added": bank_account_added,
         "services_added": services_added,
         "percentage_completed": percentage,
-        "pending_steps": pending
+        "pending_steps": pending,
+        "is_verified": vendor.is_verified
     }
