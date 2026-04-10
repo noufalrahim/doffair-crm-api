@@ -6,6 +6,8 @@ class Admin(Model):
     name: str
     email: str = Field(unique=True)
     password_hash: str
+    role: str = "Admin"
+    permissions: dict = Field(default_factory=dict)
     is_active: bool = True
     is_super_admin: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)

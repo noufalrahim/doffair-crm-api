@@ -22,14 +22,9 @@ async def vendor_login(
     user_agent = request.headers.get("user-agent", "Unknown")
     ip_address = request.client.host if request.client else "Unknown"
     
-    vendor, token = await login_vendor(engine, payload, user_agent, ip_address)
+    vendor, response_data = await login_vendor(engine, payload, user_agent, ip_address)
 
     return success_response(
         message="Login successful",
-        data={
-            "vendor_id": str(vendor.id),
-            "status": vendor.status,
-            "access_token": token,
-            "token_type": "bearer",
-        },
+        data=response_data,
     )

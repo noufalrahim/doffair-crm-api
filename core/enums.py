@@ -58,6 +58,8 @@ class BookingStatus(str, Enum):
     REJECTED = "rejected"                    # Vendor rejected
     COMPLETED = "completed"                  # Service completed
     CANCELLED = "cancelled"                  # User/Vendor cancelled
+    CANCEL_BY_PROVIDER = "cancelbyprovider"  # Cancelled by provider
+    CANCEL_BY_USER = "cancelbyuser"          # Cancelled by user
     ONGOING = "ongoing"                      # Service is in progress
     OFFLINE = "offline"                      # Offline booking
 

@@ -112,6 +112,8 @@ async def get_vendor_profile(
                 care_prof_data = care_prof.model_dump()
                 care_prof_data["id"] = str(care_prof.id)
                 data["care_professional"] = care_prof_data
+                data["vertical_id"] = care_prof.vertical_id
+                data["cp_role"] = care_prof.role
             else:
                 data["care_professional"] = None
                 

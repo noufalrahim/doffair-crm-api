@@ -20,6 +20,8 @@ async def add_new_admin(
         name=payload.name,
         email=payload.email,
         password_hash=hash_password(payload.password),
+        role=payload.role,
+        permissions=payload.permissions,
         is_super_admin=payload.is_super_admin,
     )
 

@@ -11,12 +11,16 @@ class AdminCreateRequest(BaseModel):
     name: str = Field(..., examples=["John Doe"])
     email: EmailStr = Field(..., examples=["admin@example.com"])
     password: str = Field(..., examples=["securepassword123"])
+    role: str = "Admin"
+    permissions: dict = {}
     is_super_admin: bool = False
 
 class AdminResponse(BaseModel):
     id: PyObjectId
     name: str
     email: EmailStr
+    role: str
+    permissions: dict
     is_active: bool
     is_super_admin: bool
 
@@ -31,3 +35,6 @@ class AdminMeResponse(APIResponse):
 
 class AdminCreateResponse(APIResponse):
     data: AdminResponse
+
+class AdminPermissionsUpdateRequest(BaseModel):
+    permissions: dict

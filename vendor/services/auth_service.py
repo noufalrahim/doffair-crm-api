@@ -7,7 +7,8 @@ from user.models.user import User
 from vendor.schemas.auth import VendorLoginRequest
 from admin.utils.password import verify_password
 from core.security import create_access_token
-from core.enums import Role, VendorRole
+from core.enums import Role, VendorRole, CareProfessionalRole
+from vendor.models.care_professional_permission import CareProfessionalPermission
 
 
 from vendor.models.care_professional import CareProfessional
@@ -119,4 +120,28 @@ async def login_vendor(
     )
     await engine.save(session)
 
-    return vendor, token
+    # Prepare response data
+    response_data = {
+        "vendor_id": str(vendor.id),
+        "status": vendor.status,
+        "access_token": token,
+        "token_type": "bearer",
+    }
+
+    if auth_result["type"] == "care_professional":
+        cp = auth_result["care_professional"]
+        response_data["role"] = "care_professional"
+        response_data["cp_role"] = cp.role
+        response_data["vertical_id"] = cp.vertical_id
+        
+        # Fetch permissions
+        perm_doc = await engine.find_one(
+            CareProfessionalPermission,
+            CareProfessionalPermission.care_professional_id == str(cp.id)
+        )
+        response_data["permissions"] = perm_doc.permissions if perm_doc else []
+    else:
+        response_data["role"] = "vendor_admin"
+        response_data["permissions"] = [] # Admin has all permissions implicitly
+
+    return vendor, response_data

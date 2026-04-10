@@ -41,6 +41,7 @@ async def register_admin(
     name: str,
     email: str,
     password: str,
+    role: str = "Admin",
     is_super_admin: bool = False,
 ) -> Tuple[str, Admin]:
     existing_admin = await engine.find_one(Admin, Admin.email == email)
@@ -56,6 +57,7 @@ async def register_admin(
         name=name,
         email=email,
         password_hash=hash_password(password),
+        role=role,
         is_super_admin=is_super_admin,
     )
 

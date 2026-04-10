@@ -10,6 +10,46 @@ from vendor.schemas.care_professional import (
     CareProfessionalUpdateRequest,
 )
 from admin.utils.password import hash_password
+from core.enums import CareProfessionalRole
+from vendor.models.care_professional_permission import CareProfessionalPermission
+
+ROLE_PERMISSIONS_MAP = {
+    CareProfessionalRole.MANAGER: [
+        "overview", "calendar", "bookings", "services", 
+        "invoices", "availability", "staff", "ratings", "prescriptions"
+    ],
+    CareProfessionalRole.DOCTOR: [
+        "overview", "calendar", "bookings", "availability", 
+        "ratings", "prescriptions"
+    ],
+    CareProfessionalRole.STAFF: [
+        "overview", "calendar", "bookings", "availability", "ratings"
+    ],
+    CareProfessionalRole.ADMIN: [
+        "overview", "calendar", "bookings", "services", 
+        "invoices", "availability", "staff", "ratings", "prescriptions"
+    ],
+}
+
+async def assign_default_permissions(engine: AIOEngine, vendor_id: str, care_professional_id: str, role: CareProfessionalRole):
+    permissions = ROLE_PERMISSIONS_MAP.get(role, [])
+    
+    perm_doc = await engine.find_one(
+        CareProfessionalPermission,
+        CareProfessionalPermission.care_professional_id == care_professional_id
+    )
+    
+    if perm_doc:
+        perm_doc.permissions = permissions
+        perm_doc.updated_at = datetime.utcnow()
+        await engine.save(perm_doc)
+    else:
+        perm_doc = CareProfessionalPermission(
+            care_professional_id=care_professional_id,
+            vendor_id=vendor_id,
+            permissions=permissions
+        )
+        await engine.save(perm_doc)
 
 
 async def create_care_professional(
@@ -56,6 +96,10 @@ async def create_care_professional(
         profile_image=payload.profile_image,
     )
     await engine.save(care_professional)
+    
+    # Assign default permissions
+    await assign_default_permissions(engine, vendor_id, str(care_professional.id), care_professional.role)
+    
     return care_professional
 
 
@@ -183,6 +227,10 @@ async def update_care_professional(
     for field, value in update_data.items():
         if hasattr(cp, field):
             setattr(cp, field, value)
+
+    # If role changed, update permissions
+    if "role" in update_data:
+        await assign_default_permissions(engine, vendor_id, str(cp.id), cp.role)
 
     cp.updated_at = datetime.utcnow()
     await engine.save(cp)

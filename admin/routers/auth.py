@@ -40,6 +40,7 @@ async def admin_signup(
         name=payload.name,
         email=payload.email,
         password=payload.password,
+        role=payload.role,
         is_super_admin=payload.is_super_admin,
     )
 
