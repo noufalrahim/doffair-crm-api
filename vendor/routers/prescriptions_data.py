@@ -26,6 +26,51 @@ router = APIRouter(
     tags=["Vendor - Prescriptions Data"]
 )
 
+def _to_response(p) -> PrescriptionDataResponse:
+    """Helper to convert PrescriptionData model to response schema."""
+    # Debug: Log what we're retrieving from database
+    print(f"DEBUG: Retrieving prescription {p.id} from database:")
+    print(f"  db.complaints: '{getattr(p, 'complaints', 'NOT_FOUND')}'")
+    print(f"  db.medical_history: '{getattr(p, 'medical_history', 'NOT_FOUND')}'")
+    print(f"  db.drug_allergies: '{getattr(p, 'drug_allergies', 'NOT_FOUND')}'")
+    print(f"  db.tests_prescribed: '{getattr(p, 'tests_prescribed', 'NOT_FOUND')}'")
+    print(f"  db.clinic_name: '{getattr(p, 'clinic_name', 'NOT_FOUND')}'")
+    print(f"  db.doctor_name: '{getattr(p, 'doctor_name', 'NOT_FOUND')}'")
+    
+    response = PrescriptionDataResponse(
+        id=str(p.id),
+        vendor_id=p.vendor_id,
+        booking_id=p.booking_id,
+        pet_name=p.pet_name,
+        pet_id=p.pet_id,
+        owner_name=p.owner_name,
+        owner_id=p.owner_id,
+        complaints=getattr(p, 'complaints', ''),
+        medical_history=getattr(p, 'medical_history', ''),
+        drug_allergies=getattr(p, 'drug_allergies', ''),
+        tests_prescribed=getattr(p, 'tests_prescribed', ''),
+        diagnosis=p.diagnosis,
+        medications=[PrescriptionMedicationSchema(**m.model_dump()) for m in p.medications],
+        instructions=p.instructions,
+        follow_up_date=p.follow_up_date,
+        clinic_name=getattr(p, 'clinic_name', ''),
+        doctor_name=getattr(p, 'doctor_name', ''),
+        is_active=p.is_active,
+        created_at=p.created_at,
+        updated_at=p.updated_at,
+    )
+    
+    # Debug: Log what we're returning
+    print(f"DEBUG: Returning prescription response:")
+    print(f"  response.complaints: '{response.complaints}'")
+    print(f"  response.medical_history: '{response.medical_history}'")
+    print(f"  response.drug_allergies: '{response.drug_allergies}'")
+    print(f"  response.tests_prescribed: '{response.tests_prescribed}'")
+    print(f"  response.clinic_name: '{response.clinic_name}'")
+    print(f"  response.doctor_name: '{response.doctor_name}'")
+    
+    return response
+
 @router.post("", response_model=APIResponse)
 @router.post("/create", response_model=APIResponse)
 async def create_prescription_endpoint(
@@ -44,26 +89,9 @@ async def create_prescription_endpoint(
     vendor_id = current_vendor["vendor_id"]
     prescription = await create_prescription_data(engine, vendor_id, data)
     
-    response_data = PrescriptionDataResponse(
-        id=str(prescription.id),
-        vendor_id=prescription.vendor_id,
-        booking_id=prescription.booking_id,
-        pet_name=prescription.pet_name,
-        pet_id=prescription.pet_id,
-        owner_name=prescription.owner_name,
-        owner_id=prescription.owner_id,
-        diagnosis=prescription.diagnosis,
-        medications=[PrescriptionMedicationSchema(**m.model_dump()) for m in prescription.medications],
-        instructions=prescription.instructions,
-        follow_up_date=prescription.follow_up_date,
-        is_active=prescription.is_active,
-        created_at=prescription.created_at,
-        updated_at=prescription.updated_at
-    )
-    
     return success_response(
         message="Prescription created successfully",
-        data=response_data.model_dump()
+        data=_to_response(prescription).model_dump()
     ).model_dump()
 
 @router.get("", response_model=APIResponse)
@@ -83,25 +111,7 @@ async def list_prescriptions_endpoint(
     vendor_id = current_vendor["vendor_id"]
     prescriptions = await list_prescriptions_data(engine, vendor_id, booking_id, pet_id, owner_id, is_active)
     
-    prescription_responses = [
-        PrescriptionDataResponse(
-            id=str(p.id),
-            vendor_id=p.vendor_id,
-            booking_id=p.booking_id,
-            pet_name=p.pet_name,
-            pet_id=p.pet_id,
-            owner_name=p.owner_name,
-            owner_id=p.owner_id,
-            diagnosis=p.diagnosis,
-            medications=[PrescriptionMedicationSchema(**m.model_dump()) for m in p.medications],
-            instructions=p.instructions,
-            follow_up_date=p.follow_up_date,
-            is_active=p.is_active,
-            created_at=p.created_at,
-            updated_at=p.updated_at
-        ).model_dump()
-        for p in prescriptions
-    ]
+    prescription_responses = [_to_response(p).model_dump() for p in prescriptions]
     
     response_data = PrescriptionDataListResponse(
         total=len(prescription_responses),
@@ -125,26 +135,9 @@ async def get_prescription_endpoint(
     vendor_id = current_vendor["vendor_id"]
     p = await get_prescription_data_by_id(engine, vendor_id, prescription_id)
     
-    response_data = PrescriptionDataResponse(
-        id=str(p.id),
-        vendor_id=p.vendor_id,
-        booking_id=p.booking_id,
-        pet_name=p.pet_name,
-        pet_id=p.pet_id,
-        owner_name=p.owner_name,
-        owner_id=p.owner_id,
-        diagnosis=p.diagnosis,
-        medications=[PrescriptionMedicationSchema(**m.model_dump()) for m in p.medications],
-        instructions=p.instructions,
-        follow_up_date=p.follow_up_date,
-        is_active=p.is_active,
-        created_at=p.created_at,
-        updated_at=p.updated_at
-    )
-    
     return success_response(
         message="Prescription retrieved successfully",
-        data=response_data.model_dump()
+        data=_to_response(p).model_dump()
     ).model_dump()
 
 @router.patch("/{prescription_id}", response_model=APIResponse)
@@ -160,26 +153,9 @@ async def update_prescription_endpoint(
     vendor_id = current_vendor["vendor_id"]
     p = await update_prescription_data(engine, vendor_id, prescription_id, data)
     
-    response_data = PrescriptionDataResponse(
-        id=str(p.id),
-        vendor_id=p.vendor_id,
-        booking_id=p.booking_id,
-        pet_name=p.pet_name,
-        pet_id=p.pet_id,
-        owner_name=p.owner_name,
-        owner_id=p.owner_id,
-        diagnosis=p.diagnosis,
-        medications=[PrescriptionMedicationSchema(**m.model_dump()) for m in p.medications],
-        instructions=p.instructions,
-        follow_up_date=p.follow_up_date,
-        is_active=p.is_active,
-        created_at=p.created_at,
-        updated_at=p.updated_at
-    )
-    
     return success_response(
         message="Prescription updated successfully",
-        data=response_data.model_dump()
+        data=_to_response(p).model_dump()
     ).model_dump()
 
 @router.delete("/{prescription_id}", response_model=APIResponse)

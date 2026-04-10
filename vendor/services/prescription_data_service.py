@@ -42,13 +42,38 @@ async def create_prescription_data(engine: AIOEngine, vendor_id: str, data: Pres
         pet_id=pet_id,
         owner_name=owner_name,
         owner_id=owner_id,
+        complaints=data.complaints or "",
+        medical_history=data.medical_history or "",
+        drug_allergies=data.drug_allergies or "",
+        tests_prescribed=data.tests_prescribed or "",
         diagnosis=data.diagnosis,
         medications=medications,
         instructions=data.instructions,
-        follow_up_date=data.follow_up_date
+        follow_up_date=data.follow_up_date,
+        clinic_name=data.clinic_name or "",
+        doctor_name=data.doctor_name or "",
     )
     
+    # Debug: Log what we're about to save
+    print(f"DEBUG: Saving prescription with new fields:")
+    print(f"  complaints: '{data.complaints}'")
+    print(f"  medical_history: '{data.medical_history}'")
+    print(f"  drug_allergies: '{data.drug_allergies}'")
+    print(f"  tests_prescribed: '{data.tests_prescribed}'")
+    print(f"  clinic_name: '{data.clinic_name}'")
+    print(f"  doctor_name: '{data.doctor_name}'")
+    
     await engine.save(prescription)
+    
+    # Debug: Log what was saved
+    print(f"DEBUG: Saved prescription ID: {prescription.id}")
+    print(f"  saved.complaints: '{prescription.complaints}'")
+    print(f"  saved.medical_history: '{prescription.medical_history}'")
+    print(f"  saved.drug_allergies: '{prescription.drug_allergies}'")
+    print(f"  saved.tests_prescribed: '{prescription.tests_prescribed}'")
+    print(f"  saved.clinic_name: '{prescription.clinic_name}'")
+    print(f"  saved.doctor_name: '{prescription.doctor_name}'")
+    
     return prescription
 
 async def get_prescription_data_by_id(engine: AIOEngine, vendor_id: str, prescription_id: str) -> PrescriptionData:
