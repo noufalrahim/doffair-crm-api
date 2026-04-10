@@ -60,6 +60,7 @@ from internal.routers import reviews as internal_reviews_router
 
 from core.config import settings
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.proxy_headers import ProxyHeadersMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -88,6 +89,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 # Admin routers
 app.include_router(admin_auth_router.router)
