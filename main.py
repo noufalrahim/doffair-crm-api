@@ -60,7 +60,7 @@ from internal.routers import reviews as internal_reviews_router
 
 from core.config import settings
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.proxy_headers import ProxyHeadersMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
