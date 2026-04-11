@@ -13,7 +13,7 @@ from notifications.models.notification import NotificationLog, InAppNotification
 from notifications.handlers.email_handler import EmailHandler
 from notifications.handlers.sms_handler import SMSHandler
 from notifications.handlers.whatsapp_handler import WhatsAppHandler
-from notifications.services.pdf_service import pdf_service
+from notifications.services.pdf_service import pdf_service, prepare_invoice_pdf_data
 from core.database import get_engine, get_secondary_engine
 from core.enums import InvoiceStatus
 from vendor.models.invoice import Invoice
@@ -316,8 +316,10 @@ async def send_email_notification(
                 try:
                     invoice = await engine.find_one(Invoice, Invoice.id == ObjectId(invoice_id))
                     if invoice:
+                        # Build enriched data dict for the PDF template
                         invoice_dict = invoice.model_dump()
-                        pdf_content = pdf_service.generate_invoice_pdf(invoice_dict)
+                        pdf_data = prepare_invoice_pdf_data(invoice_dict, event.data)
+                        pdf_content = pdf_service.generate_invoice_pdf(pdf_data)
                         
                         if pdf_content:
                             if "attachments" not in notification_data:
@@ -327,9 +329,12 @@ async def send_email_notification(
                                 "filename": f"Invoice_{invoice.invoice_number}.pdf",
                                 "content": pdf_content
                             })
-                            logger.info(f"📎 Attached PDF for invoice {invoice.invoice_number}")
+                            logger.info(f"📎 Attached PDF for invoice {invoice.invoice_number} ({len(pdf_content)} bytes)")
+                        else:
+                            logger.warning(f"⚠️ PDF generation returned None for invoice {invoice.invoice_number}")
                 except Exception as ex:
                     logger.error(f"❌ Failed to attach PDF to email: {str(ex)}")
+                    import traceback; traceback.print_exc()
 
         result = await handler.send(notification_data)
         success = result.get("success", False)

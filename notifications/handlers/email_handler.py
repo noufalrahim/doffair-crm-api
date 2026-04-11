@@ -10,6 +10,7 @@ import aiosmtplib
 import logging
 
 from notifications.handlers.base import BaseNotificationHandler
+from notifications.config.logo import DOFFAIR_LOGO_BASE64, DOFFAIR_LOGO_SVG
 from core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -75,12 +76,25 @@ class EmailHandler(BaseNotificationHandler):
                 
                 # Add attachments
                 for att in attachments:
-                    part = MIMEApplication(att["content"])
+                    from email.mime.base import MIMEBase
+                    from email import encoders
+                    
+                    filename = att.get("filename", "attachment")
+                    
+                    if filename.lower().endswith(".pdf"):
+                        part = MIMEBase("application", "pdf")
+                    else:
+                        part = MIMEBase("application", "octet-stream")
+                        
+                    part.set_payload(att["content"])
+                    encoders.encode_base64(part)
+                    
                     part.add_header(
                         "Content-Disposition",
-                        "attachment",
-                        filename=att["filename"]
+                        f"attachment; filename=\"{filename}\""
                     )
+                    part.set_param("name", filename, header="Content-Type")
+                    
                     message.attach(part)
             else:
                 # Standard simple email
@@ -161,16 +175,19 @@ class EmailHandler(BaseNotificationHandler):
             <style>
                 body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
                 .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .header {{ background-color: #4CAF50; color: white; padding: 20px; text-align: center; }}
+                .header {{ background-color: #ffd83d; color: #161b39; padding: 20px; text-align: center; }}
                 .content {{ padding: 20px; background-color: #f9f9f9; }}
                 .footer {{ text-align: center; padding: 10px; font-size: 12px; color: #666; }}
-                .button {{ background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; display: inline-block; }}
+                .button {{ background-color: #ffd83d; color: white; padding: 10px 20px; text-decoration: none; display: inline-block; }}
             </style>
         </head>
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>Doffair</h1>
+                    <div style="margin-bottom: 10px;">
+                        {DOFFAIR_LOGO_SVG}
+                    </div>
+                    <h1 style="margin: 0; font-size: 24px;">Doffair</h1>
                 </div>
                 <div class="content">
                     <h2>{subject}</h2>
@@ -202,9 +219,9 @@ class EmailHandler(BaseNotificationHandler):
         elif template_id in ["SERVICE_START_OTP", "ONBOARDING_OTP"]:
             otp_code = data.get('otp_code') or data.get('var2') or '----'
             html += f"""
-                    <div style="text-align: center; margin: 40px 0; padding: 30px; background-color: #fff; border: 2px dashed #4CAF50; border-radius: 10px;">
+                    <div style="text-align: center; margin: 40px 0; padding: 30px; background-color: #fff; border: 2px dashed #ffd83d; border-radius: 10px;">
                         <p style="margin: 0; font-size: 16px; color: #666; text-transform: uppercase; letter-spacing: 2px;">Your Verification Code</p>
-                        <h1 style="margin: 15px 0 0 0; font-size: 64px; color: #4CAF50; letter-spacing: 12px; font-weight: bold;">{otp_code}</h1>
+                        <h1 style="margin: 15px 0 0 0; font-size: 64px; color: #ffd83d; letter-spacing: 12px; font-weight: bold;">{otp_code}</h1>
                     </div>
                     <p style="text-align: center; font-size: 15px; color: #555;">Please provide this code to verify your account. Valid for 10 minutes.</p>
             """

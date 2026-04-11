@@ -11,6 +11,7 @@ class BookingStatusUpdate(BaseModel):
     # Optional Payment Details (Primarily for Walk-in Bookings)
     is_offline: Optional[bool] = False
     payment_method: Optional[str] = None
+    payment_reference: Optional[str] = None   # UPI ref, card last4, cheque no.
     amount_paid: Optional[float] = None
     balance_due: Optional[float] = None
     payment_notes: Optional[str] = None

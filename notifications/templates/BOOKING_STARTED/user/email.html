@@ -1,18 +1,48 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <style>
-        body { font-family: sans-serif; line-height: 1.5; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px; }
-        .header { background: #4CAF50; color: white; padding: 15px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { padding: 20px; }
-        .footer { font-size: 0.8em; color: #777; text-align: center; margin-top: 20px; }
+        body {
+            font-family: sans-serif;
+            line-height: 1.5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+        }
+
+        .header {
+            background: #ffd83d;
+            color: #161b39;
+            padding: 15px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .content {
+            padding: 20px;
+        }
+
+        .footer {
+            font-size: 0.8em;
+            color: #777;
+            text-align: center;
+            margin-top: 20px;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="header">
-            <h2>Service Started!</h2>
+            <div style="margin-bottom: 10px;">{{ doffair_logo_svg | safe }}</div>
+            <h2 style="margin: 0; color: #161b39;">Service Started!</h2>
         </div>
         <div class="content">
             <p>Hi {{ user_name }},</p>
@@ -28,4 +58,5 @@
         </div>
     </div>
 </body>
+
 </html>

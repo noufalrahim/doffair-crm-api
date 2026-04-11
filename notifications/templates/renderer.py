@@ -4,6 +4,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, Template, TemplateNotFound
 from notifications.events.types import EventType, RecipientRole
 from notifications.enums import NotificationChannel
+from notifications.config.logo import DOFFAIR_LOGO_BASE64, BRANDING_COLOR, DOFFAIR_LOGO_SVG
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,16 @@ class TemplateRenderer:
                 return self._get_fallback_content(event_type, context)
             
             template = self._env.get_template(template_path)
-            rendered = template.render(**context)
+            
+            # Inject branding into context
+            full_context = {
+                "doffair_logo": DOFFAIR_LOGO_BASE64,
+                "doffair_logo_svg": DOFFAIR_LOGO_SVG,
+                "branding_color": BRANDING_COLOR,
+                **context
+            }
+            
+            rendered = template.render(**full_context)
             
             logger.debug(f"✅ Rendered template: {template_path}")
             return rendered

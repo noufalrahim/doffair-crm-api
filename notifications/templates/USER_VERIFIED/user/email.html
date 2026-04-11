@@ -1,15 +1,37 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
     <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #4CAF50; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: #ffd83d;
+            color: #161b39;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .content {
+            background: #f9f9f9;
+            padding: 30px;
+            border-radius: 0 0 10px 10px;
+        }
     </style>
 </head>
+
 <body>
-    <div class="header"><h1>✅ Email Verified</h1></div>
+    <div class="header">
+        <div style="margin-bottom: 10px;">{{ doffair_logo_svg | safe }}</div>
+        <h1 style="margin: 0; font-size: 24px; color: #161b39;">✅ Email Verified</h1>
+    </div>
     <div class="content">
         <p>Hello {{ user_name }},</p>
         <p>Your email has been successfully verified!</p>
@@ -17,4 +39,5 @@
         <p>Start booking pet care services today!</p>
     </div>
 </body>
+
 </html>

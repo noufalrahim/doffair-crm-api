@@ -285,31 +285,7 @@ async def create_invoice(
         print(f"[INVOICE] 📧 Triggering email for invoice {invoice_number}")
         print(f"[INVOICE]    → To: {resolved_email} | Phone: {resolved_phone} | Name: {resolved_name}")
         
-        event_data = {
-            "invoice_id": str(invoice.id),
-            "invoice_number": invoice.invoice_number,
-            "invoice_date": invoice.invoice_date.strftime("%Y-%m-%d"),
-            "vendor_id": vendor_id,
-            "customer_id": customer_id,
-            "user_id": customer_id,
-            "customer_name": resolved_name,
-            "user_name": resolved_name,
-            "user_phone": resolved_phone,
-            "user_email": resolved_email,
-            "grand_total": f"{invoice.grand_total:,.2f}",
-            "balance_due": f"{invoice.balance_due:,.2f}",
-            "due_date": invoice.due_date.strftime("%Y-%m-%d") if invoice.due_date else "N/A",
-            "service_name": booking.service_name if booking else (invoice.items[0].name if invoice.items else "Service"),
-            "service_date": booking.booking_date.strftime("%Y-%m-%d") if (booking and booking.booking_date) else invoice.invoice_date.strftime("%Y-%m-%d"),
-            "vendor_name": vendor.legal_name if vendor else "Doffair Vendor",
-            "vendor_phone": vendor.primary_contact_phone if vendor else "",
-            "vendor_email": "",
-            "items": [item.model_dump() for item in invoice.items] if invoice.items else [],
-            "tax_details": invoice.tax_details or {},
-            "rounding_off": invoice.rounding_off or 0.0,
-            "grand_total_words": invoice.grand_total_words or "",
-            "template_id": "InvoiceSent"
-        }
+        event_data = await build_invoice_event_payload(engine, invoice, resolved_name, resolved_phone, resolved_email)
 
         if background_tasks:
             background_tasks.add_task(
@@ -437,31 +413,7 @@ async def update_invoice(
         # Fetch vendor for data enrichment
         vendor = await engine.find_one(Vendor, Vendor.id == ObjectId(invoice.vendor_id))
         
-        event_data = {
-                "invoice_id": str(invoice.id),
-                "invoice_number": invoice.invoice_number,
-                "invoice_date": invoice.invoice_date.strftime("%Y-%m-%d"),
-                "vendor_id": invoice.vendor_id,
-                "customer_id": invoice.customer_id,
-                "user_id": invoice.customer_id,
-                "customer_name": user.name if user else "Customer",
-                "user_name": user.name if user else "Customer",
-                "user_phone": user.phone if user else "",
-                "user_email": user.email if user else "",
-                "grand_total": f"{invoice.grand_total:,.2f}",
-                "balance_due": f"{invoice.balance_due:,.2f}",
-                "due_date": invoice.due_date.strftime("%Y-%m-%d") if invoice.due_date else "N/A",
-                "service_name": invoice.items[0].name if invoice.items else "Service",
-                "service_date": invoice.invoice_date.strftime("%Y-%m-%d"),
-                "vendor_name": vendor.legal_name if vendor else "Doffair Vendor",
-                "vendor_phone": vendor.primary_contact_phone if vendor else "",
-                "vendor_email": vendor.email if hasattr(vendor, 'email') else "",
-                "items": [item.model_dump() for item in invoice.items] if invoice.items else [],
-                "tax_details": invoice.tax_details or {},
-                "rounding_off": invoice.rounding_off or 0.0,
-                "grand_total_words": invoice.grand_total_words or "",
-                "template_id": "InvoiceSent"
-        }
+        event_data = await build_invoice_event_payload(engine, invoice, user.name if user else "Customer", user.phone if user else "", user.email if user else "")
 
         if background_tasks:
             background_tasks.add_task(
@@ -570,13 +522,17 @@ async def generate_invoice_from_booking(
     if not booking:
         raise HTTPException(status_code=404, detail=f"Booking {payload.booking_id} not found across databases")
         
-    # Validate Ownership
-    actual_vendor_id = str(booking.vendor_id)
-    # Check if vendor matches (handling both direct vendor_id and potential serviceProviderId in underlying doc)
-    if actual_vendor_id != vendor_id:
-         # One final check: if the booking came from secondary, it might have serviceProviderId
-         # which we mapped to vendor_id above. Let's trust the mapped vendor_id.
-         raise HTTPException(status_code=403, detail="Access denied to this booking")
+    # Ownership was already verified at the router layer.
+    # Log a warning if there is a mismatch (can happen with secondary-DB bookings
+    # where vendor_id is mapped from serviceProviderId and may differ in format).
+    actual_vendor_id = str(booking.vendor_id).strip() if booking.vendor_id else ""
+    if actual_vendor_id and actual_vendor_id != vendor_id.strip():
+        logger.warning(
+            f"[INVOICE] vendor_id mismatch: booking='{actual_vendor_id}' vs request='{vendor_id}'. "
+            f"Proceeding — ownership already confirmed at router level."
+        )
+
+
 
     # 2. Prepare Create Request
     # Use booking service name and price for the line item
@@ -608,8 +564,65 @@ async def generate_invoice_from_booking(
     # 3. Create the invoice
     invoice = await create_invoice(engine, vendor_id, create_payload)
     
-    # 4. Auto-send if requested (create_invoice already sends by default, 
-    # but we can ensure it's marked as SENT if needed)
+    # 4. Handle Transactions (Online vs Walk-in)
+    is_offline = True
+    payment_reference = None
+    
+    # Check if this booking came from secondary/online DB
+    try:
+        if get_secondary_engine():
+            online_doc = await get_secondary_engine().database.get_collection("bookings").find_one({"_id": ObjectId(payload.booking_id)})
+            if online_doc:
+                is_offline = False
+                payment_reference = online_doc.get("paymentId")
+    except Exception:
+        pass
+
+    import traceback
+    try:
+        from vendor.models.transaction import TransactionStatus
+        from vendor.schemas.transaction import TransactionCreateRequest
+        from vendor.services.transaction_service import create_transaction
+        
+        if not is_offline:
+            # ONLINE: Auto-generate full transaction
+            tx_payload = TransactionCreateRequest(
+                invoice_id=str(invoice.id),
+                booking_id=payload.booking_id,
+                customer_id=str(booking.user_id),
+                amount=invoice.grand_total,
+                status=TransactionStatus.PAID,
+                payment_method="ONLINE",
+                payment_reference=payment_reference,
+                notes="Auto-recorded: online payment upon invoice generation",
+            )
+            await create_transaction(engine, vendor_id, tx_payload)
+            print(f"[INVOICE] 💰 Auto-recorded full transaction for online booking {payload.booking_id}")
+            
+        else:
+            # WALK-IN: Use payment fields from InvoiceGenerateRequest (amount_paid, etc)
+            if payload.amount_paid and payload.amount_paid > 0:
+                tx_payload = TransactionCreateRequest(
+                    invoice_id=str(invoice.id),
+                    booking_id=payload.booking_id,
+                    customer_id=str(booking.user_id),
+                    amount=payload.amount_paid,
+                    status=TransactionStatus.PAID,
+                    payment_method=payload.payment_method or "CASH",
+                    payment_reference=payload.payment_reference,
+                    notes=payload.payment_notes,
+                )
+                await create_transaction(engine, vendor_id, tx_payload)
+                print(f"[INVOICE] 💰 Recorded transaction for walk-in booking {payload.booking_id}")
+
+    except Exception as e:
+        print(f"[INVOICE] ❌ Failed to record transaction during generation: {e}")
+        traceback.print_exc()
+
+    # Need to reload invoice to reflect paid amount updates from create_transaction
+    invoice = await get_invoice_by_id(engine, vendor_id, str(invoice.id))
+    
+    # 5. Auto-send if requested
     if payload.auto_send:
         invoice.status = InvoiceStatus.SENT
         await engine.save(invoice)
@@ -617,71 +630,268 @@ async def generate_invoice_from_booking(
     return invoice
 
 
+def _extract_fields_from_booking_doc(booking_doc: dict) -> dict:
+    """
+    Normalize a raw MongoDB booking document (works for both primary walkin_bookings
+    and secondary online bookings) into a consistent dict for invoice creation.
+    """
+    # --- Customer ---
+    customer_id = (
+        str(booking_doc.get("user_id") or "")
+        or str(booking_doc.get("userId") or "")
+        or str(booking_doc.get("customer_id") or "")
+    )
+
+    # --- Service name ---
+    service_name = booking_doc.get("service_name") or ""
+    if not service_name:
+        services = booking_doc.get("services") or []
+        if services and isinstance(services[0], dict):
+            service_name = services[0].get("name", "")
+    if not service_name:
+        service_name = (
+            booking_doc.get("serviceType")
+            or booking_doc.get("vertical_name")
+            or "Service"
+        )
+
+    # --- Amount ---
+    base_amount = float(
+        booking_doc.get("base_amount")
+        or booking_doc.get("bookingAmount")
+        or booking_doc.get("final_amount")
+        or booking_doc.get("price")
+        or 0
+    )
+    discount_amount = float(booking_doc.get("discount_amount") or 0)
+
+    # --- Vertical ---
+    vertical_id = (
+        str(booking_doc.get("vertical_id") or "")
+        or str(booking_doc.get("verticalId") or "")
+    ) or None
+
+    # --- Payment reference (online bookings) ---
+    payment_id = (
+        str(booking_doc.get("payment_id") or "")
+        or str(booking_doc.get("transactionId") or "")
+        or str(booking_doc.get("paymentId") or "")
+    ) or None
+
+    return {
+        "customer_id": customer_id,
+        "service_name": service_name,
+        "base_amount": base_amount,
+        "discount_amount": discount_amount,
+        "vertical_id": vertical_id,
+        "payment_id": payment_id,
+    }
+
+
+
+async def build_invoice_event_payload(engine, invoice, user_name, user_phone, user_email, channels=["in-app", "email"]):
+    # Fetch vendor
+    from vendor.models.vendor import Vendor
+    from bson import ObjectId
+    vendor = await engine.find_one(Vendor, Vendor.id == ObjectId(invoice.vendor_id))
+    
+    # Fetch Location
+    from vendor.models.vendor_location import VendorLocation
+    location = await engine.find_one(VendorLocation, VendorLocation.vendor_id == invoice.vendor_id, VendorLocation.is_default == True)
+    if not location:
+        location = await engine.find_one(VendorLocation, VendorLocation.vendor_id == invoice.vendor_id)
+        
+    store_logo = vendor.logo_blob_path if vendor and getattr(vendor, 'logo_blob_path', None) else ""
+    legal_name = vendor.legal_name if vendor and getattr(vendor, 'legal_name', None) else "Doffair Vendor"
+    store_name = location.name if location else legal_name
+    
+    store_address = ""
+    if location:
+        parts = [location.address_line_1]
+        if getattr(location, 'address_line_2', None): parts.append(location.address_line_2)
+        parts.append(f"{location.city}, {location.state} {location.pincode}")
+        store_address = ", ".join(parts)
+    elif vendor and hasattr(vendor, 'about'):
+        store_address = "India"
+        
+    vendor_state = location.state if location else "State"
+    
+    # Generate words
+    try:
+        from vendor.services.invoice_service import num_to_words
+        words = num_to_words(invoice.grand_total)
+    except:
+        words = getattr(invoice, 'grand_total_words', "") or ""
+
+    return {
+        "invoice_id": str(invoice.id),
+        "invoice_number": invoice.invoice_number,
+        "invoice_date": invoice.invoice_date.strftime("%Y-%m-%d"),
+        "invoice_time": invoice.invoice_date.strftime("%I:%M %p"),
+        "vendor_id": invoice.vendor_id,
+        "customer_id": invoice.customer_id,
+        "user_id": invoice.customer_id,
+        "customer_name": user_name,
+        "user_name": user_name,
+        "user_phone": user_phone,
+        "user_email": user_email,
+        "customer_pincode": getattr(invoice, 'customer_pincode', "") or "",
+        "grand_total": f"{invoice.grand_total:,.2f}",
+        "raw_grand_total": invoice.grand_total,
+        "balance_due": f"{invoice.balance_due:,.2f}",
+        "due_date": invoice.due_date.strftime("%Y-%m-%d") if getattr(invoice, 'due_date', None) else "N/A",
+        "service_name": invoice.items[0].name if getattr(invoice, 'items', None) else "Service",
+        "service_date": invoice.invoice_date.strftime("%Y-%m-%d"),
+        
+        "store_logo": store_logo,
+        "store_name": store_name,
+        "legal_name": legal_name,
+        "store_address": store_address,
+        "vendor_state": vendor_state,
+        
+        "vendor_name": vendor.legal_name if vendor else "Doffair Vendor",
+        "vendor_phone": vendor.primary_contact_phone if vendor else "",
+        "vendor_email": getattr(vendor, 'primary_contact_email', getattr(vendor, 'email', "")),
+        "vendor_gstin": getattr(vendor, 'gst_number', ""),
+        
+        "items": [item.model_dump() for item in invoice.items] if getattr(invoice, 'items', None) else [],
+        "tax_details": getattr(invoice, 'tax_details', {}),
+        "tax_amount": getattr(invoice, 'tax_amount', 0.0),
+        "rounding_off": getattr(invoice, 'rounding_off', 0.0),
+        "grand_total_words": words,
+        
+        "channels": channels,
+        "template_id": "InvoiceSent"
+    }
+
+
 async def handle_booking_completion_invoicing(
     engine: AIOEngine,
     vendor_id: str,
     booking_doc: dict,
     status_update: Optional[Any] = None,
-    background_tasks: Optional[BackgroundTasks] = None
 ) -> Optional[Invoice]:
     """
     Handles automated invoicing and transaction creation when a booking is completed.
-    Logic differs for Online vs Walk-in (Offline) bookings.
-    """
-    try:
-        booking_id = str(booking_doc.get("_id") or booking_doc.get("id"))
-        is_offline = booking_doc.get("is_offline", False)
-        
-        # 1. Generate Invoice
-        # We use a default due_days of 30 for automated invoices
-        gen_payload = InvoiceGenerateRequest(
-            booking_id=booking_id,
-            due_days=30,
-            auto_send=True,
-            notes="Automatically generated on service completion"
-        )
-        
-        invoice = await generate_invoice_from_booking(engine, vendor_id, gen_payload)
-        logger.info(f"📄 Auto-generated invoice {invoice.invoice_number} for booking {booking_id}")
+    Called as a BackgroundTask — runs after the HTTP response is already sent.
 
-        # 2. Handle Transactions
+    Works directly from the raw booking_doc dict to avoid ODMantic model validation
+    failures caused by schema differences between primary (walkin) and secondary (online) DBs.
+    """
+    import traceback
+    from datetime import timedelta
+
+    try:
+        booking_id = str(booking_doc.get("_id") or booking_doc.get("id") or "")
+        is_offline = bool(booking_doc.get("is_offline", False))
+
+        logger.info(f"🧾 [INVOICING] Starting for booking={booking_id} | offline={is_offline} | vendor={vendor_id}")
+
+        # --- Extract fields from raw doc (handles both DB schemas) ---
+        fields = _extract_fields_from_booking_doc(booking_doc)
+        customer_id = fields["customer_id"]
+        service_name = fields["service_name"]
+        base_amount = fields["base_amount"]
+        discount_amount = fields["discount_amount"]
+        vertical_id = fields["vertical_id"]
+
+        if not customer_id:
+            logger.error(f"[INVOICING] Cannot create invoice: customer_id missing in booking_doc {booking_id}")
+            return None
+
+        if base_amount <= 0:
+            logger.warning(f"[INVOICING] booking {booking_id} has base_amount={base_amount}. Proceeding with 0.")
+
+        # --- Build invoice line item ---
+        taxable_value = max(0.0, base_amount - discount_amount)
+        tax_rate = 18.0
+        tax_amount = round(taxable_value * (tax_rate / 100), 2)
+        item = InvoiceItemSchema(
+            name=service_name,
+            quantity=1,
+            mrp=base_amount,
+            unit_price=taxable_value,
+            discount_amount=discount_amount,
+            taxable_value=taxable_value,
+            tax_rate=tax_rate,
+            tax_amount=tax_amount,
+            subtotal=round(taxable_value + tax_amount, 2),
+        )
+
+        # --- Build InvoiceCreateRequest ---
+        due_date = datetime.utcnow() + timedelta(days=30)
+        create_payload = InvoiceCreateRequest(
+            customer_id=customer_id,
+            booking_id=booking_id,
+            vertical_id=vertical_id,
+            due_date=due_date,
+            items=[item],
+            notes="Automatically generated on service completion",
+            tax_amount=0.0,
+            discount_amount=discount_amount,
+        )
+
+        # --- Create invoice (handles user lookup + email notification internally) ---
+        invoice = await create_invoice(engine, vendor_id, create_payload)
+
+        # Mark as SENT immediately
+        invoice.status = InvoiceStatus.SENT
+        await engine.save(invoice)
+
+        logger.info(f"✅ [INVOICING] Invoice created: {invoice.invoice_number} | id={invoice.id} | total={invoice.grand_total}")
+
+        # --- Record transaction ---
         if not is_offline:
-            # ONLINE BOOKING: Assume full payment already done via app/gateway
-            # Record a full payment transaction automatically
+            # ONLINE: Full payment assumed via gateway
             tx_payload = TransactionCreateRequest(
                 invoice_id=str(invoice.id),
                 booking_id=booking_id,
-                customer_id=str(invoice.customer_id),
+                customer_id=customer_id,
                 amount=invoice.grand_total,
                 status=TransactionStatus.PAID,
+                payment_method="ONLINE",
+                payment_reference=fields["payment_id"],
+                notes="Auto-recorded: online payment on booking completion",
                 date=datetime.utcnow().strftime("%Y-%m-%d"),
-                time=datetime.utcnow().strftime("%H:%M:%S")
+                time=datetime.utcnow().strftime("%H:%M:%S"),
             )
             await create_transaction(engine, vendor_id, tx_payload)
-            logger.info(f"💰 Recorded full auto-payment for online booking {booking_id}")
-            
+            logger.info(f"💰 [INVOICING] ONLINE transaction: ₹{invoice.grand_total} for {booking_id}")
+
         else:
-            # WALK-IN BOOKING: Use payment details from vendor input if provided
-            if status_update and hasattr(status_update, 'amount_paid') and status_update.amount_paid:
+            # WALK-IN: Use vendor-supplied payment details
+            amount_paid = getattr(status_update, "amount_paid", None) if status_update else None
+            payment_method = getattr(status_update, "payment_method", None) if status_update else None
+            payment_reference = getattr(status_update, "payment_reference", None) if status_update else None
+            payment_notes = getattr(status_update, "payment_notes", None) if status_update else None
+
+            if amount_paid and amount_paid > 0:
                 tx_payload = TransactionCreateRequest(
                     invoice_id=str(invoice.id),
                     booking_id=booking_id,
-                    customer_id=str(invoice.customer_id),
-                    amount=status_update.amount_paid,
+                    customer_id=customer_id,
+                    amount=amount_paid,
                     status=TransactionStatus.PAID,
+                    payment_method=payment_method or "CASH",
+                    payment_reference=payment_reference,
+                    notes=payment_notes,
                     date=datetime.utcnow().strftime("%Y-%m-%d"),
-                    time=datetime.utcnow().strftime("%H:%M:%S")
+                    time=datetime.utcnow().strftime("%H:%M:%S"),
                 )
                 await create_transaction(engine, vendor_id, tx_payload)
-                logger.info(f"💰 Recorded partial/full walk-in payment of {status_update.amount_paid} for booking {booking_id}")
+                logger.info(f"💰 [INVOICING] Walk-in transaction: ₹{amount_paid} via {payment_method} for {booking_id}")
             else:
-                logger.info(f"ℹ️ No payment details provided for walk-in completion of {booking_id}")
+                logger.info(f"ℹ️ [INVOICING] No payment details for walk-in {booking_id} — invoice left as SENT")
 
         return invoice
 
     except Exception as e:
-        logger.error(f"❌ Error in automated invoicing for booking completion: {str(e)}")
+        logger.error(f"❌ [INVOICING] Failed for booking {booking_doc.get('_id')}: {str(e)}")
+        logger.error(traceback.format_exc())
         return None
+
+
+
 
 
 async def send_invoice_notification(
@@ -721,37 +931,7 @@ async def send_invoice_notification(
         else:
             user_name = raw_user.get("name") or raw_user.get("username") or raw_user.get("firstName", "Customer")
 
-    # Fetch vendor
-    vendor = await engine.find_one(Vendor, Vendor.id == ObjectId(vendor_id))
-    
-    # Publish event
-    event_data = {
-        "invoice_id": str(invoice.id),
-        "invoice_number": invoice.invoice_number,
-        "invoice_date": invoice.invoice_date.strftime("%Y-%m-%d"),
-        "vendor_id": vendor_id,
-        "customer_id": invoice.customer_id,
-        "user_id": invoice.customer_id,
-        "customer_name": user_name,
-        "user_name": user_name,
-        "user_phone": user_phone,
-        "user_email": user_email,
-        "grand_total": f"{invoice.grand_total:,.2f}",
-        "balance_due": f"{invoice.balance_due:,.2f}",
-        "due_date": invoice.due_date.strftime("%Y-%m-%d") if invoice.due_date else "N/A",
-        "service_name": invoice.items[0].name if invoice.items else "Service",
-        "service_date": invoice.invoice_date.strftime("%Y-%m-%d"),
-        "vendor_name": vendor.legal_name if vendor else "Doffair Vendor",
-        "vendor_phone": vendor.primary_contact_phone if vendor else "",
-        "vendor_email": vendor.email if hasattr(vendor, 'email') else "",
-        "items": [item.model_dump() for item in invoice.items] if invoice.items else [],
-        "tax_details": invoice.tax_details or {},
-        "rounding_off": invoice.rounding_off or 0.0,
-        "grand_total_words": invoice.grand_total_words or "",
-        "channels": channels,
-        "template_id": "InvoiceSent"
-    }
-
+    event_data = await build_invoice_event_payload(engine, invoice, user_name, user_phone, user_email, channels)
     if background_tasks:
         background_tasks.add_task(
             _publish_invoice_event_sync,

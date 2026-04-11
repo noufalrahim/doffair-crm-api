@@ -4,13 +4,15 @@
     <meta charset="UTF-8">
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #2196F3; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .header { background: #2196F3; color: #161b39; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
         .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
         .info { background: white; padding: 20px; border-left: 4px solid #2196F3; margin: 20px 0; }
     </style>
 </head>
 <body>
-    <div class="header"><h1>🔄 Booking Rescheduled</h1></div>
+    <div class="header">
+            <div style="margin-bottom: 10px;">{{ doffair_logo_svg | safe }}</div>
+            <h1 style="margin: 0; color: #161b39;">🔄 Booking Rescheduled</h1></div>
     <div class="content">
         <p>Hello {{ user_name }},</p>
         <p>Your booking has been rescheduled.</p>

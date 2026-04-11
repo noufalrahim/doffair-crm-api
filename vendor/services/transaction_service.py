@@ -55,6 +55,9 @@ async def create_transaction(engine: AIOEngine, vendor_id: str, payload: Transac
         customer_id=payload.customer_id,
         amount=payload.amount,
         status=payload.status,
+        payment_method=payload.payment_method,
+        payment_reference=payload.payment_reference,
+        notes=payload.notes,
         date=payload.date if payload.date else datetime.utcnow().strftime("%Y-%m-%d"),
         time=payload.time if payload.time else datetime.utcnow().strftime("%H:%M:%S")
     )

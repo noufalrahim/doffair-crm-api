@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
     <style>
@@ -11,30 +12,34 @@
             margin: 0 auto;
             padding: 20px;
         }
+
         .header {
-            background: #4CAF50;
-            color: white;
+            background: #ffd83d;
+            color: #161b39;
             padding: 30px;
             text-align: center;
             border-radius: 10px 10px 0 0;
         }
+
         .content {
             background: #f9f9f9;
             padding: 30px;
             border-radius: 0 0 10px 10px;
         }
+
         .success-badge {
-            background: #4CAF50;
+            background: #ffd83d;
             color: white;
             padding: 10px 20px;
             border-radius: 20px;
             display: inline-block;
             margin: 20px 0;
         }
+
         .button {
             display: inline-block;
             padding: 12px 30px;
-            background: #4CAF50;
+            background: #ffd83d;
             color: white;
             text-decoration: none;
             border-radius: 5px;
@@ -42,18 +47,20 @@
         }
     </style>
 </head>
+
 <body>
     <div class="header">
-        <h1>🎉 Congratulations!</h1>
+        <div style="margin-bottom: 10px;">{{ doffair_logo_svg | safe }}</div>
+        <h1 style="margin: 0; font-size: 24px; color: #161b39;">🎉 Congratulations!</h1>
     </div>
-    
+
     <div class="content">
         <div class="success-badge">✅ Application Approved</div>
-        
+
         <p>Dear {{ vendor_name }},</p>
-        
+
         <p>Great news! Your vendor application for Doffair has been <strong>approved</strong>!</p>
-        
+
         <p>You can now:</p>
         <ul>
             <li>List your services on our platform</li>
@@ -61,12 +68,13 @@
             <li>Manage your schedule and availability</li>
             <li>Receive payments securely</li>
         </ul>
-        
+
         <p>Get started by setting up your vendor profile and adding your services.</p>
-        
+
         <p>Welcome to the Doffair family! 🚀</p>
-        
+
         <p>Best regards,<br>Doffair Team</p>
     </div>
 </body>
+
 </html>

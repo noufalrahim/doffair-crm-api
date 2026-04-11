@@ -925,14 +925,14 @@ async def update_booking_status(
             template_id = "BookingCompleted"
             
             # --- AUTOMATED INVOICING & TRANSACTIONS ---
-            # Trigger invoice generation and transaction recording
+            # Trigger invoice generation and transaction recording in background.
+            # NOTE: do NOT pass background_tasks into the handler — it's already a background task.
             background_tasks.add_task(
                 handle_booking_completion_invoicing,
-                primary_engine, # We pass primary engine as it's the main writing DB
+                primary_engine,
                 vendor_id,
                 booking_doc,
-                status_update,
-                background_tasks
+                status_update
             )
             print(f"[BOOKING STATUS] 🧾 Automated invoicing triggered for booking {booking_id}")
         elif new_status in ["cancelled", "rejected", "cancelByProvider"]:

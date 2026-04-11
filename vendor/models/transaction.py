@@ -16,6 +16,13 @@ class Transaction(Model):
     amount: float = 0.0
     status: TransactionStatus = TransactionStatus.PENDING
     
+    # Payment method info (e.g. CASH, UPI, CARD, ONLINE, BANK_TRANSFER)
+    payment_method: Optional[str] = None
+    # Reference/transaction ID from payment gateway or UPI
+    payment_reference: Optional[str] = None
+    # Vendor notes about this transaction
+    notes: Optional[str] = None
+    
     date: str = Field(default_factory=lambda: datetime.utcnow().strftime("%Y-%m-%d"))
     time: str = Field(default_factory=lambda: datetime.utcnow().strftime("%H:%M:%S"))
     

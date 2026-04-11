@@ -74,6 +74,17 @@ async def process_job(payload_str):
             # --- Special Handling for Invoices (PDF Generation) ---
             if event_type == "INVOICE_SENT":
                 logger.info(f"📄 Handling Invoice with PDF generation for: {event_data.get('invoice_number')}")
+                
+                # The template expects datetime objects, but event_data transmits strings
+                from datetime import datetime
+                for field in ["invoice_date", "due_date"]:
+                    val = event_data.get(field)
+                    if isinstance(val, str) and val and val != "N/A":
+                        try:
+                            event_data[field] = datetime.fromisoformat(val.split("T")[0] if "T" in val else val)
+                        except Exception:
+                            pass
+                
                 pdf_content = pdf_service.generate_invoice_pdf(event_data)
                 if pdf_content:
                     event_data["attachments"] = [{
@@ -92,15 +103,25 @@ async def process_job(payload_str):
                 if event_data.get("user_email"): recipients.append(event_data["user_email"])
                 if event_data.get("vendor_email"): recipients.append(event_data["vendor_email"])
                 
+                subject_map = {
+                    "INVOICE_SENT": f"Your Invoice {event_data.get('invoice_number', '')} from {event_data.get('vendor_name', 'Doffair')}",
+                    "BOOKING_CONFIRMED": "Booking Confirmed via Doffair",
+                    "BOOKING_COMPLETED": "Your Service is Completed",
+                    "BOOKING_STARTED": "Your Service has Started",
+                    "BOOKING_CANCELLED": "Booking Cancelled",
+                    "BOOKING_RESCHEDULED": "Booking Reschedule Request"
+                }
+                
                 for email in recipients:
+                    resolved_subject = subject_map.get(event_type, f"Doffair Notification: {event_type}")
                     notif = {
                         "recipient_email": email,
                         "template_id": event_data.get("template_id") or event_type,
-                        "subject": f"Doffair Alert: {event_type}",
+                        "subject": resolved_subject,
                         "data": event_data,
                         "attachments": event_data.get("attachments", [])
                     }
-                    logger.info(f"📧 Dispatching Email to {email}")
+                    logger.info(f"📧 Dispatching Email to {email} with subject '{resolved_subject}', attach={len(notif['attachments'])}")
                     try:
                         await handler.send(notif)
                     except Exception as e:

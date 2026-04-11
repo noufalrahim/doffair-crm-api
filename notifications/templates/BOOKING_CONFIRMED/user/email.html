@@ -1,22 +1,46 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
     <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #4CAF50; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: #ffd83d;
+            color: #161b39;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .content {
+            background: #f9f9f9;
+            padding: 30px;
+            border-radius: 0 0 10px 10px;
+        }
     </style>
 </head>
+
 <body>
-    <div class="header"><h1>✅ Booking Confirmed by Vendor</h1></div>
+    <div class="header">
+        <div style="margin-bottom: 10px;">{{ doffair_logo_svg | safe }}</div>
+        <h1 style="margin: 0; font-size: 24px; color: #161b39;">✅ Booking Confirmed by Vendor</h1>
+    </div>
     <div class="content">
         <p>Hello {{ user_name }},</p>
         <p>Good news! {{ vendor_name }} has confirmed your booking.</p>
         <p><strong>Booking ID:</strong> {{ booking_id }}<br>
-        <strong>Service:</strong> {{ vertical }}<br>
-        <strong>Date:</strong> {{ scheduled_at }}</p>
+            <strong>Service:</strong> {{ vertical }}<br>
+            <strong>Date:</strong> {{ scheduled_at }}
+        </p>
         <p>Your service is all set!</p>
     </div>
 </body>
+
 </html>

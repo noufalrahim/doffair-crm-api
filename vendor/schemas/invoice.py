@@ -42,6 +42,11 @@ class InvoiceGenerateRequest(BaseModel):
     notes: Optional[str] = None
     terms_and_conditions: Optional[str] = None
     auto_send: bool = True
+    
+    amount_paid: Optional[float] = None
+    payment_method: Optional[str] = None
+    payment_reference: Optional[str] = None
+    payment_notes: Optional[str] = None
 
 
 class InvoiceSendRequest(BaseModel):
