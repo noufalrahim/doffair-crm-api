@@ -47,6 +47,8 @@ from user.routers import auth as user_auth_router
 from user.routers import leads as leads_router
 from user.routers import bookings as bookings_router
 from user.routers import users as users_router
+from user.routers import marketplace as user_marketplace_router
+from user.routers import cart as user_cart_router
 from notifications.routers import notifications as notifications_router
 from notifications.routers import events as events_router
 from vendor.routers import offline_bookings_v2 as vendor_offline_bookings_router
@@ -158,6 +160,8 @@ app.include_router(user_auth_router.router)
 app.include_router(leads_router.router)
 app.include_router(bookings_router.router)
 app.include_router(users_router.router)
+app.include_router(user_marketplace_router.router)
+app.include_router(user_cart_router.router)
 
 # Vendor structured prescription system
 app.include_router(vendor_medications_router.router)
