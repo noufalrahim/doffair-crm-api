@@ -64,16 +64,19 @@ async def send_onboarding_otp(
         logger.error(f"Error storing email OTP: {e}")
 
     # Trigger Email Notification
-    event_publisher.publish(
-        event_type=EventType.ONBOARDING_OTP,
-        source=EventSource.VENDOR_ONBOARDING,
-        data={
-            "recipient_email": payload.email,
-            "otp_code": otp,
-            "message": f"Your Doffair onboarding verification code is: {otp}",
-            "template_id": "ONBOARDING_OTP"
-        }
-    )
+    try:
+        event_publisher.publish(
+            event_type=EventType.ONBOARDING_OTP,
+            source=EventSource.VENDOR_ONBOARDING,
+            data={
+                "recipient_email": payload.email,
+                "otp_code": otp,
+                "message": f"Your Doffair onboarding verification code is: {otp}",
+                "template_id": "ONBOARDING_OTP"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Failed to publish onboarding OTP notification: {e}")
 
     return success_response(
         message="OTPs sent successfully",
