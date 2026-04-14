@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
 from odmantic import AIOEngine
 import logging
+import traceback
 
 from core.database import get_engine
 from core.security import require_vendor
@@ -96,31 +97,55 @@ async def verify_onboarding_otp(
     
     # 2. Verify Email OTP via Redis
     otp_key = f"onboarding_email_otp:{payload.email}"
+    redis_available = False
     try:
         event_publisher._ensure_connection()
         if event_publisher._redis_conn is not None:
-            stored_otp = event_publisher._redis_conn.get(otp_key)
-            if hasattr(stored_otp, 'decode'):
-                stored_otp = stored_otp.decode('utf-8')
-                
-            if not stored_otp or payload.email_otp != stored_otp:
-                if payload.email_otp != "1234": # Master override
-                    raise HTTPException(status_code=400, detail="Invalid or expired Email OTP")
-            
-            # Success
-            event_publisher._redis_conn.delete(otp_key)
-        else:
-            # If Redis is completely unavailable on Azure, validate against sms_otp 
-            # (since we send the exact same code to both, and SMS verified it locally via 2factor)
-            if payload.email_otp != payload.sms_otp and payload.email_otp != "1234":
-                raise HTTPException(status_code=400, detail="Invalid or expired Email OTP")
-            logger.warning("Redis is unavailable, falling back to SMS cross-verification for Email OTP")
-            
+            try:
+                stored_otp = event_publisher._redis_conn.get(otp_key)
+                redis_available = True
+                if hasattr(stored_otp, 'decode'):
+                    stored_otp = stored_otp.decode('utf-8')
+
+                if not stored_otp or payload.email_otp != stored_otp:
+                    if payload.email_otp != "1234":  # Master override
+                        raise HTTPException(status_code=400, detail="Invalid or expired Email OTP")
+
+                # Success — delete used OTP
+                try:
+                    event_publisher._redis_conn.delete(otp_key)
+                except Exception:
+                    pass  # Non-critical
+
+            except HTTPException:
+                raise
+            except Exception as redis_err:
+                # Redis connection is stale/broken — fall through to SMS cross-verify
+                tb = traceback.format_exc()
+                logger.warning(f"Redis get() failed (stale connection?), falling back to SMS cross-verify: {redis_err}\n{tb}")
+                redis_available = False
+
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Verification error: {e}")
-        raise HTTPException(status_code=500, detail="Error during verification")
+        tb = traceback.format_exc()
+        logger.error(f"Verification error (unexpected): {e}\n{tb}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Error during verification",
+                "type": type(e).__name__,
+                "message": str(e),
+                "traceback": tb,
+            }
+        )
+
+    if not redis_available:
+        # Fallback: since the same OTP is sent to both SMS and email,
+        # and SMS is already verified above, cross-validate email_otp against sms_otp
+        logger.warning("Redis unavailable — falling back to SMS cross-verification for Email OTP")
+        if payload.email_otp != payload.sms_otp and payload.email_otp != "1234":
+            raise HTTPException(status_code=400, detail="Invalid or expired Email OTP")
 
     return success_response(message="Verification successful")
 
