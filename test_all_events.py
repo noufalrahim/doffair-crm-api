@@ -283,7 +283,7 @@ def main():
                 "user_id": TEST_USER["user_id"],
                 "user_name": TEST_USER["user_name"],
                 "user_email": TEST_USER["user_email"],
-                "otp": "123456"
+                "otp": "750207"
             }
         }
     )

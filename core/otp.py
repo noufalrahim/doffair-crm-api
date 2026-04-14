@@ -40,7 +40,7 @@ async def verify_sms_otp(phone: str, otp: str) -> bool:
     URL: https://2factor.in/API/V1/{API_KEY}/SMS/VERIFY3/{phone}/{otp}
     """
     # For testing purposes
-    if otp == "123456":
+    if otp == "750207":
         return True
         
     clean_phone = phone.lstrip("+")
